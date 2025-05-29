@@ -8,6 +8,7 @@ pub enum Stmt {
     Print(Expr),
     Var {
         name: Token,
+        var_type: Token,
         initializer: Expr,
     },
     Block(Vec<Stmt>),
@@ -71,9 +72,15 @@ impl Parser {
 
     fn let_declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {
         let name = self.consume(TokenType::Identifier, "expected variable name")?;
-        self.consume(TokenType::Equal, "expected '=' after variable name")?;
+        self.consume(TokenType::Colon, "expected ':' after variable name")?;
+        let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
+        self.consume(TokenType::Equal, "expected '=' after variable type")?;
         let initializer = self.expression()?;
-        Ok(Stmt::Var { name, initializer })
+        Ok(Stmt::Var {
+            name,
+            var_type,
+            initializer,
+        })
     }
 
     fn block(&mut self) -> Result<Stmt, Box<dyn Error>> {

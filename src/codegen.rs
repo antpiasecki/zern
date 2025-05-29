@@ -5,8 +5,13 @@ use crate::{
     tokenizer::{MotError, TokenType, error},
 };
 
+struct Var {
+    var_type: String,
+    stack_offset: usize,
+}
+
 pub struct Env {
-    locals: HashMap<String, usize>,
+    locals: HashMap<String, Var>,
 }
 
 impl Env {
@@ -77,10 +82,20 @@ section .note.GNU-stack
     call printf"
                 )?;
             }
-            Stmt::Var { name, initializer } => {
+            Stmt::Var {
+                name,
+                var_type,
+                initializer,
+            } => {
+                // TODO
+                assert!(var_type.lexeme == "I64");
+
                 self.compile_expr(env, initializer)?;
                 let offset = (env.locals.len() + 1) * 8;
-                env.locals.insert(name.lexeme, offset);
+                env.locals.insert(name.lexeme, Var {
+                    var_type: var_type.lexeme,
+                    stack_offset: offset,
+                });
                 writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
             Stmt::Block(statements) => {
@@ -151,23 +166,31 @@ section .note.GNU-stack
                 }
             }
             Expr::Variable(name) => {
-                let offset = match env.locals.get(&name.lexeme) {
+                let var = match env.locals.get(&name.lexeme) {
                     Some(x) => x,
                     None => {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }
                 };
-                writeln!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset)?
+                writeln!(
+                    &mut self.output,
+                    "    mov rax, QWORD [rbp-{}]",
+                    var.stack_offset
+                )?
             }
             Expr::Assign { name, value } => {
                 self.compile_expr(env, *value)?;
-                let offset = match env.locals.get(&name.lexeme) {
+                let var = match env.locals.get(&name.lexeme) {
                     Some(x) => x,
                     None => {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }
                 };
-                writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
+                writeln!(
+                    &mut self.output,
+                    "    mov QWORD [rbp-{}], rax",
+                    var.stack_offset
+                )?;
             }
         }
         Ok(())
