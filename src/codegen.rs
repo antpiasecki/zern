@@ -2,11 +2,11 @@ use std::{collections::HashMap, error::Error, fmt::Write};
 
 use crate::{
     parser::{Expr, Stmt},
-    tokenizer::TokenType,
+    tokenizer::{MotError, TokenType, error},
 };
 
 pub struct Env {
-    locals: HashMap<String, i32>,
+    locals: HashMap<String, usize>,
 }
 
 impl Env {
@@ -79,7 +79,7 @@ section .note.GNU-stack
             }
             Stmt::Var { name, initializer } => {
                 self.compile_expr(env, initializer)?;
-                let offset = (env.locals.len() as i32 + 1) * 8;
+                let offset = (env.locals.len() + 1) * 8;
                 env.locals.insert(name.lexeme, offset);
                 writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
@@ -136,9 +136,23 @@ section .note.GNU-stack
                 }
             }
             Expr::Variable(name) => {
-                // TODO: handle error
-                let offset = env.locals.get(&name.lexeme).unwrap();
+                let offset = match env.locals.get(&name.lexeme) {
+                    Some(x) => x,
+                    None => {
+                        return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
+                    }
+                };
                 writeln!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset)?
+            }
+            Expr::Assign { name, value } => {
+                self.compile_expr(env, *value)?;
+                let offset = match env.locals.get(&name.lexeme) {
+                    Some(x) => x,
+                    None => {
+                        return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
+                    }
+                };
+                writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
         }
         Ok(())

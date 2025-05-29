@@ -1,0 +1,6 @@
+let a = 5
+let b = 7
+print(b - a)
+a = 4
+print(b - a)
+print(b)
