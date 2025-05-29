@@ -83,6 +83,21 @@ section .note.GNU-stack
                 env.locals.insert(name.lexeme, offset);
                 writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
+            Stmt::Block(statements) => {
+                let mut env = Env::new();
+                for stmt in statements {
+                    self.compile_stmt(&mut env, stmt)?;
+                }
+            }
+            Stmt::If {
+                condition: _,
+                then_branch: _,
+                else_branch: _,
+            } => todo!(),
+            Stmt::While {
+                condition: _,
+                body: _,
+            } => todo!(),
         }
         Ok(())
     }

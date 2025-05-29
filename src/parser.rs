@@ -1,10 +1,25 @@
+use std::error::Error;
+
 use crate::tokenizer::{MotError, Token, TokenType, error};
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
     Print(Expr),
-    Var { name: Token, initializer: Expr },
+    Var {
+        name: Token,
+        initializer: Expr,
+    },
+    Block(Vec<Stmt>),
+    If {
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+    },
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +52,7 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Stmt>, MotError> {
+    pub fn parse(mut self) -> Result<Vec<Stmt>, Box<dyn Error>> {
         let mut statements = vec![];
         while !self.eof() {
             statements.push(self.declaration()?);
@@ -45,7 +60,7 @@ impl Parser {
         Ok(statements)
     }
 
-    fn declaration(&mut self) -> Result<Stmt, MotError> {
+    fn declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {
         // TODO: synchronization after parse error
         if self.match_token(&[TokenType::KeywordLet]) {
             self.let_declaration()
@@ -54,27 +69,70 @@ impl Parser {
         }
     }
 
-    fn let_declaration(&mut self) -> Result<Stmt, MotError> {
+    fn let_declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {
         let name = self.consume(TokenType::Identifier, "expected variable name")?;
         self.consume(TokenType::Equal, "expected '=' after variable name")?;
         let initializer = self.expression()?;
         Ok(Stmt::Var { name, initializer })
     }
 
-    fn statement(&mut self) -> Result<Stmt, MotError> {
+    fn block(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        self.consume(TokenType::Indent, "expected an indent")?;
+
+        let mut statements = vec![];
+        while !self.eof() && !self.match_token(&[TokenType::Dedent]) {
+            statements.push(self.declaration()?);
+        }
+
+        Ok(Stmt::Block(statements))
+    }
+
+    fn statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
         if self.match_token(&[TokenType::KeywordPrint]) {
             Ok(Stmt::Print(self.expression()?))
+        } else if self.match_token(&[TokenType::KeywordIf]) {
+            self.if_statement()
+        } else if self.match_token(&[TokenType::KeywordWhile]) {
+            self.while_statement()
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
     }
 
-    fn expression(&mut self) -> Result<Expr, MotError> {
+    fn if_statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        let condition = self.expression()?;
+        let then_branch = self.block()?;
+        let else_branch = if self.match_token(&[TokenType::KeywordElse]) {
+            if self.match_token(&[TokenType::KeywordIf]) {
+                Some(Box::new(self.if_statement()?))
+            } else {
+                Some(Box::new(self.block()?))
+            }
+        } else {
+            None
+        };
+        Ok(Stmt::If {
+            condition,
+            then_branch: Box::new(then_branch),
+            else_branch,
+        })
+    }
+
+    fn while_statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        let condition = self.expression()?;
+        let body = self.block()?;
+        Ok(Stmt::While {
+            condition,
+            body: Box::new(body),
+        })
+    }
+
+    fn expression(&mut self) -> Result<Expr, Box<dyn Error>> {
         self.assignment()
     }
 
-    fn assignment(&mut self) -> Result<Expr, MotError> {
-        let expr = self.equality()?;
+    fn assignment(&mut self) -> Result<Expr, Box<dyn Error>> {
+        let expr = self.logical_or()?;
 
         if self.match_token(&[TokenType::Equal]) {
             let equals = self.previous().clone();
@@ -92,7 +150,39 @@ impl Parser {
         Ok(expr)
     }
 
-    fn equality(&mut self) -> Result<Expr, MotError> {
+    fn logical_or(&mut self) -> Result<Expr, Box<dyn Error>> {
+        let mut expr = self.logical_and()?;
+
+        while self.match_token(&[TokenType::Or]) {
+            let op = self.previous().clone();
+            let right = self.logical_and()?;
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn logical_and(&mut self) -> Result<Expr, Box<dyn Error>> {
+        let mut expr = self.equality()?;
+
+        while self.match_token(&[TokenType::And]) {
+            let op = self.previous().clone();
+            let right = self.equality()?;
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn equality(&mut self) -> Result<Expr, Box<dyn Error>> {
         let mut expr = self.comparison()?;
 
         while self.match_token(&[TokenType::DoubleEqual, TokenType::NotEqual]) {
@@ -108,7 +198,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<Expr, MotError> {
+    fn comparison(&mut self) -> Result<Expr, Box<dyn Error>> {
         let mut expr = self.term()?;
 
         while self.match_token(&[
@@ -129,7 +219,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn term(&mut self) -> Result<Expr, MotError> {
+    fn term(&mut self) -> Result<Expr, Box<dyn Error>> {
         let mut expr = self.factor()?;
 
         while self.match_token(&[TokenType::Plus, TokenType::Minus, TokenType::Xor]) {
@@ -145,7 +235,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expr, MotError> {
+    fn factor(&mut self) -> Result<Expr, Box<dyn Error>> {
         let mut expr = self.unary()?;
 
         while self.match_token(&[TokenType::Star, TokenType::Slash, TokenType::Mod]) {
@@ -161,7 +251,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expr, MotError> {
+    fn unary(&mut self) -> Result<Expr, Box<dyn Error>> {
         if self.match_token(&[TokenType::Bang, TokenType::Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;
@@ -174,7 +264,7 @@ impl Parser {
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<Expr, MotError> {
+    fn primary(&mut self) -> Result<Expr, Box<dyn Error>> {
         if self.match_token(&[TokenType::Number, TokenType::String]) {
             Ok(Expr::Literal(self.previous().clone()))
         } else if self.match_token(&[TokenType::LeftParen]) {
@@ -188,7 +278,7 @@ impl Parser {
         }
     }
 
-    fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, MotError> {
+    fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, Box<dyn Error>> {
         if self.check(&token_type) {
             Ok(self.advance().clone())
         } else {

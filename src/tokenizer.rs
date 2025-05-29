@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cmp::Ordering, error::Error, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
@@ -32,7 +32,12 @@ pub enum TokenType {
 
     KeywordPrint,
     KeywordLet,
+    KeywordIf,
+    KeywordElse,
+    KeywordWhile,
 
+    Indent,
+    Dedent,
     Eof,
 }
 
@@ -52,10 +57,10 @@ impl std::error::Error for MotError {}
 
 macro_rules! error {
     ($loc:expr, $msg:expr) => {
-        Err(MotError {
+        Err(Box::new(MotError {
             loc: $loc.clone(),
             message: $msg.into(),
-        })
+        }))
     };
 }
 
@@ -84,6 +89,8 @@ pub struct Token {
 pub struct Tokenizer {
     source: Vec<char>,
     tokens: Vec<Token>,
+    indent_stack: Vec<usize>,
+    current_indent: usize,
     start: usize,
     current: usize,
     loc: Loc,
@@ -94,6 +101,8 @@ impl Tokenizer {
         Tokenizer {
             source: source.chars().collect(),
             tokens: vec![],
+            indent_stack: vec![0],
+            current_indent: 0,
             start: 0,
             current: 0,
             loc: Loc {
@@ -104,7 +113,7 @@ impl Tokenizer {
         }
     }
 
-    pub fn tokenize(mut self) -> Result<Vec<Token>, MotError> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>, Box<dyn Error>> {
         while !self.eof() {
             self.start = self.current;
             self.scan_token()?;
@@ -118,7 +127,7 @@ impl Tokenizer {
         Ok(self.tokens)
     }
 
-    fn scan_token(&mut self) -> Result<(), MotError> {
+    fn scan_token(&mut self) -> Result<(), Box<dyn Error>> {
         match self.advance() {
             '(' => self.add_token(TokenType::LeftParen),
             ')' => self.add_token(TokenType::RightParen),
@@ -202,12 +211,66 @@ impl Tokenizer {
             '\n' => {
                 self.loc.line += 1;
                 self.loc.column = 1;
+                self.handle_indentation()?;
             }
             '0'..='9' => self.scan_number(),
             'A'..='Z' | 'a'..='z' | '_' => self.scan_identifier(),
             _ => return error!(self.loc, "unexpected character"),
         }
         Ok(())
+    }
+
+    fn handle_indentation(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.peek() == '\n' {
+            return Ok(());
+        }
+        let new_indent = self.count_indentation();
+
+        match new_indent.cmp(&self.current_indent) {
+            Ordering::Greater => {
+                self.indent_stack.push(new_indent);
+                self.tokens.push(Token {
+                    token_type: TokenType::Indent,
+                    lexeme: String::new(),
+                    loc: self.loc.clone(),
+                });
+            }
+            Ordering::Less => {
+                while !self.indent_stack.is_empty()
+                    && *self.indent_stack.last().unwrap() > new_indent
+                {
+                    self.indent_stack.pop();
+                    self.tokens.push(Token {
+                        token_type: TokenType::Dedent,
+                        lexeme: String::new(),
+                        loc: self.loc.clone(),
+                    });
+                }
+                if self.indent_stack.is_empty() || *self.indent_stack.last().unwrap() != new_indent
+                {
+                    return error!(self.loc, "invalid indentation");
+                }
+            }
+            Ordering::Equal => {}
+        }
+
+        self.current_indent = new_indent;
+        Ok(())
+    }
+
+    fn count_indentation(&mut self) -> usize {
+        let mut count = 0;
+
+        while self.peek() == ' ' || self.peek() == '\t' {
+            if self.peek() == ' ' {
+                count += 1;
+            }
+            if self.peek() == '\t' {
+                count += 4;
+            }
+            self.advance();
+        }
+        count
     }
 
     fn scan_number(&mut self) {
@@ -234,6 +297,9 @@ impl Tokenizer {
         self.add_token(match lexeme.as_str() {
             "print" => TokenType::KeywordPrint,
             "let" => TokenType::KeywordLet,
+            "if" => TokenType::KeywordIf,
+            "else" => TokenType::KeywordElse,
+            "while" => TokenType::KeywordWhile,
             _ => TokenType::Identifier,
         })
     }
