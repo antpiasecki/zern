@@ -14,24 +14,34 @@ impl Codegen {
     }
 
     pub fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>> {
-        writeln!(&mut self.output, "section .data")?;
-        writeln!(&mut self.output, "format db \"%d\", 10, 0")?;
-        writeln!(&mut self.output, "section .text")?;
-        writeln!(&mut self.output, "global main")?;
-        writeln!(&mut self.output, "main:")?;
-        writeln!(&mut self.output, "    extern printf")?;
+        writeln!(
+            &mut self.output,
+            "section .data
+format db \"%d\", 10, 0
+section .text
+global main
+main:
+    extern printf"
+        )?;
         Ok(())
     }
 
     pub fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
-        writeln!(&mut self.output, "    mov rdi, format")?;
-        writeln!(&mut self.output, "    mov rsi, rax")?;
-        writeln!(&mut self.output, "    xor rax, rax")?;
-        writeln!(&mut self.output, "    call printf")?;
-        writeln!(&mut self.output, "    mov rax, 0")?;
-        writeln!(&mut self.output, "    ret")?;
-        writeln!(&mut self.output, "section .note.GNU-stack")?;
-        writeln!(&mut self.output, "    db 0")?;
+        write!(
+            &mut self.output,
+            "
+    mov rdi, format
+    mov rsi, rax
+    xor rax, rax
+    call printf
+
+    mov rax, 0
+    ret
+
+section .note.GNU-stack
+    db 0
+"
+        )?;
         Ok(())
     }
 
@@ -56,15 +66,37 @@ impl Codegen {
                         writeln!(&mut self.output, "    cqo")?;
                         writeln!(&mut self.output, "    idiv rbx")?;
                     }
-                    _ => todo!(),
+                    TokenType::Mod => {
+                        writeln!(&mut self.output, "    cqo")?;
+                        writeln!(&mut self.output, "    idiv rbx")?;
+                        writeln!(&mut self.output, "    mov rax, rdx")?;
+                    }
+                    TokenType::Xor => writeln!(&mut self.output, "    xor rax, rbx")?,
+                    TokenType::And => todo!(),
+                    TokenType::Or => todo!(),
+                    TokenType::DoubleEqual => todo!(),
+                    TokenType::NotEqual => todo!(),
+                    TokenType::Greater => todo!(),
+                    TokenType::GreaterEqual => todo!(),
+                    TokenType::Less => todo!(),
+                    TokenType::LessEqual => todo!(),
+                    _ => unreachable!(),
                 }
             }
             Expr::Grouping(expr) => self.compile_expr(*expr)?,
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => writeln!(&mut self.output, "    mov rax, {}", token.lexeme)?,
-                _ => todo!(),
+                TokenType::String => todo!(),
+                _ => unreachable!(),
             },
-            Expr::Unary { op, right } => todo!(),
+            Expr::Unary { op, right } => {
+                self.compile_expr(*right)?;
+                match op.token_type {
+                    TokenType::Minus => writeln!(&mut self.output, "    neg rax")?,
+                    TokenType::Bang => todo!(),
+                    _ => unreachable!(),
+                }
+            }
         }
         Ok(())
     }

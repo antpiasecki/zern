@@ -2,7 +2,12 @@ mod codegen;
 mod parser;
 mod tokenizer;
 
-use std::{env, error::Error, fs, process};
+use std::{
+    env,
+    error::Error,
+    fs,
+    process::{self, Command},
+};
 
 fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     let source = fs::read_to_string(path.clone())?;
@@ -18,7 +23,23 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     codegen.emit_prologue()?;
     codegen.compile_expr(expr)?;
     codegen.emit_epilogue()?;
-    println!("{}", codegen.get_output());
+
+    fs::write("out.s", codegen.get_output())?;
+    Command::new("nasm")
+        .args(["-f", "elf64", "-o", "out.o", "out.s"])
+        .output()?;
+
+    Command::new("ld")
+        .args([
+            "-dynamic-linker",
+            "/lib64/ld-linux-x86-64.so.2",
+            "-lc",
+            "/usr/lib/x86_64-linux-gnu/crt1.o",
+            "-o",
+            "out",
+            "out.o",
+        ])
+        .output()?;
 
     Ok(())
 }
