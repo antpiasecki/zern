@@ -30,6 +30,9 @@ pub enum TokenType {
     String,
     Number,
 
+    KeywordPrint,
+    KeywordLet,
+
     Eof,
 }
 
@@ -228,9 +231,11 @@ impl Tokenizer {
         }
 
         let lexeme: String = self.source[self.start..self.current].iter().collect();
-        match lexeme.as_str() {
-            _ => self.add_token(TokenType::Identifier),
-        }
+        self.add_token(match lexeme.as_str() {
+            "print" => TokenType::KeywordPrint,
+            "let" => TokenType::KeywordLet,
+            _ => TokenType::Identifier,
+        })
     }
 
     fn match_char(&mut self, expected: char) -> bool {

@@ -17,17 +17,22 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     let tokens = tokenizer.tokenize()?;
 
     let parser = parser::Parser::new(tokens);
-    let expr = parser.parse()?;
+    let statements = parser.parse()?;
 
     let mut codegen = codegen::Codegen::new();
     codegen.emit_prologue()?;
-    codegen.compile_expr(expr)?;
+
+    let mut env = codegen::Env::new();
+    for stmt in statements {
+        codegen.compile_stmt(&mut env, stmt)?;
+    }
+
     codegen.emit_epilogue()?;
 
     fs::write("out.s", codegen.get_output())?;
     Command::new("nasm")
         .args(["-f", "elf64", "-o", "out.o", "out.s"])
-        .output()?;
+        .status()?;
 
     Command::new("ld")
         .args([
@@ -39,7 +44,7 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
             "out",
             "out.o",
         ])
-        .output()?;
+        .status()?;
 
     Ok(())
 }

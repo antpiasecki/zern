@@ -1,6 +1,21 @@
-use std::{error::Error, fmt::Write};
+use std::{collections::HashMap, error::Error, fmt::Write};
 
-use crate::{parser::Expr, tokenizer::TokenType};
+use crate::{
+    parser::{Expr, Stmt},
+    tokenizer::TokenType,
+};
+
+pub struct Env {
+    locals: HashMap<String, i32>,
+}
+
+impl Env {
+    pub fn new() -> Env {
+        Env {
+            locals: HashMap::new(),
+        }
+    }
+}
 
 pub struct Codegen {
     output: String,
@@ -21,7 +36,10 @@ format db \"%d\", 10, 0
 section .text
 global main
 main:
-    extern printf"
+    extern printf
+    push rbp
+    mov rbp, rsp
+    sub rsp, 256" // TODO
         )?;
         Ok(())
     }
@@ -29,12 +47,8 @@ main:
     pub fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
         write!(
             &mut self.output,
-            "
-    mov rdi, format
-    mov rsi, rax
-    xor rax, rax
-    call printf
-
+            "   mov rsp, rbp
+    pop rbp
     mov rax, 0
     ret
 
@@ -49,12 +63,36 @@ section .note.GNU-stack
         self.output
     }
 
-    pub fn compile_expr(&mut self, expr: Expr) -> Result<(), Box<dyn Error>> {
+    pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
+        match stmt {
+            Stmt::Expression(expr) => self.compile_expr(env, expr)?,
+            Stmt::Print(expr) => {
+                self.compile_expr(env, expr)?;
+                writeln!(
+                    &mut self.output,
+                    "   
+    mov rdi, format
+    mov rsi, rax
+    xor rax, rax
+    call printf"
+                )?;
+            }
+            Stmt::Var { name, initializer } => {
+                self.compile_expr(env, initializer)?;
+                let offset = (env.locals.len() as i32 + 1) * 8;
+                env.locals.insert(name.lexeme, offset);
+                writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn compile_expr(&mut self, env: &mut Env, expr: Expr) -> Result<(), Box<dyn Error>> {
         match expr {
             Expr::Binary { left, op, right } => {
-                self.compile_expr(*left)?;
+                self.compile_expr(env, *left)?;
                 writeln!(&mut self.output, "    push rax")?;
-                self.compile_expr(*right)?;
+                self.compile_expr(env, *right)?;
                 writeln!(&mut self.output, "    mov rbx, rax")?;
                 writeln!(&mut self.output, "    pop rax")?;
 
@@ -83,19 +121,24 @@ section .note.GNU-stack
                     _ => unreachable!(),
                 }
             }
-            Expr::Grouping(expr) => self.compile_expr(*expr)?,
+            Expr::Grouping(expr) => self.compile_expr(env, *expr)?,
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => writeln!(&mut self.output, "    mov rax, {}", token.lexeme)?,
                 TokenType::String => todo!(),
                 _ => unreachable!(),
             },
             Expr::Unary { op, right } => {
-                self.compile_expr(*right)?;
+                self.compile_expr(env, *right)?;
                 match op.token_type {
                     TokenType::Minus => writeln!(&mut self.output, "    neg rax")?,
                     TokenType::Bang => todo!(),
                     _ => unreachable!(),
                 }
+            }
+            Expr::Variable(name) => {
+                // TODO: handle error
+                let offset = env.locals.get(&name.lexeme).unwrap();
+                writeln!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset)?
             }
         }
         Ok(())

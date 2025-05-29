@@ -1,6 +1,13 @@
 use crate::tokenizer::{MotError, Token, TokenType, error};
 
 #[derive(Debug, Clone)]
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
+    Var { name: Token, initializer: Expr },
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -13,6 +20,7 @@ pub enum Expr {
         op: Token,
         right: Box<Expr>,
     },
+    Variable(Token),
 }
 
 pub struct Parser {
@@ -25,11 +33,37 @@ impl Parser {
         Parser { tokens, current: 0 }
     }
 
-    pub fn parse(mut self) -> Result<Expr, MotError> {
-        self.expression()
+    pub fn parse(mut self) -> Result<Vec<Stmt>, MotError> {
+        let mut statements = vec![];
+        while !self.eof() {
+            statements.push(self.declaration()?);
+        }
+        Ok(statements)
     }
 
-    // TODO: synchronization after parse error
+    fn declaration(&mut self) -> Result<Stmt, MotError> {
+        // TODO: synchronization after parse error
+        if self.match_token(&[TokenType::KeywordLet]) {
+            self.let_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn let_declaration(&mut self) -> Result<Stmt, MotError> {
+        let name = self.consume(TokenType::Identifier, "expected variable name")?;
+        self.consume(TokenType::Equal, "expected '=' after variable name")?;
+        let initializer = self.expression()?;
+        Ok(Stmt::Var { name, initializer })
+    }
+
+    fn statement(&mut self) -> Result<Stmt, MotError> {
+        if self.match_token(&[TokenType::KeywordPrint]) {
+            Ok(Stmt::Print(self.expression()?))
+        } else {
+            Ok(Stmt::Expression(self.expression()?))
+        }
+    }
 
     fn expression(&mut self) -> Result<Expr, MotError> {
         self.equality()
@@ -124,6 +158,8 @@ impl Parser {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "expected ')' after expression")?;
             Ok(Expr::Grouping(Box::new(expr)))
+        } else if self.match_token(&[TokenType::Identifier]) {
+            Ok(Expr::Variable(self.previous().clone()))
         } else {
             error!(self.peek().loc, "expected expression")
         }
