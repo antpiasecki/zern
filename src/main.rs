@@ -1,3 +1,4 @@
+mod codegen;
 mod parser;
 mod tokenizer;
 
@@ -9,9 +10,15 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     // TODO: basename
     let tokenizer = tokenizer::Tokenizer::new(path, source);
     let tokens = tokenizer.tokenize()?;
-    let parser = parser::Parser::new(tokens);
 
-    println!("{:#?}", parser.parse());
+    let parser = parser::Parser::new(tokens);
+    let expr = parser.parse()?;
+
+    let mut codegen = codegen::Codegen::new();
+    codegen.emit_prologue()?;
+    codegen.compile_expr(expr)?;
+    codegen.emit_epilogue()?;
+    println!("{}", codegen.get_output());
 
     Ok(())
 }
