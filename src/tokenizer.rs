@@ -183,7 +183,7 @@ impl Tokenizer {
                 while !self.eof() && self.peek() != '"' {
                     if self.peek() == '\n' {
                         self.loc.line += 1;
-                        self.loc.column = 0;
+                        self.loc.column = 1;
                     }
                     self.advance();
                 }
@@ -198,10 +198,10 @@ impl Tokenizer {
             ' ' | '\t' | '\r' => {}
             '\n' => {
                 self.loc.line += 1;
-                self.loc.column = 0;
+                self.loc.column = 1;
             }
             '0'..='9' => self.scan_number(),
-            'A'..='z' => self.scan_identifier(),
+            'A'..='Z' | 'a'..='z' | '_' => self.scan_identifier(),
             _ => return error!(self.loc, "unexpected character"),
         }
         Ok(())
