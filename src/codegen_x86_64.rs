@@ -26,6 +26,10 @@ impl CodegenX86_64 {
 }
 
 impl Codegen for CodegenX86_64 {
+    fn get_output(&self) -> String {
+        self.output.clone()
+    }
+
     fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>> {
         writeln!(
             &mut self.output,
@@ -53,10 +57,6 @@ print:
         writeln!(&mut self.output, "section .note.GNU-stack")?;
         writeln!(&mut self.output, "    db 0")?;
         Ok(())
-    }
-
-    fn get_output(&self) -> String {
-        self.output.clone()
     }
 
     fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
@@ -121,9 +121,15 @@ print:
 
                 self.compile_stmt(env, *body)?;
 
+                writeln!(&mut self.output, "    mov rax, 0")?;
                 writeln!(&mut self.output, "    mov rsp, rbp")?;
                 writeln!(&mut self.output, "    pop rbp")?;
-                writeln!(&mut self.output, "    mov rax, 0")?;
+                writeln!(&mut self.output, "    ret")?;
+            }
+            Stmt::Return(expr) => {
+                self.compile_expr(env, expr)?;
+                writeln!(&mut self.output, "    mov rsp, rbp")?;
+                writeln!(&mut self.output, "    pop rbp")?;
                 writeln!(&mut self.output, "    ret")?;
             }
         }
@@ -245,10 +251,12 @@ print:
                 };
 
                 // TODO
-                assert!(args.len() == 1);
+                assert!(args.len() <= 1);
+                if args.len() == 1 {
+                    self.compile_expr(env, args.first().unwrap().clone())?;
+                    writeln!(&mut self.output, "    mov rdi, rax")?;
+                }
 
-                self.compile_expr(env, args.first().unwrap().clone())?;
-                writeln!(&mut self.output, "    mov rdi, rax")?;
                 writeln!(&mut self.output, "    call {}", callee)?;
             }
         }

@@ -17,6 +17,7 @@ pub enum TokenType {
     Colon,
     And,
     Or,
+    Pipe,
 
     Equal,
     DoubleEqual,
@@ -35,6 +36,7 @@ pub enum TokenType {
     KeywordElse,
     KeywordWhile,
     KeywordFunc,
+    KeywordReturn,
 
     Indent,
     Dedent,
@@ -159,8 +161,10 @@ impl Tokenizer {
             '|' => {
                 if self.match_char('|') {
                     self.add_token(TokenType::Or);
+                } else if self.match_char('>') {
+                    self.add_token(TokenType::Pipe);
                 } else {
-                    return error!(self.loc, "expected '|' after '|'");
+                    return error!(self.loc, "expected '>' or '|' after '|'");
                 }
             }
             '!' => {
@@ -300,6 +304,7 @@ impl Tokenizer {
             "else" => TokenType::KeywordElse,
             "while" => TokenType::KeywordWhile,
             "func" => TokenType::KeywordFunc,
+            "return" => TokenType::KeywordReturn,
             _ => TokenType::Identifier,
         })
     }

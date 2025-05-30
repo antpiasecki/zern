@@ -49,9 +49,9 @@ impl Env {
 }
 
 pub trait Codegen {
+    fn get_output(&self) -> String;
     fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>>;
     fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>>;
-    fn get_output(&self) -> String;
     fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>>;
     fn compile_expr(&mut self, env: &mut Env, expr: Expr) -> Result<(), Box<dyn Error>>;
 }

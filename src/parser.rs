@@ -31,6 +31,7 @@ pub enum Stmt {
         params: Vec<Param>,
         body: Box<Stmt>,
     },
+    Return(Expr),
 }
 
 #[derive(Debug, Clone)]
@@ -139,9 +140,15 @@ impl Parser {
             self.if_statement()
         } else if self.match_token(&[TokenType::KeywordWhile]) {
             self.while_statement()
+        } else if self.match_token(&[TokenType::KeywordReturn]) {
+            self.return_statement()
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        Ok(Stmt::Return(self.expression()?))
     }
 
     fn if_statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
@@ -177,7 +184,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, Box<dyn Error>> {
-        let expr = self.logical_or()?;
+        let expr = self.pipe()?;
 
         if self.match_token(&[TokenType::Equal]) {
             let equals = self.previous().clone();
@@ -189,6 +196,36 @@ impl Parser {
                     value: Box::new(value),
                 }),
                 _ => return error!(equals.loc, "invalid assignment target"),
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn pipe(&mut self) -> Result<Expr, Box<dyn Error>> {
+        let mut expr = self.logical_or()?;
+
+        while self.match_token(&[TokenType::Pipe]) {
+            let pipe = self.previous().clone();
+            let right = self.equality()?;
+
+            match right {
+                Expr::Call {
+                    callee,
+                    paren,
+                    args,
+                } => {
+                    let mut new_args = args;
+                    new_args.insert(0, expr);
+                    expr = Expr::Call {
+                        callee,
+                        paren,
+                        args: new_args,
+                    }
+                }
+                _ => {
+                    return error!(pipe.loc, "tried to pipe into a non-call expression");
+                }
             };
         }
 
