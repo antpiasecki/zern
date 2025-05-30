@@ -5,7 +5,6 @@ use crate::tokenizer::{MotError, Token, TokenType, error};
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
-    Print(Expr),
     Var {
         name: Token,
         var_type: Token,
@@ -40,6 +39,11 @@ pub enum Expr {
     Assign {
         name: Token,
         value: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        args: Vec<Expr>,
     },
 }
 
@@ -95,9 +99,7 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, Box<dyn Error>> {
-        if self.match_token(&[TokenType::KeywordPrint]) {
-            Ok(Stmt::Print(self.expression()?))
-        } else if self.match_token(&[TokenType::KeywordIf]) {
+        if self.match_token(&[TokenType::KeywordIf]) {
             self.if_statement()
         } else if self.match_token(&[TokenType::KeywordWhile]) {
             self.while_statement()
@@ -268,7 +270,33 @@ impl Parser {
             });
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expr, Box<dyn Error>> {
+        let mut expr = self.primary()?;
+
+        while self.match_token(&[TokenType::LeftParen]) {
+            let mut args = vec![];
+            if !self.check(&TokenType::RightParen) {
+                loop {
+                    args.push(self.expression()?);
+                    if !self.match_token(&[TokenType::Comma]) {
+                        break;
+                    }
+                }
+            }
+
+            let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
+
+            expr = Expr::Call {
+                callee: Box::new(expr),
+                paren,
+                args,
+            };
+        }
+
+        Ok(expr)
     }
 
     fn primary(&mut self) -> Result<Expr, Box<dyn Error>> {

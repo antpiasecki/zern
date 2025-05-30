@@ -106,22 +106,12 @@ section .note.GNU-stack
     pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
-            Stmt::Print(expr) => {
-                self.compile_expr(env, expr)?;
-                writeln!(
-                    &mut self.output,
-                    "    mov rdi, format
-    mov rsi, rax
-    xor rax, rax
-    call printf"
-                )?;
-            }
             Stmt::Var {
                 name,
                 var_type,
                 initializer,
             } => {
-                // TODO
+                // TODO: types
                 assert!(var_type.lexeme == "I64");
 
                 self.compile_expr(env, initializer)?;
@@ -193,7 +183,11 @@ section .note.GNU-stack
                     TokenType::Xor => writeln!(&mut self.output, "    xor rax, rbx")?,
                     TokenType::And => todo!(),
                     TokenType::Or => todo!(),
-                    TokenType::DoubleEqual => todo!(),
+                    TokenType::DoubleEqual => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    sete al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
                     TokenType::NotEqual => todo!(),
                     TokenType::Greater => todo!(),
                     TokenType::GreaterEqual => todo!(),
@@ -246,6 +240,30 @@ section .note.GNU-stack
                     &mut self.output,
                     "    mov QWORD [rbp-{}], rax",
                     var.stack_offset
+                )?;
+            }
+            Expr::Call {
+                callee,
+                paren: _,
+                args,
+            } => {
+                let callee = match *callee {
+                    Expr::Variable(name) => name.lexeme,
+                    _ => todo!(),
+                };
+
+                // TODO
+                assert!(callee == "print");
+                assert!(args.len() == 1);
+
+                self.compile_expr(env, args.first().unwrap().clone())?;
+
+                writeln!(
+                    &mut self.output,
+                    "    mov rdi, format
+    mov rsi, rax
+    xor rax, rax
+    call printf"
                 )?;
             }
         }

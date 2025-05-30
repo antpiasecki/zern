@@ -30,7 +30,6 @@ pub enum TokenType {
     String,
     Number,
 
-    KeywordPrint,
     KeywordLet,
     KeywordIf,
     KeywordElse,
@@ -295,7 +294,6 @@ impl Tokenizer {
 
         let lexeme: String = self.source[self.start..self.current].iter().collect();
         self.add_token(match lexeme.as_str() {
-            "print" => TokenType::KeywordPrint,
             "let" => TokenType::KeywordLet,
             "if" => TokenType::KeywordIf,
             "else" => TokenType::KeywordElse,

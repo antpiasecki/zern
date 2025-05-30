@@ -6,14 +6,16 @@ use std::{
     env,
     error::Error,
     fs,
+    path::Path,
     process::{self, Command},
 };
 
 fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     let source = fs::read_to_string(path.clone())?;
 
-    // TODO: basename
-    let tokenizer = tokenizer::Tokenizer::new(path, source);
+    let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
+
+    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
     let tokens = tokenizer.tokenize()?;
 
     let parser = parser::Parser::new(tokens);
