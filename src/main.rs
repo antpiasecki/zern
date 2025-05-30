@@ -36,16 +36,9 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
         .args(["-f", "elf64", "-o", "out.o", "out.s"])
         .status()?;
 
-    Command::new("ld")
-        .args([
-            "-dynamic-linker",
-            "/lib64/ld-linux-x86-64.so.2",
-            "-lc",
-            "/usr/lib/x86_64-linux-gnu/crt1.o",
-            "-o",
-            "out",
-            "out.o",
-        ])
+    // TODO: drop libc entirely
+    Command::new("./musl-1.2.4/root/bin/musl-gcc")
+        .args(["-static", "-o", "out", "out.o"])
         .status()?;
 
     Ok(())
