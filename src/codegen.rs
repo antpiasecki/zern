@@ -68,10 +68,12 @@ impl Codegen {
             &mut self.output,
             "section .data
 format db \"%d\", 10, 0
+
 section .text
+extern printf
+
 global main
 main:
-    extern printf
     push rbp
     mov rbp, rsp
     sub rsp, 256" // TODO
@@ -100,7 +102,7 @@ section .note.GNU-stack
 
     pub fn label(&mut self) -> String {
         self.label_counter += 1;
-        format!(".{}", self.label_counter)
+        format!(".L{}", self.label_counter)
     }
 
     pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
@@ -188,15 +190,31 @@ section .note.GNU-stack
                         writeln!(&mut self.output, "    sete al")?;
                         writeln!(&mut self.output, "    movzx rax, al")?;
                     }
-                    TokenType::NotEqual => todo!(),
-                    TokenType::Greater => todo!(),
-                    TokenType::GreaterEqual => todo!(),
+                    TokenType::NotEqual => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    setne al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
+                    TokenType::Greater => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    setg al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
+                    TokenType::GreaterEqual => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    setge al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
                     TokenType::Less => {
                         writeln!(&mut self.output, "    cmp rax, rbx")?;
                         writeln!(&mut self.output, "    setl al")?;
                         writeln!(&mut self.output, "    movzx rax, al")?;
                     }
-                    TokenType::LessEqual => todo!(),
+                    TokenType::LessEqual => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    setle al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -210,7 +228,11 @@ section .note.GNU-stack
                 self.compile_expr(env, *right)?;
                 match op.token_type {
                     TokenType::Minus => writeln!(&mut self.output, "    neg rax")?,
-                    TokenType::Bang => todo!(),
+                    TokenType::Bang => {
+                        writeln!(&mut self.output, "    test rax, rax")?;
+                        writeln!(&mut self.output, "    sete al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
                     _ => unreachable!(),
                 }
             }
