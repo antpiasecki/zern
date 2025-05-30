@@ -67,32 +67,28 @@ impl Codegen {
         writeln!(
             &mut self.output,
             "section .data
-format db \"%d\", 10, 0
+format db \"%ld\", 10, 0
 
 section .text
 extern printf
 
-global main
-main:
+print:
     push rbp
     mov rbp, rsp
-    sub rsp, 256" // TODO
+    mov rdi, format
+    mov rsi, rax
+    xor rax, rax
+    call printf
+    pop rbp
+    ret
+"
         )?;
         Ok(())
     }
 
     pub fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
-        write!(
-            &mut self.output,
-            "    mov rsp, rbp
-    pop rbp
-    mov rax, 0
-    ret
-
-section .note.GNU-stack
-    db 0
-"
-        )?;
+        writeln!(&mut self.output, "section .note.GNU-stack")?;
+        writeln!(&mut self.output, "    db 0")?;
         Ok(())
     }
 
@@ -155,6 +151,22 @@ section .note.GNU-stack
                 self.compile_stmt(env, *body.clone())?;
                 writeln!(&mut self.output, "    jmp {}", begin_label)?;
                 writeln!(&mut self.output, "{}:", end_label)?;
+            }
+            Stmt::Function { name, params, body } => {
+                assert!(params.is_empty()); // TODO
+
+                writeln!(&mut self.output, "global {}", name.lexeme)?;
+                writeln!(&mut self.output, "{}:", name.lexeme)?;
+                writeln!(&mut self.output, "    push rbp")?;
+                writeln!(&mut self.output, "    mov rbp, rsp")?;
+                writeln!(&mut self.output, "    sub rsp, 256")?; // TODO
+
+                self.compile_stmt(env, *body)?;
+
+                writeln!(&mut self.output, "    mov rsp, rbp")?;
+                writeln!(&mut self.output, "    pop rbp")?;
+                writeln!(&mut self.output, "    mov rax, 0")?;
+                writeln!(&mut self.output, "    ret")?;
             }
         }
         Ok(())
@@ -275,18 +287,11 @@ section .note.GNU-stack
                 };
 
                 // TODO
-                assert!(callee == "print");
                 assert!(args.len() == 1);
 
                 self.compile_expr(env, args.first().unwrap().clone())?;
-
-                writeln!(
-                    &mut self.output,
-                    "    mov rdi, format
-    mov rsi, rax
-    xor rax, rax
-    call printf"
-                )?;
+                writeln!(&mut self.output, "    mov rdi, rax")?;
+                writeln!(&mut self.output, "    call {}", callee)?;
             }
         }
         Ok(())

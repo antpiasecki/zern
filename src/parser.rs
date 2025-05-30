@@ -3,6 +3,12 @@ use std::error::Error;
 use crate::tokenizer::{MotError, Token, TokenType, error};
 
 #[derive(Debug, Clone)]
+pub struct Param {
+    var_type: Token,
+    var_name: Token,
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
     Var {
@@ -18,6 +24,11 @@ pub enum Stmt {
     },
     While {
         condition: Expr,
+        body: Box<Stmt>,
+    },
+    Function {
+        name: Token,
+        params: Vec<Param>,
         body: Box<Stmt>,
     },
 }
@@ -69,9 +80,34 @@ impl Parser {
         // TODO: synchronization after parse error
         if self.match_token(&[TokenType::KeywordLet]) {
             self.let_declaration()
+        } else if self.match_token(&[TokenType::KeywordFunc]) {
+            self.func_declaration()
         } else {
             self.statement()
         }
+    }
+
+    // TOOD: parse return type
+    fn func_declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        let name = self.consume(TokenType::Identifier, "expected function name")?;
+        self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
+
+        let mut params = vec![];
+        if !self.check(&TokenType::RightBracket) {
+            loop {
+                let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
+                self.consume(TokenType::Colon, "expected ':' after parameter name")?;
+                let var_type = self.consume(TokenType::Identifier, "expected parameter type")?;
+                params.push(Param { var_type, var_name });
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
+        let body = Box::new(self.block()?);
+        Ok(Stmt::Function { name, params, body })
     }
 
     fn let_declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {

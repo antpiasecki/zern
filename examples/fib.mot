@@ -1,8 +1,9 @@
-let a: I64 = 0
-let b: I64 = 1
+func main[]
+    let a: I64 = 0
+    let b: I64 = 1
 
-while a < 100000
-    print(a)
-    let temp: I64 = b
-    b = a + b
-    a = temp
+    while a < 100000
+        print(a)
+        let temp: I64 = b
+        b = a + b
+        a = temp

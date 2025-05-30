@@ -34,6 +34,7 @@ pub enum TokenType {
     KeywordIf,
     KeywordElse,
     KeywordWhile,
+    KeywordFunc,
 
     Indent,
     Dedent,
@@ -298,6 +299,7 @@ impl Tokenizer {
             "if" => TokenType::KeywordIf,
             "else" => TokenType::KeywordElse,
             "while" => TokenType::KeywordWhile,
+            "func" => TokenType::KeywordFunc,
             _ => TokenType::Identifier,
         })
     }
