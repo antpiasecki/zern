@@ -15,7 +15,7 @@ pub enum Stmt {
     If {
         condition: Expr,
         then_branch: Box<Stmt>,
-        else_branch: Option<Box<Stmt>>,
+        else_branch: Box<Stmt>,
     },
     While {
         condition: Expr,
@@ -111,12 +111,12 @@ impl Parser {
         let then_branch = self.block()?;
         let else_branch = if self.match_token(&[TokenType::KeywordElse]) {
             if self.match_token(&[TokenType::KeywordIf]) {
-                Some(Box::new(self.if_statement()?))
+                Box::new(self.if_statement()?)
             } else {
-                Some(Box::new(self.block()?))
+                Box::new(self.block()?)
             }
         } else {
-            None
+            Box::new(Stmt::Block(vec![]))
         };
         Ok(Stmt::If {
             condition,

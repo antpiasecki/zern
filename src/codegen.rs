@@ -5,31 +5,61 @@ use crate::{
     tokenizer::{MotError, TokenType, error},
 };
 
-struct Var {
+pub struct Var {
     var_type: String,
     stack_offset: usize,
 }
 
 pub struct Env {
-    locals: HashMap<String, Var>,
+    scopes: Vec<HashMap<String, Var>>,
+    next_offset: usize,
 }
 
 impl Env {
     pub fn new() -> Env {
         Env {
-            locals: HashMap::new(),
+            scopes: vec![HashMap::new()],
+            next_offset: 8,
         }
+    }
+    pub fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    pub fn pop_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    pub fn define_var(&mut self, name: String, var_type: String) -> usize {
+        let offset = self.next_offset;
+        self.next_offset += 8;
+        self.scopes.last_mut().unwrap().insert(name, Var {
+            var_type,
+            stack_offset: offset,
+        });
+        offset
+    }
+
+    pub fn get_var(&self, name: &str) -> Option<&Var> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(var) = scope.get(name) {
+                return Some(var);
+            }
+        }
+        None
     }
 }
 
 pub struct Codegen {
     output: String,
+    label_counter: usize,
 }
 
 impl Codegen {
     pub fn new() -> Codegen {
         Codegen {
             output: String::new(),
+            label_counter: 0,
         }
     }
 
@@ -52,7 +82,7 @@ main:
     pub fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
         write!(
             &mut self.output,
-            "   mov rsp, rbp
+            "    mov rsp, rbp
     pop rbp
     mov rax, 0
     ret
@@ -68,6 +98,11 @@ section .note.GNU-stack
         self.output
     }
 
+    pub fn label(&mut self) -> String {
+        self.label_counter += 1;
+        format!(".{}", self.label_counter)
+    }
+
     pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
@@ -75,8 +110,7 @@ section .note.GNU-stack
                 self.compile_expr(env, expr)?;
                 writeln!(
                     &mut self.output,
-                    "   
-    mov rdi, format
+                    "    mov rdi, format
     mov rsi, rax
     xor rax, rax
     call printf"
@@ -91,28 +125,45 @@ section .note.GNU-stack
                 assert!(var_type.lexeme == "I64");
 
                 self.compile_expr(env, initializer)?;
-                let offset = (env.locals.len() + 1) * 8;
-                env.locals.insert(name.lexeme, Var {
-                    var_type: var_type.lexeme,
-                    stack_offset: offset,
-                });
+                let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
                 writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
             Stmt::Block(statements) => {
-                let mut env = Env::new();
+                env.push_scope();
                 for stmt in statements {
-                    self.compile_stmt(&mut env, stmt)?;
+                    self.compile_stmt(env, stmt)?;
                 }
+                env.pop_scope();
             }
             Stmt::If {
-                condition: _,
-                then_branch: _,
-                else_branch: _,
-            } => todo!(),
-            Stmt::While {
-                condition: _,
-                body: _,
-            } => todo!(),
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let else_label = self.label();
+                let end_label = self.label();
+
+                self.compile_expr(env, condition)?;
+                writeln!(&mut self.output, "    test rax, rax")?;
+                writeln!(&mut self.output, "    je {}", else_label)?;
+                self.compile_stmt(env, *then_branch.clone())?;
+                writeln!(&mut self.output, "    jmp {}", end_label)?;
+                writeln!(&mut self.output, "{}:", else_label)?;
+                self.compile_stmt(env, *else_branch.clone())?;
+                writeln!(&mut self.output, "{}:", end_label)?;
+            }
+            Stmt::While { condition, body } => {
+                let begin_label = self.label();
+                let end_label = self.label();
+
+                writeln!(&mut self.output, "{}:", begin_label)?;
+                self.compile_expr(env, condition)?;
+                writeln!(&mut self.output, "    test rax, rax")?;
+                writeln!(&mut self.output, "    je {}", end_label)?;
+                self.compile_stmt(env, *body.clone())?;
+                writeln!(&mut self.output, "    jmp {}", begin_label)?;
+                writeln!(&mut self.output, "{}:", end_label)?;
+            }
         }
         Ok(())
     }
@@ -146,7 +197,11 @@ section .note.GNU-stack
                     TokenType::NotEqual => todo!(),
                     TokenType::Greater => todo!(),
                     TokenType::GreaterEqual => todo!(),
-                    TokenType::Less => todo!(),
+                    TokenType::Less => {
+                        writeln!(&mut self.output, "    cmp rax, rbx")?;
+                        writeln!(&mut self.output, "    setl al")?;
+                        writeln!(&mut self.output, "    movzx rax, al")?;
+                    }
                     TokenType::LessEqual => todo!(),
                     _ => unreachable!(),
                 }
@@ -166,7 +221,7 @@ section .note.GNU-stack
                 }
             }
             Expr::Variable(name) => {
-                let var = match env.locals.get(&name.lexeme) {
+                let var = match env.get_var(&name.lexeme) {
                     Some(x) => x,
                     None => {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
@@ -180,7 +235,8 @@ section .note.GNU-stack
             }
             Expr::Assign { name, value } => {
                 self.compile_expr(env, *value)?;
-                let var = match env.locals.get(&name.lexeme) {
+
+                let var = match env.get_var(&name.lexeme) {
                     Some(x) => x,
                     None => {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));

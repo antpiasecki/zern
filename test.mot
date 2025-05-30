@@ -1,8 +1,8 @@
 let a: I64 = 0
 let b: I64 = 1
-let temp: I64 = 0
 
-while a < 10000
+while a < 100000
     print a
-    temp = a
-    b = temp + b
+    let temp: I64 = b
+    b = a + b
+    a = temp
