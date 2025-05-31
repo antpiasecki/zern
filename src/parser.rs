@@ -29,6 +29,7 @@ pub enum Stmt {
     Function {
         name: Token,
         params: Vec<Param>,
+        return_type: Token,
         body: Box<Stmt>,
     },
     Return(Expr),
@@ -62,11 +63,16 @@ pub enum Expr {
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    is_inside_function: bool,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
-        Parser { tokens, current: 0 }
+        Parser {
+            tokens,
+            current: 0,
+            is_inside_function: false,
+        }
     }
 
     pub fn parse(mut self) -> Result<Vec<Stmt>, Box<dyn Error>> {
@@ -78,11 +84,19 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {
+        if !self.is_inside_function {
+            if self.match_token(&[TokenType::KeywordFunc]) {
+                return self.func_declaration();
+            }
+            return error!(
+                self.peek().loc,
+                "statements not allowed outside function body"
+            );
+        }
+
         // TODO: synchronization after parse error
         if self.match_token(&[TokenType::KeywordLet]) {
             self.let_declaration()
-        } else if self.match_token(&[TokenType::KeywordFunc]) {
-            self.func_declaration()
         } else {
             self.statement()
         }
@@ -107,8 +121,19 @@ impl Parser {
         }
 
         self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
+        self.consume(TokenType::Colon, "expected ':' after '['")?;
+        let return_type = self.consume(TokenType::Identifier, "expected return type")?;
+
+        self.is_inside_function = true;
         let body = Box::new(self.block()?);
-        Ok(Stmt::Function { name, params, body })
+        self.is_inside_function = false;
+
+        Ok(Stmt::Function {
+            name,
+            params,
+            return_type,
+            body,
+        })
     }
 
     fn let_declaration(&mut self) -> Result<Stmt, Box<dyn Error>> {

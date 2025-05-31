@@ -1,4 +1,4 @@
-func main[]
+func main[] : I64
     let a: I64 = 0
     let b: I64 = 1
 

@@ -16,7 +16,7 @@ impl Env {
     pub fn new() -> Env {
         Env {
             scopes: vec![HashMap::new()],
-            next_offset: 1,
+            next_offset: 8,
         }
     }
 
@@ -30,7 +30,7 @@ impl Env {
 
     pub fn define_var(&mut self, name: String, var_type: String) -> usize {
         let offset = self.next_offset;
-        self.next_offset += 1;
+        self.next_offset += 8;
         self.scopes.last_mut().unwrap().insert(name, Var {
             var_type,
             stack_offset: offset,

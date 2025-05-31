@@ -72,7 +72,7 @@ print:
 
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
-                writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset * 8)?;
+                writeln!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset)?;
             }
             Stmt::Block(statements) => {
                 env.push_scope();
@@ -110,8 +110,14 @@ print:
                 writeln!(&mut self.output, "    jmp {}", begin_label)?;
                 writeln!(&mut self.output, "{}:", end_label)?;
             }
-            Stmt::Function { name, params, body } => {
+            Stmt::Function {
+                name,
+                params,
+                return_type,
+                body,
+            } => {
                 assert!(params.is_empty()); // TODO
+                assert!(return_type.lexeme == "I64");
 
                 writeln!(&mut self.output, "global {}", name.lexeme)?;
                 writeln!(&mut self.output, "{}:", name.lexeme)?;
@@ -222,7 +228,7 @@ print:
                 writeln!(
                     &mut self.output,
                     "    mov rax, QWORD [rbp-{}]",
-                    var.stack_offset * 8
+                    var.stack_offset
                 )?
             }
             Expr::Assign { name, value } => {
@@ -237,7 +243,7 @@ print:
                 writeln!(
                     &mut self.output,
                     "    mov QWORD [rbp-{}], rax",
-                    var.stack_offset * 8
+                    var.stack_offset
                 )?;
             }
             Expr::Call {
