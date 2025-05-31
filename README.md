@@ -1,4 +1,4 @@
-# mot
+# zern
 
 A very cool language
 

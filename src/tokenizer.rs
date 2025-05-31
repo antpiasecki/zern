@@ -44,22 +44,22 @@ pub enum TokenType {
 }
 
 #[derive(Debug)]
-pub struct MotError {
+pub struct ZernError {
     pub loc: Loc,
     pub message: String,
 }
 
-impl fmt::Display for MotError {
+impl fmt::Display for ZernError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} \x1b[91mERROR\x1b[0m: {}", self.loc, self.message)
     }
 }
 
-impl std::error::Error for MotError {}
+impl std::error::Error for ZernError {}
 
 macro_rules! error {
     ($loc:expr, $msg:expr) => {
-        Err(Box::new(MotError {
+        Err(Box::new(ZernError {
             loc: $loc.clone(),
             message: $msg.into(),
         }))

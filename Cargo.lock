@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "mot"
+name = "zern"
 version = "0.1.0"

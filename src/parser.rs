@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::tokenizer::{MotError, Token, TokenType, error};
+use crate::tokenizer::{Token, TokenType, ZernError, error};
 
 #[derive(Debug, Clone)]
 pub struct Param {

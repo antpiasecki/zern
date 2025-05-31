@@ -3,7 +3,7 @@ use std::{error::Error, fmt::Write};
 use crate::{
     codegen::{Codegen, Env},
     parser::{Expr, Stmt},
-    tokenizer::{MotError, TokenType, error},
+    tokenizer::{TokenType, ZernError, error},
 };
 
 pub struct CodegenX86_64 {
