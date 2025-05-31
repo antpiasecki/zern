@@ -1,4 +1,3 @@
-mod codegen;
 mod codegen_x86_64;
 mod parser;
 mod tokenizer;
@@ -22,14 +21,13 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     let parser = parser::Parser::new(tokens);
     let statements = parser.parse()?;
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new_boxed();
-    codegen.emit_prologue()?;
+    let mut codegen = codegen_x86_64::CodegenX86_64::new();
+    let mut env = codegen_x86_64::Env::new();
 
-    let mut env = codegen::Env::new();
+    codegen.emit_prologue()?;
     for stmt in statements {
         codegen.compile_stmt(&mut env, stmt)?;
     }
-
     codegen.emit_epilogue()?;
 
     fs::write("out.s", codegen.get_output())?;

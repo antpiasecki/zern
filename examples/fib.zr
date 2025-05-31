@@ -1,3 +1,6 @@
+func print_i64[x : I64] : I64
+    printf("%d\n", x)
+
 func main[] : I64
     let a: I64 = 0
     let b: I64 = 1

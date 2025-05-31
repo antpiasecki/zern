@@ -1,10 +1,55 @@
-use std::{error::Error, fmt::Write};
+use std::{collections::HashMap, error::Error, fmt::Write};
 
 use crate::{
-    codegen::{Codegen, Env},
     parser::{Expr, Stmt},
     tokenizer::{TokenType, ZernError, error},
 };
+
+pub struct Var {
+    pub var_type: String,
+    pub stack_offset: usize,
+}
+
+pub struct Env {
+    scopes: Vec<HashMap<String, Var>>,
+    next_offset: usize,
+}
+
+impl Env {
+    pub fn new() -> Env {
+        Env {
+            scopes: vec![HashMap::new()],
+            next_offset: 8,
+        }
+    }
+
+    pub fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    pub fn pop_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    pub fn define_var(&mut self, name: String, var_type: String) -> usize {
+        let offset = self.next_offset;
+        self.next_offset += 8;
+        self.scopes.last_mut().unwrap().insert(name, Var {
+            var_type,
+            stack_offset: offset,
+        });
+        offset
+    }
+
+    pub fn get_var(&self, name: &str) -> Option<&Var> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(var) = scope.get(name) {
+                return Some(var);
+            }
+        }
+        None
+    }
+}
 
 pub struct CodegenX86_64 {
     output: String,
@@ -14,31 +59,30 @@ pub struct CodegenX86_64 {
 }
 
 impl CodegenX86_64 {
-    pub fn new_boxed() -> Box<dyn Codegen> {
-        Box::new(CodegenX86_64 {
+    pub fn new() -> CodegenX86_64 {
+        CodegenX86_64 {
             output: String::new(),
-            data_section: String::from(
-                "section .data
-    format db \"%ld\\n\\0\"
-",
-            ),
-            label_counter: 1,
-            data_counter: 1,
-        })
+            data_section: String::new(),
+            label_counter: 0,
+            data_counter: 0,
+        }
     }
 
     fn label(&mut self) -> String {
         self.label_counter += 1;
         format!(".L{}", self.label_counter)
     }
-}
 
-impl Codegen for CodegenX86_64 {
-    fn get_output(&self) -> String {
-        format!("{}{}", self.data_section, self.output)
+    pub fn get_output(&self) -> String {
+        format!(
+            "section .data
+{}
+{}",
+            self.data_section, self.output
+        )
     }
 
-    fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>> {
         writeln!(
             &mut self.output,
             "
@@ -46,31 +90,21 @@ section .text
 extern printf
 extern puts
 print equ puts
-
-print_i64:
-    push rbp
-    mov rbp, rsp
-    mov rdi, format
-    mov rsi, rax
-    xor rax, rax
-    call printf
-    pop rbp
-    ret
 "
         )?;
         Ok(())
     }
 
-    fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn emit_epilogue(&mut self) -> Result<(), Box<dyn Error>> {
         writeln!(&mut self.output, "section .note.GNU-stack")?;
         writeln!(&mut self.output, "    db 0")?;
         Ok(())
     }
 
-    fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
+    pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), Box<dyn Error>> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
-            Stmt::Var {
+            Stmt::Let {
                 name,
                 var_type,
                 initializer,
@@ -124,7 +158,7 @@ print_i64:
                 return_type,
                 body,
             } => {
-                assert!(params.is_empty()); // TODO
+                assert!(params.len() <= 1); // TODO
                 assert!(return_type.lexeme == "I64");
 
                 writeln!(&mut self.output, "global {}", name.lexeme)?;
@@ -132,6 +166,14 @@ print_i64:
                 writeln!(&mut self.output, "    push rbp")?;
                 writeln!(&mut self.output, "    mov rbp, rsp")?;
                 writeln!(&mut self.output, "    sub rsp, 256")?; // TODO
+
+                if params.len() == 1 {
+                    let offset = env.define_var(
+                        params.first().unwrap().var_name.lexeme.clone(),
+                        params.first().unwrap().var_type.lexeme.clone(),
+                    );
+                    writeln!(&mut self.output, "    mov QWORD [rbp-{}], rdi", offset)?;
+                }
 
                 self.compile_stmt(env, *body)?;
 
@@ -150,7 +192,7 @@ print_i64:
         Ok(())
     }
 
-    fn compile_expr(&mut self, env: &mut Env, expr: Expr) -> Result<(), Box<dyn Error>> {
+    pub fn compile_expr(&mut self, env: &mut Env, expr: Expr) -> Result<(), Box<dyn Error>> {
         match expr {
             Expr::Binary { left, op, right } => {
                 self.compile_expr(env, *left)?;
@@ -212,7 +254,7 @@ print_i64:
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => writeln!(&mut self.output, "    mov rax, {}", token.lexeme)?,
                 TokenType::String => {
-                    let value = &token.lexeme[1..token.lexeme.len() - 1];
+                    let value = &token.lexeme[1..token.lexeme.len() - 1].replace("\\n", "\n");
                     let charcodes = value
                         .chars()
                         .map(|x| format!("{}", x as u8))
@@ -279,10 +321,15 @@ print_i64:
                 };
 
                 // TODO
-                assert!(args.len() <= 1);
+                assert!(args.len() <= 2);
                 if args.len() == 1 {
                     self.compile_expr(env, args.first().unwrap().clone())?;
                     writeln!(&mut self.output, "    mov rdi, rax")?;
+                } else if args.len() == 2 {
+                    self.compile_expr(env, args.first().unwrap().clone())?;
+                    writeln!(&mut self.output, "    mov rdi, rax")?;
+                    self.compile_expr(env, args.get(1).unwrap().clone())?;
+                    writeln!(&mut self.output, "    mov rsi, rax")?;
                 }
 
                 writeln!(&mut self.output, "    call {}", callee)?;

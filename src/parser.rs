@@ -4,14 +4,14 @@ use crate::tokenizer::{Token, TokenType, ZernError, error};
 
 #[derive(Debug, Clone)]
 pub struct Param {
-    var_type: Token,
-    var_name: Token,
+    pub var_type: Token,
+    pub var_name: Token,
 }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
-    Var {
+    Let {
         name: Token,
         var_type: Token,
         initializer: Expr,
@@ -142,7 +142,7 @@ impl Parser {
         let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
         self.consume(TokenType::Equal, "expected '=' after variable type")?;
         let initializer = self.expression()?;
-        Ok(Stmt::Var {
+        Ok(Stmt::Let {
             name,
             var_type,
             initializer,
