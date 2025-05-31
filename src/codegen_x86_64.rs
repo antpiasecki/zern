@@ -8,14 +8,22 @@ use crate::{
 
 pub struct CodegenX86_64 {
     output: String,
+    data_section: String,
     label_counter: usize,
+    data_counter: usize,
 }
 
 impl CodegenX86_64 {
     pub fn new_boxed() -> Box<dyn Codegen> {
         Box::new(CodegenX86_64 {
             output: String::new(),
-            label_counter: 0,
+            data_section: String::from(
+                "section .data
+    format db \"%ld\\n\\0\"
+",
+            ),
+            label_counter: 1,
+            data_counter: 1,
         })
     }
 
@@ -27,19 +35,19 @@ impl CodegenX86_64 {
 
 impl Codegen for CodegenX86_64 {
     fn get_output(&self) -> String {
-        self.output.clone()
+        format!("{}{}", self.data_section, self.output)
     }
 
     fn emit_prologue(&mut self) -> Result<(), Box<dyn Error>> {
         writeln!(
             &mut self.output,
-            "section .data
-format db \"%ld\", 10, 0
-
+            "
 section .text
 extern printf
+extern puts
+print equ puts
 
-print:
+print_i64:
     push rbp
     mov rbp, rsp
     mov rdi, format
@@ -203,7 +211,21 @@ print:
             Expr::Grouping(expr) => self.compile_expr(env, *expr)?,
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => writeln!(&mut self.output, "    mov rax, {}", token.lexeme)?,
-                TokenType::String => todo!(),
+                TokenType::String => {
+                    let value = &token.lexeme[1..token.lexeme.len() - 1];
+                    let charcodes = value
+                        .chars()
+                        .map(|x| format!("{}", x as u8))
+                        .collect::<Vec<String>>()
+                        .join(",");
+                    writeln!(
+                        &mut self.data_section,
+                        "    S{} db {},0",
+                        self.data_counter, charcodes
+                    )?;
+                    writeln!(&mut self.output, "    mov rax, S{}", self.data_counter)?;
+                    self.data_counter += 1;
+                }
                 _ => unreachable!(),
             },
             Expr::Unary { op, right } => {

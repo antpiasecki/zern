@@ -1,0 +1,2 @@
+func main[] : I64
+    print("Hello, World!")

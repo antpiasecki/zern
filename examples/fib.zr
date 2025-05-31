@@ -3,7 +3,7 @@ func main[] : I64
     let b: I64 = 1
 
     while a < 100000
-        print(a)
+        print_i64(a)
         let temp: I64 = b
         b = a + b
         a = temp
