@@ -30,6 +30,8 @@ pub enum TokenType {
     Identifier,
     String,
     Number,
+    True,
+    False,
 
     KeywordLet,
     KeywordIf,
@@ -305,6 +307,8 @@ impl Tokenizer {
             "while" => TokenType::KeywordWhile,
             "func" => TokenType::KeywordFunc,
             "return" => TokenType::KeywordReturn,
+            "true" => TokenType::True,
+            "false" => TokenType::False,
             _ => TokenType::Identifier,
         })
     }

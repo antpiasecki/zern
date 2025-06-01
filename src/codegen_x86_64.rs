@@ -58,7 +58,7 @@ macro_rules! emit {
 }
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-static TYPES: [&str; 2] = ["I64", "String"];
+static TYPES: [&str; 3] = ["I64", "String", "Bool"];
 
 pub struct CodegenX86_64 {
     output: String,
@@ -259,7 +259,11 @@ nth:
 
                 self.compile_stmt(env, *body)?;
 
-                emit!(&mut self.output, "    mov rax, 0"); // TODO: remove default return value
+                if name.lexeme == "main" {
+                    // default exit code
+                    emit!(&mut self.output, "    mov rax, 0");
+                }
+
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
@@ -365,6 +369,12 @@ nth:
                     );
                     emit!(&mut self.output, "    mov rax, S{}", self.data_counter);
                     self.data_counter += 1;
+                }
+                TokenType::True => {
+                    emit!(&mut self.output, "    mov rax, 1");
+                }
+                TokenType::False => {
+                    emit!(&mut self.output, "    mov rax, 0");
                 }
                 _ => unreachable!(),
             },

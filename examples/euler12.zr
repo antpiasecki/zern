@@ -3,7 +3,7 @@ func print_i64[x: I64] : I64
 
 func num_divisors[n: I64] : I64
     let end: I64 = isqrt(n)
-    
+
     let result: I64 = 0
     let i: I64 = 1
     while i < end + 1

@@ -3,18 +3,18 @@ func print_i64[x: I64] : I64
 
 func is_prime[n: I64]: I64
     if n <= 1
-        return 0
+        return false
     if n == 2 || n == 3
-        return 1
+        return true
     if n % 2 == 0 || n % 3 == 0
-        return 0
-    
+        return false
+
     let i: I64 = 5
     while i * i <= n
         if n % i == 0 || n % (i + 2) == 0
-            return 0
+            return false
         i = i + 6
-    return 1
+    return true
 
 func main[] : I64
     let sum: I64 = 0

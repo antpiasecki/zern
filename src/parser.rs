@@ -396,7 +396,12 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Expr, ZernError> {
-        if self.match_token(&[TokenType::Number, TokenType::String]) {
+        if self.match_token(&[
+            TokenType::Number,
+            TokenType::String,
+            TokenType::True,
+            TokenType::False,
+        ]) {
             Ok(Expr::Literal(self.previous().clone()))
         } else if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
