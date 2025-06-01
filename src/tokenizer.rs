@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, error::Error, fmt};
+use std::{cmp::Ordering, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
@@ -59,10 +59,10 @@ impl std::error::Error for ZernError {}
 
 macro_rules! error {
     ($loc:expr, $msg:expr) => {
-        Err(Box::new(ZernError {
+        Err(ZernError {
             loc: $loc.clone(),
             message: $msg.into(),
-        }))
+        })
     };
 }
 
@@ -115,7 +115,7 @@ impl Tokenizer {
         }
     }
 
-    pub fn tokenize(mut self) -> Result<Vec<Token>, Box<dyn Error>> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>, ZernError> {
         while !self.eof() {
             self.start = self.current;
             self.scan_token()?;
@@ -129,7 +129,7 @@ impl Tokenizer {
         Ok(self.tokens)
     }
 
-    fn scan_token(&mut self) -> Result<(), Box<dyn Error>> {
+    fn scan_token(&mut self) -> Result<(), ZernError> {
         match self.advance() {
             '(' => self.add_token(TokenType::LeftParen),
             ')' => self.add_token(TokenType::RightParen),
@@ -224,7 +224,7 @@ impl Tokenizer {
         Ok(())
     }
 
-    fn handle_indentation(&mut self) -> Result<(), Box<dyn Error>> {
+    fn handle_indentation(&mut self) -> Result<(), ZernError> {
         if self.peek() == '\n' {
             return Ok(());
         }

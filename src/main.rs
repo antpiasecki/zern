@@ -3,15 +3,21 @@ mod parser;
 mod tokenizer;
 
 use std::{
-    env,
-    error::Error,
-    fs,
+    env, fs,
     path::Path,
     process::{self, Command},
 };
 
-fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
-    let source = fs::read_to_string(path.clone())?;
+use tokenizer::ZernError;
+
+fn compile_file(path: String) -> Result<(), ZernError> {
+    let source = match fs::read_to_string(path.clone()) {
+        Ok(x) => x,
+        Err(_) => {
+            eprintln!("\x1b[91mERROR\x1b[0m: failed to open {}", path);
+            process::exit(1);
+        }
+    };
 
     let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
 
@@ -29,27 +35,38 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     }
     codegen.emit_epilogue()?;
 
-    fs::write("out.s", codegen.get_output())?;
+    // TODO: handle error
+    fs::write("out.s", codegen.get_output()).unwrap();
+
+    // TODO: stop on nasm/gcc error
     Command::new("nasm")
         .args(["-f", "elf64", "-o", "out.o", "out.s"])
-        .status()?;
+        .status()
+        .unwrap();
 
     // TODO: drop libc entirely
     Command::new("./musl-1.2.4/root/bin/musl-gcc")
         .args(["-static", "-o", "out", "out.o"])
-        .status()?;
+        .status()
+        .unwrap();
 
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let mut args = env::args();
-    let path = args.nth(1).unwrap();
+    let _ = args.next();
+
+    let path = match args.next() {
+        Some(x) => x,
+        None => {
+            eprintln!("\x1b[91mERROR\x1b[0m: expected an argument");
+            process::exit(1);
+        }
+    };
 
     if let Err(err) = compile_file(path) {
         eprintln!("{}", err);
         process::exit(1);
     }
-
-    Ok(())
 }
