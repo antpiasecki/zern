@@ -35,20 +35,29 @@ fn compile_file(path: String) -> Result<(), ZernError> {
     }
     codegen.emit_epilogue()?;
 
-    // TODO: handle error
-    fs::write("out.s", codegen.get_output()).unwrap();
+    if fs::write("out.s", codegen.get_output()).is_err() {
+        eprintln!("\x1b[91mERROR\x1b[0m: failed to write to out.s");
+        process::exit(1);
+    }
 
-    // TODO: stop on nasm/gcc error
-    Command::new("nasm")
+    if !Command::new("nasm")
         .args(["-f", "elf64", "-o", "out.o", "out.s"])
         .status()
-        .unwrap();
+        .unwrap()
+        .success()
+    {
+        process::exit(1);
+    }
 
     // TODO: drop libc entirely
-    Command::new("./musl-1.2.4/root/bin/musl-gcc")
+    if !Command::new("./musl-1.2.4/root/bin/musl-gcc")
         .args(["-static", "-o", "out", "out.o"])
         .status()
-        .unwrap();
+        .unwrap()
+        .success()
+    {
+        process::exit(1);
+    }
 
     Ok(())
 }

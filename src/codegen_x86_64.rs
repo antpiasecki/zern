@@ -102,6 +102,7 @@ extern sprintf
 extern strlen
 extern strcmp
 extern puts
+extern system
 print equ puts
 
 ; generated with clang
@@ -130,6 +131,41 @@ strrev:
     add     rsp, 8
     pop     rbx
     pop     r14
+    ret
+
+isqrt:
+    xor     rax, rax
+    mov     rcx, 1
+    mov     rbx, rdi
+    shl     rcx, 62
+.LBB0_3:
+    cmp     rcx, 0
+    je      .LBB0_5
+    cmp     rcx, rbx
+    jbe     .LBB0_4
+    shr     rcx, 2
+    jmp     .LBB0_3
+.LBB0_4:
+    cmp     rcx, 0
+    je      .LBB0_5
+    mov     rdx, rax
+    add     rdx, rcx
+    cmp     rbx, rdx
+    jb      .LBB0_7
+    sub     rbx, rdx
+    shr     rax, 1
+    add     rax, rcx
+    jmp     .LBB0_6
+.LBB0_7:
+    shr     rax, 1
+.LBB0_6:
+    shr     rcx, 2
+    jmp     .LBB0_4
+.LBB0_5:
+    ret
+
+nth:
+    movzx rax, byte [rdi + rsi]
     ret
 ",
         );
@@ -381,7 +417,7 @@ strrev:
             } => {
                 let callee = match *callee {
                     Expr::Variable(name) => name.lexeme,
-                    _ => todo!(),
+                    _ => return error!(&paren.loc, "tried to call a non-constant expression"),
                 };
 
                 for (i, arg) in args.iter().enumerate() {
