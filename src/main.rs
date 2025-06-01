@@ -22,11 +22,10 @@ fn compile_file(path: String) -> Result<(), Box<dyn Error>> {
     let statements = parser.parse()?;
 
     let mut codegen = codegen_x86_64::CodegenX86_64::new();
-    let mut env = codegen_x86_64::Env::new();
 
     codegen.emit_prologue()?;
     for stmt in statements {
-        codegen.compile_stmt(&mut env, stmt)?;
+        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), stmt)?;
     }
     codegen.emit_epilogue()?;
 

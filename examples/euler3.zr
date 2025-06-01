@@ -1,0 +1,14 @@
+func print_i64[x : I64] : I64
+    printf("%ld\n", x)
+
+func main[] : I64
+    let n: I64 = 600851475143
+    let f: I64 = 2
+
+    while f * f <= n
+        if n % f == 0
+            n = n / f
+        else
+            f = f + 1
+
+    print_i64(n)

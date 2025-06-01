@@ -68,6 +68,18 @@ impl CodegenX86_64 {
         }
     }
 
+    fn nth_register(n: usize) -> &'static str {
+        match n {
+            0 => "rdi",
+            1 => "rsi",
+            2 => "rdx",
+            3 => "rcx",
+            4 => "r8",
+            5 => "r9",
+            _ => todo!("only up to 6 arguments supported"),
+        }
+    }
+
     fn label(&mut self) -> String {
         self.label_counter += 1;
         format!(".L{}", self.label_counter)
@@ -158,8 +170,7 @@ print equ puts
                 return_type,
                 body,
             } => {
-                assert!(params.len() <= 1); // TODO
-                assert!(return_type.lexeme == "I64");
+                assert!(return_type.lexeme == "I64"); // TODO
 
                 writeln!(&mut self.output, "global {}", name.lexeme)?;
                 writeln!(&mut self.output, "{}:", name.lexeme)?;
@@ -167,17 +178,20 @@ print equ puts
                 writeln!(&mut self.output, "    mov rbp, rsp")?;
                 writeln!(&mut self.output, "    sub rsp, 256")?; // TODO
 
-                if params.len() == 1 {
-                    let offset = env.define_var(
-                        params.first().unwrap().var_name.lexeme.clone(),
-                        params.first().unwrap().var_type.lexeme.clone(),
-                    );
-                    writeln!(&mut self.output, "    mov QWORD [rbp-{}], rdi", offset)?;
+                for (i, param) in params.iter().enumerate() {
+                    let offset = env
+                        .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
+                    writeln!(
+                        &mut self.output,
+                        "    mov QWORD [rbp-{}], {}",
+                        offset,
+                        CodegenX86_64::nth_register(i)
+                    )?;
                 }
 
                 self.compile_stmt(env, *body)?;
 
-                writeln!(&mut self.output, "    mov rax, 0")?;
+                writeln!(&mut self.output, "    mov rax, 0")?; // TODO: remove default return value
                 writeln!(&mut self.output, "    mov rsp, rbp")?;
                 writeln!(&mut self.output, "    pop rbp")?;
                 writeln!(&mut self.output, "    ret")?;
@@ -215,8 +229,8 @@ print equ puts
                         writeln!(&mut self.output, "    mov rax, rdx")?;
                     }
                     TokenType::Xor => writeln!(&mut self.output, "    xor rax, rbx")?,
-                    TokenType::And => todo!(),
-                    TokenType::Or => todo!(),
+                    TokenType::And => writeln!(&mut self.output, "    and rax, rbx")?,
+                    TokenType::Or => writeln!(&mut self.output, "    or rax, rbx")?,
                     TokenType::DoubleEqual => {
                         writeln!(&mut self.output, "    cmp rax, rbx")?;
                         writeln!(&mut self.output, "    sete al")?;
@@ -254,6 +268,7 @@ print equ puts
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => writeln!(&mut self.output, "    mov rax, {}", token.lexeme)?,
                 TokenType::String => {
+                    // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1].replace("\\n", "\n");
                     let charcodes = value
                         .chars()
@@ -320,16 +335,13 @@ print equ puts
                     _ => todo!(),
                 };
 
-                // TODO
-                assert!(args.len() <= 2);
-                if args.len() == 1 {
-                    self.compile_expr(env, args.first().unwrap().clone())?;
-                    writeln!(&mut self.output, "    mov rdi, rax")?;
-                } else if args.len() == 2 {
-                    self.compile_expr(env, args.first().unwrap().clone())?;
-                    writeln!(&mut self.output, "    mov rdi, rax")?;
-                    self.compile_expr(env, args.get(1).unwrap().clone())?;
-                    writeln!(&mut self.output, "    mov rsi, rax")?;
+                for (i, arg) in args.iter().enumerate() {
+                    self.compile_expr(env, arg.clone())?;
+                    writeln!(
+                        &mut self.output,
+                        "    mov {}, rax",
+                        CodegenX86_64::nth_register(i)
+                    )?;
                 }
 
                 writeln!(&mut self.output, "    call {}", callee)?;

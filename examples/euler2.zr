@@ -2,11 +2,15 @@ func print_i64[x : I64] : I64
     printf("%ld\n", x)
 
 func main[] : I64
+    let sum: I64 = 0
     let a: I64 = 0
     let b: I64 = 1
 
-    while a < 100000
-        print_i64(a)
+    while a < 4000000
+        if a % 2 == 0
+            sum = sum + a
         let temp: I64 = b
         b = a + b
         a = temp
+
+    print_i64(sum)

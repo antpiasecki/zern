@@ -1,0 +1,14 @@
+func print_i64[x : I64] : I64
+    printf("%ld\n", x)
+
+func main[] : I64
+    let a: I64 = 1
+    while a < 1000
+        let b: I64 = 1
+        while b < 1000
+            let c: I64 = 1000 - b - a
+            if a * a + b * b == c * c
+                print_i64(a * b * c)
+                return 0
+            b = b + 1
+        a = a + 1

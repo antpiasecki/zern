@@ -1,0 +1,18 @@
+func print_i64[x : I64] : I64
+    printf("%ld\n", x)
+
+func main[] : I64
+    let sum_of_squares: I64 = 0
+    let i: I64 = 1
+    while i < 101
+        sum_of_squares = sum_of_squares + i * i
+        i = i + 1
+
+    let square_of_sum: I64 = 0
+    i = 1
+    while i < 101
+        square_of_sum = square_of_sum + i
+        i = i + 1
+    square_of_sum = square_of_sum * square_of_sum
+
+    print_i64(square_of_sum - sum_of_squares)

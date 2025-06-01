@@ -1,0 +1,29 @@
+func print_i64[x : I64] : I64
+    printf("%ld\n", x)
+
+func is_prime[n: I64]: I64
+    if n <= 1
+        return 0
+    if n == 2 || n == 3
+        return 1
+    if n % 2 == 0 || n % 3 == 0
+        return 0
+    
+    let i: I64 = 5
+    while i * i <= n
+        if n % i == 0 || n % (i + 2) == 0
+            return 0
+        i = i + 6
+    return 1
+
+func main[] : I64
+    let found: I64 = 0
+
+    let i: I64 = 1
+    while 1
+        if is_prime(i)
+            found = found + 1
+            if found == 10001
+                print_i64(i)
+                return 0
+        i = i + 1
