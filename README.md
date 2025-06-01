@@ -2,6 +2,11 @@
 
 A very cool language
 
+## Huh?
+* Indentation-based syntax
+* Compiled to x86_64 Assembly
+* Sometimes works
+
 ## Syntax
 ```go
 func fib[n: I64] : I64

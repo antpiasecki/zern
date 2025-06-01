@@ -101,11 +101,14 @@ extern printf
 extern sprintf
 extern strlen
 extern strcmp
+extern strcat
+extern strcpy
+extern strdup
 extern puts
 extern system
-print equ puts
+extern exit
+copystr equ strdup
 
-; generated with clang
 strrev:
     push    r14
     push    rbx
@@ -118,15 +121,15 @@ strrev:
     mov     rcx, rax
     mov     rsi, r14
     mov     rdx, r14
-.LBB0_1:
+.strrev.1:
     sub     rdx, 1
-    jb      .LBB0_2
+    jb      .strrev.2
     mov     sil, byte [rbx + rsi - 1]
     mov     byte [rcx], sil
     inc     rcx
     mov     rsi, rdx
-    jmp     .LBB0_1
-.LBB0_2:
+    jmp     .strrev.1
+.strrev.2:
     mov     byte [rax + r14], 0
     add     rsp, 8
     pop     rbx
@@ -138,30 +141,30 @@ isqrt:
     mov     rcx, 1
     mov     rbx, rdi
     shl     rcx, 62
-.LBB0_3:
+.isqrt.1:
     cmp     rcx, 0
-    je      .LBB0_5
+    je      .isqrt.5
     cmp     rcx, rbx
-    jbe     .LBB0_4
+    jbe     .isqrt.2
     shr     rcx, 2
-    jmp     .LBB0_3
-.LBB0_4:
+    jmp     .isqrt.1
+.isqrt.2:
     cmp     rcx, 0
-    je      .LBB0_5
+    je      .isqrt.5
     mov     rdx, rax
     add     rdx, rcx
     cmp     rbx, rdx
-    jb      .LBB0_7
+    jb      .isqrt.3
     sub     rbx, rdx
     shr     rax, 1
     add     rax, rcx
-    jmp     .LBB0_6
-.LBB0_7:
+    jmp     .isqrt.4
+.isqrt.3:
     shr     rax, 1
-.LBB0_6:
+.isqrt.4:
     shr     rcx, 2
-    jmp     .LBB0_4
-.LBB0_5:
+    jmp     .isqrt.2
+.isqrt.5:
     ret
 
 nth:
@@ -259,10 +262,8 @@ nth:
 
                 self.compile_stmt(env, *body)?;
 
-                if name.lexeme == "main" {
-                    // default exit code
-                    emit!(&mut self.output, "    mov rax, 0");
-                }
+                // TODO: default exit code only for main
+                emit!(&mut self.output, "    mov rax, 0");
 
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
@@ -356,17 +357,22 @@ nth:
                 TokenType::String => {
                     // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1].replace("\\n", "\n");
-                    let charcodes = value
-                        .chars()
-                        .map(|x| (x as u8).to_string())
-                        .collect::<Vec<String>>()
-                        .join(",");
-                    emit!(
-                        &mut self.data_section,
-                        "    S{} db {},0",
-                        self.data_counter,
-                        charcodes,
-                    );
+
+                    if value.is_empty() {
+                        emit!(&mut self.data_section, "    S{} db 0", self.data_counter);
+                    } else {
+                        let charcodes = value
+                            .chars()
+                            .map(|x| (x as u8).to_string())
+                            .collect::<Vec<String>>()
+                            .join(",");
+                        emit!(
+                            &mut self.data_section,
+                            "    S{} db {},0",
+                            self.data_counter,
+                            charcodes,
+                        );
+                    }
                     emit!(&mut self.output, "    mov rax, S{}", self.data_counter);
                     self.data_counter += 1;
                 }

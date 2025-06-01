@@ -1,12 +1,7 @@
-func print_i64[x: I64] : I64
-    printf("%ld\n", x)
-
-func I64.to_string[n: I64] : String
-    let x: String = malloc(21)
-    sprintf(x, "%ld", n)
-    return x
-
 func main[] : I64
-    let s: String = I64.to_string(58394)
-    print_i64(strlen(s))
-    free(s)
+    let a: String = I64.to_string(58394)
+    print_i64(strlen(a))
+    let b: String = concat(a, "test")
+    print_i64(strlen(b))
+    free(a)
+    free(b)

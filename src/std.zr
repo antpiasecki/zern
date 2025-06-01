@@ -1,0 +1,67 @@
+func print[x: String] : I64
+    printf("%s\n", x)
+
+func print_i64[x: I64] : I64
+    printf("%ld\n", x)
+
+func concat[a: String, b: String] : String
+    let c: String = malloc(strlen(a) + strlen(b) + 1)
+    strcpy(c, a)
+    strcat(c, b)
+    return c
+
+func Char.to_i64[c: I64]: I64
+    return c - 48
+
+func I64.to_string[n: I64] : String
+    let x: I64 = malloc(21)
+    sprintf(x, "%ld", n)
+    return x
+
+func Math.gcd[a: I64, b: I64] : I64
+    while b != 0
+        let tmp: I64 = b
+        b = a % b
+        a = tmp
+    return a
+
+func Math.min[a: I64, b: I64] : I64
+    if a < b
+        return a
+    return b
+
+func Math.max[a: I64, b: I64] : I64
+    if a > b
+        return a
+    return b
+
+func Math.abs[n: I64] : I64
+    if n < 0
+        return -n
+    return n
+
+func Math.pow[b: I64, e: I64] : I64
+    let out: I64 = 1
+    let i: I64 = 0
+    while i < e
+        out = out * b
+        i = i + 1
+    return out
+
+func Math.lcm[a: I64, b: I64] : I64
+    return (a * b) / Math.gcd(a, b)
+
+func Math.is_prime[n: I64]: I64
+    if n <= 1
+        return false
+    if n == 2 || n == 3
+        return true
+    if n % 2 == 0 || n % 3 == 0
+        return false
+
+    let i: I64 = 5
+    while i * i <= n
+        if n % i == 0 || n % (i + 2) == 0
+            return false
+        i = i + 6
+    return true

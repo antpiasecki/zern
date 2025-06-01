@@ -1,21 +1,8 @@
-func print_i64[x: I64] : I64
-    printf("%ld\n", x)
-
-func gcd[a: I64, b: I64] : I64
-    while b != 0
-        let tmp: I64 = b
-        b = a % b
-        a = tmp
-    return a
-
-func lcm[a: I64, b: I64] : I64
-    return (a * b) / gcd(a, b)
-
 func main[] : I64
     let out: I64 = 1
 
     let i: I64 = 1
     while i < 21
-        out = lcm(out, i)
+        out = Math.lcm(out, i)
         i = i + 1
     print_i64(out)

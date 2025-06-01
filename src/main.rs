@@ -10,6 +10,23 @@ use std::{
 
 use tokenizer::ZernError;
 
+fn compile_file_to(
+    codegen: &mut codegen_x86_64::CodegenX86_64,
+    filename: &str,
+    source: String,
+) -> Result<(), ZernError> {
+    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
+    let tokens = tokenizer.tokenize()?;
+
+    let parser = parser::Parser::new(tokens);
+    let statements = parser.parse()?;
+
+    for stmt in statements {
+        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), stmt)?;
+    }
+    Ok(())
+}
+
 fn compile_file(path: String) -> Result<(), ZernError> {
     let source = match fs::read_to_string(path.clone()) {
         Ok(x) => x,
@@ -21,18 +38,10 @@ fn compile_file(path: String) -> Result<(), ZernError> {
 
     let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
 
-    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
-    let tokens = tokenizer.tokenize()?;
-
-    let parser = parser::Parser::new(tokens);
-    let statements = parser.parse()?;
-
     let mut codegen = codegen_x86_64::CodegenX86_64::new();
-
     codegen.emit_prologue()?;
-    for stmt in statements {
-        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), stmt)?;
-    }
+    compile_file_to(&mut codegen, "std.zr", include_str!("std.zr").into())?;
+    compile_file_to(&mut codegen, filename, source)?;
     codegen.emit_epilogue()?;
 
     if fs::write("out.s", codegen.get_output()).is_err() {

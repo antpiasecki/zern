@@ -1,6 +1,3 @@
-func print_i64[x: I64] : I64
-    printf("%ld\n", x)
-
 func main[] : I64
     let sum: I64 = 0
     let a: I64 = 0

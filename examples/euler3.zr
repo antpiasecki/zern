@@ -1,6 +1,3 @@
-func print_i64[x: I64] : I64
-    printf("%ld\n", x)
-
 func main[] : I64
     let n: I64 = 600851475143
     let f: I64 = 2
