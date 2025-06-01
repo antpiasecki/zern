@@ -57,6 +57,9 @@ macro_rules! emit {
     };
 }
 
+static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+static TYPES: [&str; 2] = ["I64", "String"];
+
 pub struct CodegenX86_64 {
     output: String,
     data_section: String,
@@ -74,18 +77,6 @@ impl CodegenX86_64 {
         }
     }
 
-    fn nth_register(n: usize) -> &'static str {
-        match n {
-            0 => "rdi",
-            1 => "rsi",
-            2 => "rdx",
-            3 => "rcx",
-            4 => "r8",
-            5 => "r9",
-            _ => todo!("only up to 6 arguments supported"),
-        }
-    }
-
     fn label(&mut self) -> String {
         self.label_counter += 1;
         format!(".L{}", self.label_counter)
@@ -94,8 +85,7 @@ impl CodegenX86_64 {
     pub fn get_output(&self) -> String {
         format!(
             "section .data
-{}
-{}",
+{}{}",
             self.data_section, self.output
         )
     }
@@ -105,7 +95,11 @@ impl CodegenX86_64 {
             &mut self.output,
             "
 section .text
+extern malloc
+extern free
 extern printf
+extern sprintf
+extern strlen
 extern puts
 print equ puts
 ",
@@ -128,7 +122,9 @@ print equ puts
                 initializer,
             } => {
                 // TODO: types
-                assert!(var_type.lexeme == "I64");
+                if !TYPES.contains(&var_type.lexeme.as_str()) {
+                    return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
+                }
 
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
@@ -176,7 +172,9 @@ print equ puts
                 return_type,
                 body,
             } => {
-                assert!(return_type.lexeme == "I64"); // TODO
+                if !TYPES.contains(&return_type.lexeme.as_str()) {
+                    return error!(&name.loc, format!("unknown type: {}", return_type.lexeme));
+                }
 
                 emit!(&mut self.output, "global {}", name.lexeme);
                 emit!(&mut self.output, "{}:", name.lexeme);
@@ -187,12 +185,11 @@ print equ puts
                 for (i, param) in params.iter().enumerate() {
                     let offset = env
                         .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
-                    emit!(
-                        &mut self.output,
-                        "    mov QWORD [rbp-{}], {}",
-                        offset,
-                        CodegenX86_64::nth_register(i),
-                    );
+                    let reg = match REGISTERS.get(i) {
+                        Some(x) => x,
+                        None => return error!(&name.loc, "only up to 6 params allowed"),
+                    };
+                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg,);
                 }
 
                 self.compile_stmt(env, *body)?;
@@ -350,7 +347,7 @@ print equ puts
             }
             Expr::Call {
                 callee,
-                paren: _,
+                paren,
                 args,
             } => {
                 let callee = match *callee {
@@ -360,11 +357,11 @@ print equ puts
 
                 for (i, arg) in args.iter().enumerate() {
                     self.compile_expr(env, arg.clone())?;
-                    emit!(
-                        &mut self.output,
-                        "    mov {}, rax",
-                        CodegenX86_64::nth_register(i),
-                    );
+                    let reg = match REGISTERS.get(i) {
+                        Some(x) => x,
+                        None => return error!(&paren.loc, "only up to 6 args allowed"),
+                    };
+                    emit!(&mut self.output, "    mov {}, rax", reg,);
                 }
 
                 emit!(&mut self.output, "    call {}", callee);

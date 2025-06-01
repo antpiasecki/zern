@@ -1,4 +1,4 @@
-func print_i64[x : I64] : I64
+func print_i64[x: I64] : I64
     printf("%ld\n", x)
 
 func gcd[a: I64, b: I64] : I64

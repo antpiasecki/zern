@@ -1,4 +1,4 @@
-func print_i64[x : I64] : I64
+func print_i64[x: I64] : I64
     printf("%ld\n", x)
 
 func collatz_num[n: I64] : I64
