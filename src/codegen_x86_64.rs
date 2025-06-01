@@ -100,8 +100,37 @@ extern free
 extern printf
 extern sprintf
 extern strlen
+extern strcmp
 extern puts
 print equ puts
+
+; generated with clang
+strrev:
+    push    r14
+    push    rbx
+    push    rax
+    mov     rbx, rdi
+    call    strlen
+    mov     r14, rax
+    lea     rdi, [rax + 1]
+    call    malloc
+    mov     rcx, rax
+    mov     rsi, r14
+    mov     rdx, r14
+.LBB0_1:
+    sub     rdx, 1
+    jb      .LBB0_2
+    mov     sil, byte [rbx + rsi - 1]
+    mov     byte [rcx], sil
+    inc     rcx
+    mov     rsi, rdx
+    jmp     .LBB0_1
+.LBB0_2:
+    mov     byte [rax + r14], 0
+    add     rsp, 8
+    pop     rbx
+    pop     r14
+    ret
 ",
         );
         Ok(())

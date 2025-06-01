@@ -1,0 +1,23 @@
+func print_i64[x: I64] : I64
+    printf("%ld\n", x)
+
+func i64_to_string[n: I64] : String
+    let x: I64 = malloc(21)
+    sprintf(x, "%ld", n)
+    return x
+
+func main[] : I64
+    let out: I64 = 0
+
+    let a: I64 = 500
+    while a < 1000
+        let b: I64 = 500
+        while b < 1000
+            if a * b > out
+                let s: String = i64_to_string(a * b)
+                let s_rev: String = strrev(s)
+                if strcmp(s, s_rev) == 0
+                    out = a * b
+            b = b + 1
+        a = a + 1
+    print_i64(out)
