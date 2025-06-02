@@ -228,7 +228,10 @@ set:
                     return error!(&name.loc, format!("unknown type: {}", return_type.lexeme));
                 }
 
-                emit!(&mut self.output, "global {}", name.lexeme);
+                // TODO
+                if name.lexeme == "main" {
+                    emit!(&mut self.output, "global {}", name.lexeme);
+                }
                 emit!(&mut self.output, "{}:", name.lexeme);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
@@ -270,6 +273,33 @@ set:
                 emit!(&mut self.output, "    mov rdi, 1");
                 emit!(&mut self.output, "    call exit");
                 emit!(&mut self.output, "{}:", skip_label);
+            }
+            Stmt::For {
+                var,
+                start,
+                end,
+                body,
+            } => {
+                let begin_label = self.label();
+                let end_label = self.label();
+
+                let offset = env.define_var(var.lexeme, "I64".into());
+
+                self.compile_expr(env, start)?;
+                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                emit!(&mut self.output, "{}:", begin_label);
+                emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
+                emit!(&mut self.output, "    push rax");
+                self.compile_expr(env, end)?;
+                emit!(&mut self.output, "    pop rcx");
+                emit!(&mut self.output, "    cmp rcx, rax");
+                emit!(&mut self.output, "    jge {}", end_label);
+                self.compile_stmt(env, *body)?;
+                emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
+                emit!(&mut self.output, "    add rax, 1");
+                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                emit!(&mut self.output, "    jmp {}", begin_label);
+                emit!(&mut self.output, "{}:", end_label);
             }
         }
         Ok(())

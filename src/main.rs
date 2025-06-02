@@ -50,7 +50,7 @@ fn compile_file(path: String) -> Result<(), ZernError> {
     }
 
     if !Command::new("nasm")
-        .args(["-f", "elf64", "-o", "out.o", "out.s"])
+        .args(["-f", "elf64", "-w+all", "-o", "out.o", "out.s"])
         .status()
         .unwrap()
         .success()

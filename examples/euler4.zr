@@ -1,15 +1,13 @@
 func main[] : I64
     let out: I64 = 0
 
-    let a: I64 = 500
-    while a < 1000
-        let b: I64 = 500
-        while b < 1000
+    for a in 500:1000
+        for b in 500:1000
             if a * b > out
                 let s: String = I64.to_string(a * b)
                 let s_rev: String = strrev(s)
                 if strcmp(s, s_rev) == 0
                     out = a * b
-            b = b + 1
-        a = a + 1
+                free(s)
+                free(s_rev)
     print_i64(out)

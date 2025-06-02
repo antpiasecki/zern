@@ -24,6 +24,12 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
+    For {
+        var: Token,
+        start: Expr,
+        end: Expr,
+        body: Box<Stmt>,
+    },
     Function {
         name: Token,
         params: Vec<Param>,
@@ -167,6 +173,8 @@ impl Parser {
             self.if_statement()
         } else if self.match_token(&[TokenType::KeywordWhile]) {
             self.while_statement()
+        } else if self.match_token(&[TokenType::KeywordFor]) {
+            self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             Ok(Stmt::Return(self.expression()?))
         } else if self.match_token(&[TokenType::KeywordAssert]) {
@@ -203,6 +211,22 @@ impl Parser {
         let body = self.block()?;
         Ok(Stmt::While {
             condition,
+            body: Box::new(body),
+        })
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt, ZernError> {
+        let var = self.consume(TokenType::Identifier, "expected variable name after 'for'")?;
+        self.consume(TokenType::KeywordIn, "expected 'in' after variable name")?;
+        let start = self.expression()?;
+        self.consume(TokenType::Colon, "expected ':' after the number")?;
+        let end = self.expression()?;
+
+        let body = self.block()?;
+        Ok(Stmt::For {
+            var,
+            start,
+            end,
             body: Box::new(body),
         })
     }

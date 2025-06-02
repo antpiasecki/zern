@@ -2,11 +2,9 @@ func num_divisors[n: I64] : I64
     let end: I64 = isqrt(n)
 
     let result: I64 = 0
-    let i: I64 = 1
-    while i < end + 1
+    for i in 1:end+1
         if n % i == 0
             result = result + 2
-        i = i + 1
 
     if end * end == n
         result = result - 1

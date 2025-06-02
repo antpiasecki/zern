@@ -1,11 +1,7 @@
 func main[] : I64
-    let a: I64 = 1
-    while a < 1000
-        let b: I64 = 1
-        while b < 1000
+    for a in 1:1000
+        for b in 1:1000
             let c: I64 = 1000 - b - a
             if a * a + b * b == c * c
                 print_i64(a * b * c)
                 return 0
-            b = b + 1
-        a = a + 1

@@ -1,8 +1,6 @@
 func main[] : I64
     let out: I64 = 1
 
-    let i: I64 = 1
-    while i < 21
+    for i in 1:21
         out = Math.lcm(out, i)
-        i = i + 1
     print_i64(out)
