@@ -39,6 +39,7 @@ pub enum TokenType {
     KeywordWhile,
     KeywordFunc,
     KeywordReturn,
+    KeywordAssert,
 
     Indent,
     Dedent,
@@ -311,6 +312,7 @@ impl Tokenizer {
             "while" => TokenType::KeywordWhile,
             "func" => TokenType::KeywordFunc,
             "return" => TokenType::KeywordReturn,
+            "assert" => TokenType::KeywordAssert,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

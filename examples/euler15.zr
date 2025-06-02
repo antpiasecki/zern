@@ -1,0 +1,11 @@
+func main[] : I64
+    let n: I64 = 40
+    let r: I64 = 20
+    let out: I64 = 1
+
+    let i: I64 = 1
+    while i < r + 1
+        out = out * (n - (r - i)) / i
+        i = i + 1
+
+    print_i64(out)

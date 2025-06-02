@@ -1,3 +1,7 @@
+func panic[msg: String] : I64
+    printf("PANIC: %s\n", msg)
+    exit(1)
+
 func print[x: String] : I64
     printf("%s\n", x)
 
@@ -10,7 +14,39 @@ func concat[a: String, b: String] : String
     strcat(c, b)
     return c
 
-func Char.to_i64[c: I64]: I64
+func substr[s: String, start: I64, length: I64] : String
+    let out: String = malloc(length + 1)
+    strlcpy(out, s + start, length + 1)
+    return out
+
+func strrev[s: String] : String
+    let len: I64 = strlen(s)
+    let out: String = malloc(len + 1)
+
+    let i: I64 = 0
+    while i < len
+        let c: Char = nth(s, len - i - 1)
+        set(out, i, c)
+        i = i + 1
+    set(out, len, 0)
+    return out
+
+func IO.read_file[path: String]: String
+    let file: Ptr = fopen(path, "rb")
+    if !file
+        panic("failed to open file")
+
+    fseek(file, 0, 2)
+    let size: I64 = ftell(file)
+    rewind(file)
+
+    let buffer: String = malloc(size + 1)
+
+    let n: I64 = fread(buffer, 1, size, file)
+    set(buffer, n, 0)
+    return buffer
+
+func Char.to_i64[c: Char]: I64
     return c - 48
 
 func I64.to_string[n: I64] : String

@@ -58,7 +58,7 @@ macro_rules! emit {
 }
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-static TYPES: [&str; 3] = ["I64", "String", "Bool"];
+static TYPES: [&str; 5] = ["I64", "String", "Bool", "Ptr", "Char"];
 
 pub struct CodegenX86_64 {
     output: String,
@@ -85,6 +85,7 @@ impl CodegenX86_64 {
     pub fn get_output(&self) -> String {
         format!(
             "section .data
+    SASSERT db \"assertion failed on line %d\",10,0
 {}{}",
             self.data_section, self.output
         )
@@ -104,37 +105,16 @@ extern strcmp
 extern strcat
 extern strcpy
 extern strdup
+extern strlcpy
 extern puts
+extern fopen
+extern fseek
+extern ftell
+extern fread
+extern rewind
 extern system
 extern exit
 copystr equ strdup
-
-strrev:
-    push    r14
-    push    rbx
-    push    rax
-    mov     rbx, rdi
-    call    strlen
-    mov     r14, rax
-    lea     rdi, [rax + 1]
-    call    malloc
-    mov     rcx, rax
-    mov     rsi, r14
-    mov     rdx, r14
-.strrev.1:
-    sub     rdx, 1
-    jb      .strrev.2
-    mov     sil, byte [rbx + rsi - 1]
-    mov     byte [rcx], sil
-    inc     rcx
-    mov     rsi, rdx
-    jmp     .strrev.1
-.strrev.2:
-    mov     byte [rax + r14], 0
-    add     rsp, 8
-    pop     rbx
-    pop     r14
-    ret
 
 isqrt:
     xor     rax, rax
@@ -169,6 +149,10 @@ isqrt:
 
 nth:
     movzx rax, byte [rdi + rsi]
+    ret
+
+set:
+    mov [rdi + rsi], dl
     ret
 ",
         );
@@ -274,6 +258,18 @@ nth:
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
+            }
+            Stmt::Assert { keyword, value } => {
+                self.compile_expr(env, value)?;
+                let skip_label = self.label();
+                emit!(&mut self.output, "    test rax, rax");
+                emit!(&mut self.output, "    jne {}", skip_label);
+                emit!(&mut self.output, "    mov rdi, SASSERT");
+                emit!(&mut self.output, "    mov rsi, {}", keyword.loc.line);
+                emit!(&mut self.output, "    call printf");
+                emit!(&mut self.output, "    mov rdi, 1");
+                emit!(&mut self.output, "    call exit");
+                emit!(&mut self.output, "{}:", skip_label);
             }
         }
         Ok(())
@@ -431,6 +427,7 @@ nth:
                 paren,
                 args,
             } => {
+                // TODO: in function calls like a(1, b(2, 3)) the first argument will get overwritten when calling b
                 let callee = match *callee {
                     Expr::Variable(name) => name.lexeme,
                     _ => return error!(&paren.loc, "tried to call a non-constant expression"),

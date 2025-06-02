@@ -31,6 +31,10 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Return(Expr),
+    Assert {
+        keyword: Token,
+        value: Expr,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -164,14 +168,15 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordWhile]) {
             self.while_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
-            self.return_statement()
+            Ok(Stmt::Return(self.expression()?))
+        } else if self.match_token(&[TokenType::KeywordAssert]) {
+            Ok(Stmt::Assert {
+                keyword: self.previous().clone(),
+                value: self.expression()?,
+            })
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
-    }
-
-    fn return_statement(&mut self) -> Result<Stmt, ZernError> {
-        Ok(Stmt::Return(self.expression()?))
     }
 
     fn if_statement(&mut self) -> Result<Stmt, ZernError> {
