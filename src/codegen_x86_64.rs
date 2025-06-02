@@ -114,38 +114,8 @@ extern fread
 extern rewind
 extern system
 extern exit
+extern gettimeofday
 copystr equ strdup
-
-isqrt:
-    xor     rax, rax
-    mov     rcx, 1
-    mov     rbx, rdi
-    shl     rcx, 62
-.isqrt.1:
-    cmp     rcx, 0
-    je      .isqrt.5
-    cmp     rcx, rbx
-    jbe     .isqrt.2
-    shr     rcx, 2
-    jmp     .isqrt.1
-.isqrt.2:
-    cmp     rcx, 0
-    je      .isqrt.5
-    mov     rdx, rax
-    add     rdx, rcx
-    cmp     rbx, rdx
-    jb      .isqrt.3
-    sub     rbx, rdx
-    shr     rax, 1
-    add     rax, rcx
-    jmp     .isqrt.4
-.isqrt.3:
-    shr     rax, 1
-.isqrt.4:
-    shr     rcx, 2
-    jmp     .isqrt.2
-.isqrt.5:
-    ret
 
 nth:
     movzx rax, byte [rdi + rsi]
@@ -153,6 +123,54 @@ nth:
 
 set:
     mov [rdi + rsi], dl
+    ret
+
+time:
+    push rbx
+    sub rsp, 16
+    mov rbx, rsp
+    mov rdi, rbx
+    xor esi, esi
+    call gettimeofday
+    imul rcx, qword [rbx], 1000
+    mov rax, qword [rbx+8]
+    mov esi, 1000
+    cqo
+    idiv rsi
+    add rax, rcx
+    add rsp, 16
+    pop rbx
+    ret
+
+isqrt:
+    xor rax, rax
+    mov rcx, 1
+    mov rbx, rdi
+    shl rcx, 62
+.isqrt.1:
+    cmp rcx, 0
+    je .isqrt.5
+    cmp rcx, rbx
+    jbe .isqrt.2
+    shr rcx, 2
+    jmp .isqrt.1
+.isqrt.2:
+    cmp rcx, 0
+    je .isqrt.5
+    mov rdx, rax
+    add rdx, rcx
+    cmp rbx, rdx
+    jb .isqrt.3
+    sub rbx, rdx
+    shr rax, 1
+    add rax, rcx
+    jmp .isqrt.4
+.isqrt.3:
+    shr rax, 1
+.isqrt.4:
+    shr rcx, 2
+    jmp .isqrt.2
+.isqrt.5:
     ret
 ",
         );

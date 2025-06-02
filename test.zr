@@ -1,0 +1,40 @@
+func run_test[x: String] : I64
+    printf("[93mBuilding %s...[0m", x)
+    let cmd: String = concat("./target/release/zern examples/", x)
+
+    let build_start_time: I64 = time()
+    if system(cmd) != 0
+        exit(1)
+    let build_end_time: I64 = time()
+
+    free(cmd)
+    printf(" %ldms\n", build_end_time - build_start_time)
+
+    let run_start_time: I64 = time()
+    if system("./out") != 0
+        exit(1)
+    let run_end_time: I64 = time()
+    
+    printf("[93mRunning %s...[0m %ldms\n", x, run_end_time - run_start_time)
+
+func main[] : I64
+    system("cargo build --release")
+
+    // TODO
+    run_test("euler1.zr")
+    run_test("euler2.zr")
+    run_test("euler3.zr")
+    run_test("euler4.zr")
+    run_test("euler5.zr")
+    run_test("euler6.zr")
+    run_test("euler7.zr")
+    run_test("euler8.zr")
+    run_test("euler9.zr")
+    run_test("euler10.zr")
+    run_test("euler12.zr")
+    run_test("euler13.zr")
+    run_test("euler14.zr")
+    run_test("euler15.zr")
+    run_test("fib.zr")
+    run_test("hello.zr")
+    run_test("strings.zr")
