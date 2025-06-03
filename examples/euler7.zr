@@ -2,7 +2,7 @@ func main[] : I64
     let found: I64 = 0
 
     let i: I64 = 1
-    while 1
+    while true
         if Math.is_prime(i)
             found = found + 1
             if found == 10001

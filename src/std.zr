@@ -23,12 +23,10 @@ func strrev[s: String] : String
     let len: I64 = strlen(s)
     let out: String = malloc(len + 1)
 
-    let i: I64 = 0
-    while i < len
-        let c: Char = nth(s, len - i - 1)
-        set(out, i, c)
-        i = i + 1
-    set(out, len, 0)
+    for i in 0:len
+        let c: Char = String.nth(s, len - i - 1)
+        String.set(out, i, c)
+    String.set(out, len, 0)
     return out
 
 func IO.read_file[path: String]: String
@@ -43,7 +41,7 @@ func IO.read_file[path: String]: String
     let buffer: String = malloc(size + 1)
 
     let n: I64 = fread(buffer, 1, size, file)
-    set(buffer, n, 0)
+    String.set(buffer, n, 0)
     return buffer
 
 func Char.to_i64[c: Char]: I64
@@ -78,10 +76,8 @@ func Math.abs[n: I64] : I64
 
 func Math.pow[b: I64, e: I64] : I64
     let out: I64 = 1
-    let i: I64 = 0
-    while i < e
+    for i in 0:e
         out = out * b
-        i = i + 1
     return out
 
 func Math.lcm[a: I64, b: I64] : I64

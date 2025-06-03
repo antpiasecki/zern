@@ -58,7 +58,7 @@ macro_rules! emit {
 }
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-static TYPES: [&str; 5] = ["I64", "String", "Bool", "Ptr", "Char"];
+static TYPES: [&str; 6] = ["I64", "String", "Bool", "Ptr", "Char", "Array"];
 
 pub struct CodegenX86_64 {
     output: String,
@@ -97,6 +97,8 @@ impl CodegenX86_64 {
             "
 section .text
 extern malloc
+extern calloc
+extern realloc
 extern free
 extern printf
 extern sprintf
@@ -117,11 +119,11 @@ extern exit
 extern gettimeofday
 copystr equ strdup
 
-nth:
+String.nth:
     movzx rax, byte [rdi + rsi]
     ret
 
-set:
+String.set:
     mov [rdi + rsi], dl
     ret
 
@@ -142,7 +144,58 @@ time:
     pop rbx
     ret
 
-isqrt:
+Array.new:
+    mov rdi, 1
+    mov rsi, 24
+    jmp calloc
+
+Array.nth:
+    mov rax, [rdi]
+    mov rax, [rax + rsi*8]
+    ret
+
+Array.push:
+    push r14
+    push rbx
+    push rax
+    mov r14, rsi
+    mov rbx, rdi
+    mov rax, [rdi]
+    mov rcx, [rdi + 16]
+    cmp rcx, [rdi + 8]
+    jne .no_realloc
+    lea rdx, [rcx + rcx]
+    mov rsi, 4
+    test rcx, rcx
+    cmovnz rsi, rdx
+    mov [rbx + 8], rsi
+    shl rsi, 3
+    mov rdi, rax
+    call realloc
+    mov [rbx], rax
+    mov rcx, [rbx + 16]
+.no_realloc:
+    mov [rax + rcx*8], r14
+    inc qword [rbx + 16]
+    add rsp, 8
+    pop rbx
+    pop r14
+    ret
+
+Array.size:
+    mov rax, [rdi + 16]
+    ret
+
+Array.free:
+    push rbx
+    mov rbx, rdi
+    mov rdi, [rdi]
+    call free
+    mov rdi, rbx
+    pop rbx
+    jmp free
+
+Math.isqrt:
     xor rax, rax
     mov rcx, 1
     mov rbx, rdi
@@ -400,7 +453,12 @@ isqrt:
                 }
                 TokenType::String => {
                     // TODO: actual string parsing in the tokenizer
-                    let value = &token.lexeme[1..token.lexeme.len() - 1].replace("\\n", "\n");
+                    let value = &token.lexeme[1..token.lexeme.len() - 1]
+                        .replace("\\n", "\n")
+                        .replace("\\r", "\r")
+                        .replace("\\t", "\t")
+                        .replace("\\033", "\x1b")
+                        .replace("\\0", "\0");
 
                     if value.is_empty() {
                         emit!(&mut self.data_section, "    S{} db 0", self.data_counter);

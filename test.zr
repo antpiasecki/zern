@@ -1,5 +1,6 @@
 func run_test[x: String] : I64
-    printf("[93mBuilding %s...[0m", x)
+    // TODO: escape sequences
+    printf("\033[93mBuilding %s...\033[0m", x)
     let cmd: String = concat("./target/release/zern examples/", x)
 
     let build_start_time: I64 = time()
@@ -15,12 +16,12 @@ func run_test[x: String] : I64
         exit(1)
     let run_end_time: I64 = time()
     
-    printf("[93mRunning %s...[0m %ldms\n", x, run_end_time - run_start_time)
+    printf("\033[93mRunning %s...\033[0m %ldms\n", x, run_end_time - run_start_time)
 
 func main[] : I64
     system("cargo build --release")
 
-    // TODO
+    // TODO: listdir
     run_test("euler1.zr")
     run_test("euler2.zr")
     run_test("euler3.zr")
