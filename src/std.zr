@@ -19,7 +19,7 @@ func substr[s: String, start: I64, length: I64] : String
     strlcpy(out, s + start, length + 1)
     return out
 
-func strrev[s: String] : String
+func String.rev[s: String] : String
     let len: I64 = strlen(s)
     let out: String = malloc(len + 1)
 

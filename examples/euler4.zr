@@ -5,7 +5,7 @@ func main[] : I64
         for b in 500:1000
             if a * b > out
                 let s: String = I64.to_string(a * b)
-                let s_rev: String = strrev(s)
+                let s_rev: String = String.rev(s)
                 if strcmp(s, s_rev) == 0
                     out = a * b
                 free(s)

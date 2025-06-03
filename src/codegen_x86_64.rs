@@ -115,9 +115,11 @@ extern ftell
 extern fread
 extern rewind
 extern system
+extern opendir
+extern readdir
+extern closedir
 extern exit
 extern gettimeofday
-copystr equ strdup
 
 String.nth:
     movzx rax, byte [rdi + rsi]
@@ -127,7 +129,7 @@ String.set:
     mov [rdi + rsi], dl
     ret
 
-time:
+OS.time:
     push rbx
     sub rsp, 16
     mov rbx, rsp
@@ -142,6 +144,47 @@ time:
     add rax, rcx
     add rsp, 16
     pop rbx
+    ret
+
+OS.listdir:
+    push r14
+    push rbx
+    push rax
+    mov r14, rdi
+    call Array.new
+    mov rbx, rax
+    mov rdi, r14
+    call opendir
+    mov r14, rax
+.LBB5_1:
+    mov rdi, r14
+    call readdir
+    test rax, rax
+    je .LBB5_7
+    cmp byte [rax+19], 46
+    jne .LBB5_6
+    movzx ecx, byte [rax+20]
+    test ecx, ecx
+    je .LBB5_1
+    cmp ecx, 46
+    jne .LBB5_6
+    cmp byte [rax+21], 0
+    je .LBB5_1
+.LBB5_6:
+    add rax, 19
+    mov rdi, rax
+    call strdup
+    mov rsi, rax
+    mov rdi, rbx
+    call Array.push
+    jmp .LBB5_1
+.LBB5_7:
+    mov rdi, r14
+    call closedir
+    mov rax, rbx
+    add rsp, 8
+    pop rbx
+    pop r14
     ret
 
 Array.new:
