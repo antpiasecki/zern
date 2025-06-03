@@ -1,6 +1,6 @@
 func run_test[x: String] : I64
     printf("\033[93mBuilding %s...\033[0m", x)
-    let cmd: String = concat("./target/release/zern examples/", x)
+    let cmd: String = String.concat("./target/release/zern examples/", x)
 
     let build_start_time: I64 = OS.time()
     if system(cmd) != 0

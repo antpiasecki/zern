@@ -44,6 +44,7 @@ fn compile_file(path: String) -> Result<(), ZernError> {
     compile_file_to(&mut codegen, filename, source)?;
     codegen.emit_epilogue()?;
 
+    // TODO
     if fs::write("out.s", codegen.get_output()).is_err() {
         eprintln!("\x1b[91mERROR\x1b[0m: failed to write to out.s");
         process::exit(1);

@@ -19,9 +19,9 @@ func to_str[state: Array]: String
     let o: String = ""
     for i in 0:Array.size(state)
         if Array.nth(state, i)
-            o = concat(o, "#")
+            o = String.concat(o, "#")
         else
-            o = concat(o, " ")
+            o = String.concat(o, " ")
     return o
 
 func main[] : I64
