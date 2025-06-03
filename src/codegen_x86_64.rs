@@ -533,19 +533,22 @@ Math.isqrt:
                 paren,
                 args,
             } => {
-                // TODO: in function calls like a(1, b(2, 3)) the first argument will get overwritten when calling b
                 let callee = match *callee {
                     Expr::Variable(name) => name.lexeme,
                     _ => return error!(&paren.loc, "tried to call a non-constant expression"),
                 };
 
-                for (i, arg) in args.iter().enumerate() {
+                for arg in &args {
                     self.compile_expr(env, arg.clone())?;
+                    emit!(&mut self.output, "    push rax");
+                }
+
+                for i in (0..args.len()).rev() {
                     let reg = match REGISTERS.get(i) {
                         Some(x) => x,
                         None => return error!(&paren.loc, "only up to 6 args allowed"),
                     };
-                    emit!(&mut self.output, "    mov {}, rax", reg,);
+                    emit!(&mut self.output, "    pop {}", reg);
                 }
 
                 emit!(&mut self.output, "    call {}", callee);
