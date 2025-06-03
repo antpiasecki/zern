@@ -1,5 +1,4 @@
 func run_test[x: String] : I64
-    // TODO: escape sequences
     printf("\033[93mBuilding %s...\033[0m", x)
     let cmd: String = concat("./target/release/zern examples/", x)
 
@@ -23,6 +22,4 @@ func main[] : I64
 
     let files: Array = OS.listdir("examples/")
     for i in 0:Array.size(files)
-        let file: String = Array.nth(files, i)
-        run_test(file)
-        free(file)
+        run_test(Array.nth(files, i))
