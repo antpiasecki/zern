@@ -1,5 +1,5 @@
 func rule110_step[state: Array] : Array
-    let new_state: Array = Array.new()
+    let new_state: Array = []
 
     for i in 0:Array.size(state)
         let left: Bool = false
@@ -27,7 +27,7 @@ func to_str[state: Array]: String
 func main[] : I64
     let SIZE: I64 = 60
 
-    let state: Array = Array.new()
+    let state: Array = []
     for i in 0:SIZE
         Array.push(state, false)
     Array.push(state, true)

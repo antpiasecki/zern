@@ -1,5 +1,5 @@
 func main[] : I64
-    let xs: Array = Array.new()
+    let xs: Array = [5849, 3869, 2859]
     Array.push(xs, 5242)
     Array.push(xs, 6533)
     Array.push(xs, 4574)

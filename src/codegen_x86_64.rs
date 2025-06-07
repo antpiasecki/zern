@@ -58,6 +58,7 @@ macro_rules! emit {
 }
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+// TODO: currently they are all just 8 byte values
 static TYPES: [&str; 6] = ["I64", "String", "Bool", "Ptr", "Char", "Array"];
 
 pub struct CodegenX86_64 {
@@ -451,6 +452,18 @@ extern gettimeofday
                 }
 
                 emit!(&mut self.output, "    call {}", callee);
+            }
+            Expr::ArrayLiteral(exprs) => {
+                emit!(&mut self.output, "    call Array.new");
+                emit!(&mut self.output, "    mov r12, rax");
+
+                for expr in exprs {
+                    self.compile_expr(env, expr)?;
+                    emit!(&mut self.output, "    mov rsi, rax");
+                    emit!(&mut self.output, "    mov rdi, r12");
+                    emit!(&mut self.output, "    call Array.push");
+                }
+                emit!(&mut self.output, "    mov rax, r12");
             }
         }
         Ok(())

@@ -66,6 +66,7 @@ pub enum Expr {
         paren: Token,
         args: Vec<Expr>,
     },
+    ArrayLiteral(Vec<Expr>),
 }
 
 pub struct Parser {
@@ -436,6 +437,19 @@ impl Parser {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "expected ')' after expression")?;
             Ok(Expr::Grouping(Box::new(expr)))
+        } else if self.match_token(&[TokenType::LeftBracket]) {
+            let mut xs = vec![];
+            if !self.check(&TokenType::RightBracket) {
+                loop {
+                    xs.push(self.expression()?);
+                    if !self.match_token(&[TokenType::Comma]) {
+                        break;
+                    }
+                }
+            }
+            self.consume(TokenType::RightBracket, "expected ']' after values")?;
+
+            Ok(Expr::ArrayLiteral(xs))
         } else if self.match_token(&[TokenType::Identifier]) {
             Ok(Expr::Variable(self.previous().clone()))
         } else {

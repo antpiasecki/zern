@@ -95,6 +95,21 @@ func Math.pow[b: I64, e: I64] : I64
 func Math.lcm[a: I64, b: I64] : I64
     return (a * b) / Math.gcd(a, b)
 
+func Math.isqrt[n: I64] : I64
+    if n < 0
+        return -1
+    if n == 0 || n == 1
+        return n
+
+    let guess: I64 = n
+    let next_guess: I64 = (guess + n / guess) / 2
+
+    while next_guess < guess
+        guess = next_guess
+        next_guess = (guess + n / guess) / 2
+
+    return guess
+
 func Math.is_prime[n: I64]: I64
     if n <= 1
         return false
@@ -109,3 +124,6 @@ func Math.is_prime[n: I64]: I64
             return false
         i = i + 6
     return true
+
+func Array.new[] : Array
+    return calloc(1, 24)
