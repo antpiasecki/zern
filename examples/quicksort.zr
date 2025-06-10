@@ -1,11 +1,13 @@
 func quicksort[arr: Array] : I64
     do_quicksort(arr, 0, Array.size(arr)-1)
+    return 0
 
 func do_quicksort[arr: Array, low: I64, high: I64] : I64
     if low < high
         let i: I64 = partition(arr, low, high)
         do_quicksort(arr, low, i - 1)
         do_quicksort(arr, i + 1, high)
+    return 0
 
 func partition[arr: Array, low: I64, high: I64] : I64
     let pivot: I64 = Array.nth(arr, high)

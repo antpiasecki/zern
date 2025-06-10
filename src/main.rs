@@ -42,7 +42,6 @@ fn compile_file(path: String) -> Result<(), ZernError> {
     codegen.emit_prologue()?;
     compile_file_to(&mut codegen, "std.zr", include_str!("std.zr").into())?;
     compile_file_to(&mut codegen, filename, source)?;
-    codegen.emit_epilogue()?;
 
     // TODO
     if fs::write("out.s", codegen.get_output()).is_err() {

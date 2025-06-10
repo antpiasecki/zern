@@ -103,7 +103,6 @@ impl Parser {
             );
         }
 
-        // TODO: synchronization after parse error
         if self.match_token(&[TokenType::KeywordLet]) {
             self.let_declaration()
         } else {

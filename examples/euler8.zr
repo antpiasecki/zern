@@ -7,7 +7,7 @@ func main[] : I64
         let s: I64 = 1
         let j: I64 = 0
         while j < 13
-            s = s * Char.to_i64(String.nth(n, i + j))
+            s = s * Char.parse_i64(String.nth(n, i + j))
             j = j + 1
         if s > out
             out = s

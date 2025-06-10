@@ -15,14 +15,13 @@ func rule110_step[state: Array] : Array
     return new_state
 
 func to_str[state: Array]: String
-    // TODO: very leaky
-    let o: String = ""
+    let out: String = malloc(Array.size(state))
     for i in 0:Array.size(state)
         if Array.nth(state, i)
-            o = String.concat(o, "#")
+            String.set(out, i, String.nth("#", 0))
         else
-            o = String.concat(o, " ")
-    return o
+            String.set(out, i, String.nth(" ", 0))
+    return out
 
 func main[] : I64
     let SIZE: I64 = 60

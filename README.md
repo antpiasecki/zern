@@ -4,11 +4,11 @@ A very cool language
 
 ## Huh?
 * Indentation-based syntax
-* Compiled to x86_64 Assembly
+* Compiles to x86_64 Assembly
 * Sometimes works
 
 ## Syntax
-```swift
+```rust
 func fib[n: I64] : I64
     if n <= 1
         return n

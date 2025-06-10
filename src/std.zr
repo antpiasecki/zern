@@ -1,12 +1,18 @@
 func panic[msg: String] : I64
     printf("PANIC: %s\n", msg)
     exit(1)
+    return 0
 
 func print[x: String] : I64
     printf("%s\n", x)
+    return 0
 
 func print_i64[x: I64] : I64
     printf("%ld\n", x)
+    return 0
+
+func String.is_whitespace[c: Char] : Bool
+    return c == 10 || c == 32 || c == 13 || c == 9
 
 func String.concat[a: String, b: String] : String
     let c: String = malloc(strlen(a) + strlen(b) + 1)
@@ -18,6 +24,18 @@ func String.substr[s: String, start: I64, length: I64] : String
     let out: String = malloc(length + 1)
     strlcpy(out, s + start, length + 1)
     return out
+
+func String.trim[s: String] : String
+    let start: I64 = 0
+    let end: I64 = strlen(s) - 1
+
+    while start <= end && String.is_whitespace(String.nth(s, start))
+        start = start + 1
+
+    while end >= start && String.is_whitespace(String.nth(s, end))
+        end = end - 1
+
+    return String.substr(s, start, end - start + 1)
 
 func String.rev[s: String] : String
     let len: I64 = strlen(s)
@@ -52,8 +70,9 @@ func IO.write_file[path: String, content: String] : I64
 
     fwrite(content, 1, strlen(content), file)
     fclose(file)
+    return 0
 
-func Char.to_i64[c: Char]: I64
+func Char.parse_i64[c: Char]: I64
     return c - 48
 
 func I64.to_string[n: I64] : String
