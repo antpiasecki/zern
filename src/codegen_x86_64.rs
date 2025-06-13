@@ -59,7 +59,7 @@ macro_rules! emit {
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 // TODO: currently they are all just 8 byte values
-static TYPES: [&str; 6] = ["I64", "String", "Bool", "Ptr", "Char", "Array"];
+static TYPES: [&str; 6] = ["U8", "I64", "String", "Bool", "Ptr", "Array"];
 
 pub struct CodegenX86_64 {
     output: String,
@@ -127,14 +127,43 @@ extern closedir
 extern exit
 extern gettimeofday
 
+section .text.Bit.lshift
+Bit.lshift:
+    mov rcx, rsi
+    mov rax, rdi
+    shl rax, cl
+    ret
+
+section .text.Bit.rshift
+Bit.rshift:
+    mov rcx, rsi
+    mov rax, rdi
+    sar rax, cl
+    ret
+
+section .text.Bit.and
+Bit.and:
+    mov rax, rdi
+    and rax, rsi
+    ret
+
+section .text.Bit.or
+Bit.or:
+    mov rax, rdi
+    or rax, rsi
+    ret
+
+section .text.String.nth
 String.nth:
     movzx rax, byte [rdi + rsi]
     ret
 
+section .text.String.set
 String.set:
     mov [rdi + rsi], dl
     ret
 
+section .text.OS.time
 OS.time:
     push rbx
     sub rsp, 16
@@ -152,6 +181,7 @@ OS.time:
     pop rbx
     ret
 
+section .text.OS.listdir
 OS.listdir:
     push r14
     push rbx
@@ -193,16 +223,19 @@ OS.listdir:
     pop r14
     ret
 
+section .text.Array.nth
 Array.nth:
     mov rax, [rdi]
     mov rax, [rax + rsi*8]
     ret
 
+section .text.Array.set
 Array.set:
     mov rax, [rdi]
     mov [rax + rsi*8], rdx
     ret
 
+section .text.Array.push
 Array.push:
     push r14
     push rbx
@@ -231,10 +264,12 @@ Array.push:
     pop r14
     ret
 
+section .text.Array.size
 Array.size:
     mov rax, [rdi + 16]
     ret
 
+section .text.Array.free
 Array.free:
     push rbx
     mov rbx, rdi
@@ -315,6 +350,7 @@ Array.free:
                 if name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
                 }
+                emit!(&mut self.output, "section .text.{}", name.lexeme);
                 emit!(&mut self.output, "{}:", name.lexeme);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");

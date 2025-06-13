@@ -50,7 +50,7 @@ fn compile_file(path: String) -> Result<(), ZernError> {
     }
 
     if !Command::new("nasm")
-        .args(["-f", "elf64", "-w+all", "-o", "out.o", "out.s"])
+        .args(["-f", "elf64", "-o", "out.o", "out.s"])
         .status()
         .unwrap()
         .success()
@@ -60,7 +60,15 @@ fn compile_file(path: String) -> Result<(), ZernError> {
 
     // TODO: drop libc entirely
     if !Command::new("./musl-1.2.4/root/bin/musl-gcc")
-        .args(["-static", "-o", "out", "out.o"])
+        .args([
+            "-static",
+            "-o",
+            "out",
+            "out.o",
+            "-flto",
+            "-Os",
+            "-Wl,--gc-sections",
+        ])
         .status()
         .unwrap()
         .success()
