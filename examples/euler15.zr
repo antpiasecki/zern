@@ -3,7 +3,7 @@ func main[] : I64
     let r: I64 = 20
     let out: I64 = 1
 
-    for i in 1:r+1
+    for i in 1..r+1
         out = out * (n - (r - i)) / i
 
     print_i64(out)

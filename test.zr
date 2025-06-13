@@ -22,5 +22,5 @@ func main[] : I64
     system("cargo build --release")
 
     let files: Array = OS.listdir("examples/")
-    for i in 0:Array.size(files)
+    for i in 0..Array.size(files)
         run_test(Array.nth(files, i))

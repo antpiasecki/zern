@@ -3,7 +3,7 @@ func main[] : I64
 
     let out: I64 = 0
     let max: I64 = strlen(n) - 13
-    for i in 0:max
+    for i in 0..max
         let s: I64 = 1
         let j: I64 = 0
         while j < 13

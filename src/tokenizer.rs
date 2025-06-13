@@ -18,6 +18,7 @@ pub enum TokenType {
     And,
     Or,
     Pipe,
+    DoubleDot,
 
     Equal,
     DoubleEqual,
@@ -147,6 +148,13 @@ impl Tokenizer {
             '%' => self.add_token(TokenType::Mod),
             '^' => self.add_token(TokenType::Xor),
             ':' => self.add_token(TokenType::Colon),
+            '.' => {
+                if self.match_char('.') {
+                    self.add_token(TokenType::DoubleDot)
+                } else {
+                    return error!(self.loc, "expected '.' after '.'");
+                }
+            }
             '/' => {
                 if self.match_char('/') {
                     while !self.eof() && self.peek() != '\n' {
@@ -287,7 +295,10 @@ impl Tokenizer {
             self.advance();
         }
 
-        if self.peek() == '.' {
+        if self.peek() == '.'
+            && (self.current + 1 >= self.source.len())
+            && self.source[self.current + 1].is_ascii_digit()
+        {
             self.advance();
             while self.peek().is_ascii_digit() {
                 self.advance();

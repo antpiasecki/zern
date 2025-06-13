@@ -112,7 +112,6 @@ extern strcat
 extern strcpy
 extern strdup
 extern strlcpy
-extern puts
 extern fopen
 extern fseek
 extern ftell

@@ -21,7 +21,7 @@ func String.concat[a: String, b: String] : String
     return c
 
 func String.find[s: String, needle: U8] : I64
-    for i in 0:strlen(s)
+    for i in 0..strlen(s)
         if String.nth(s, i) == needle
             return i
     return -1
@@ -47,7 +47,7 @@ func String.rev[s: String] : String
     let len: I64 = strlen(s)
     let out: String = malloc(len + 1)
 
-    for i in 0:len
+    for i in 0..len
         String.set(out, i, String.nth(s, len - i - 1))
     String.set(out, len, 0)
     return out
@@ -81,7 +81,7 @@ func U8.parse_i64[c: U8]: I64
     return c - 48
 
 func I64.to_string[n: I64] : String
-    let x: I64 = malloc(21)
+    let x: String = malloc(21)
     sprintf(x, "%ld", n)
     return x
 
@@ -112,7 +112,7 @@ func Math.abs[n: I64] : I64
 
 func Math.pow[b: I64, e: I64] : I64
     let out: I64 = 1
-    for i in 0:e
+    for i in 0..e
         out = out * b
     return out
 
@@ -154,12 +154,12 @@ func Array.new[] : Array
 
 func Math.Crypto.rc4[key: String, plaintext: String]: String
     let S: String = malloc(256)
-    for i in 0:256
+    for i in 0..256
         String.set(S, i, i)
     
     let j: I64 = 0
     let key_len: I64 = strlen(key)
-    for i in 0:256
+    for i in 0..256
         j = (j + String.nth(S, i) + String.nth(key, i % key_len)) % 256
         let tmp: U8 = String.nth(S, i)
         String.set(S, i, String.nth(S, j))
@@ -169,7 +169,7 @@ func Math.Crypto.rc4[key: String, plaintext: String]: String
     j = 0
     let plaintext_len: I64 = strlen(plaintext)
     let ciphertext: String = malloc(plaintext_len+1)
-    for n in 0:plaintext_len
+    for n in 0..plaintext_len
         i = (i + 1) % 256
         j = (j + String.nth(S, i)) % 256
 

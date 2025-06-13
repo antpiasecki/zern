@@ -12,7 +12,7 @@ func do_quicksort[arr: Array, low: I64, high: I64] : I64
 func partition[arr: Array, low: I64, high: I64] : I64
     let pivot: I64 = Array.nth(arr, high)
     let i: I64 = low - 1
-    for j in low:high
+    for j in (low)..high
         if Array.nth(arr, j) <= pivot
             i = i + 1
             let temp: I64 = Array.nth(arr, i)
@@ -26,11 +26,11 @@ func partition[arr: Array, low: I64, high: I64] : I64
 func main[] : I64
     let arr: Array = [340, 252, 352, 117, 650, 652, 322, 175, 714, 268, 725, 664]
 
-    for i in 0:Array.size(arr)
+    for i in 0..Array.size(arr)
         print_i64(Array.nth(arr, i))
     print("------------")
 
     quicksort(arr)
 
-    for i in 0:Array.size(arr)
+    for i in 0..Array.size(arr)
         print_i64(Array.nth(arr, i))

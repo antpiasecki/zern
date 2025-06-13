@@ -4,7 +4,7 @@ func main[] : I64
     Array.push(xs, 6533)
     Array.push(xs, 4574)
 
-    for i in 0:Array.size(xs)
+    for i in 0..Array.size(xs)
         xs
         |> Array.nth(i)
         |> print_i64()

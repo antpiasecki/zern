@@ -1,8 +1,8 @@
 func main[] : I64
     let out: I64 = 0
 
-    for a in 500:1000
-        for b in 500:1000
+    for a in 500..1000
+        for b in 500..1000
             if a * b > out
                 let s: String = I64.to_string(a * b)
                 let s_rev: String = String.rev(s)

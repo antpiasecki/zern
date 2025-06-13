@@ -1,7 +1,7 @@
 func rule110_step[state: Array] : Array
     let new_state: Array = []
 
-    for i in 0:Array.size(state)
+    for i in 0..Array.size(state)
         let left: Bool = false
         if i - 1 >= 0
             left = Array.nth(state, i-1)
@@ -16,7 +16,7 @@ func rule110_step[state: Array] : Array
 
 func to_str[state: Array]: String
     let out: String = malloc(Array.size(state))
-    for i in 0:Array.size(state)
+    for i in 0..Array.size(state)
         if Array.nth(state, i)
             String.set(out, i, String.nth("#", 0))
         else
@@ -27,11 +27,11 @@ func main[] : I64
     let SIZE: I64 = 60
 
     let state: Array = []
-    for i in 0:SIZE
+    for i in 0..SIZE
         Array.push(state, false)
     Array.push(state, true)
 
     print(to_str(state))
-    for i in 0:SIZE
+    for i in 0..SIZE
         state = rule110_step(state)
         print(to_str(state))

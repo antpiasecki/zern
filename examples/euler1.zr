@@ -1,7 +1,7 @@
 func main[] : I64
     let sum: I64 = 0
 
-    for i in 0:1000
+    for i in 0..1000
         if i % 5 == 0 || i % 3 == 0
             sum = sum + i
     print_i64(sum)

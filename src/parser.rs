@@ -219,7 +219,7 @@ impl Parser {
         let var = self.consume(TokenType::Identifier, "expected variable name after 'for'")?;
         self.consume(TokenType::KeywordIn, "expected 'in' after variable name")?;
         let start = self.expression()?;
-        self.consume(TokenType::Colon, "expected ':' after the number")?;
+        self.consume(TokenType::DoubleDot, "expected '..' after the number")?;
         let end = self.expression()?;
 
         let body = self.block()?;
