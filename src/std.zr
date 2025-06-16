@@ -52,6 +52,11 @@ func String.rev[s: String] : String
     String.set(out, len, 0)
     return out
 
+func IO.read_line[]: String
+    let buffer: String = malloc(1024)
+    fgets(buffer, 1024, IO.stdin())
+    return buffer
+
 func IO.read_file[path: String]: String
     let file: Ptr = fopen(path, "rb")
     if !file
@@ -149,10 +154,64 @@ func Math.is_prime[n: I64]: I64
         i = i + 6
     return true
 
+func Math.urandom[]: I64
+    let buffer: Ptr = malloc(8)
+    let file: Ptr = fopen("/dev/urandom", "r")
+    fread(buffer, 8, 1, file)
+    fclose(file)
+    let n: I64 = deref(buffer)
+    free(buffer)
+    return n
+
 func Array.new[] : Array
     return calloc(1, 24)
 
-func Math.Crypto.rc4[key: String, plaintext: String]: String
+func Crypto.hex_encode[s: String] : String
+    let hex_chars: String = "0123456789abcdef"
+    let s_len: I64 = strlen(s)
+    let j: I64 = 0
+    let out: String = malloc(s_len*2+1)
+
+    for i in 0..s_len
+        let high: U8 = Bit.and(Bit.rshift(String.nth(s, i), 4), 15)
+        let low: U8 = Bit.and(String.nth(s, i), 15)
+        String.set(out, j, String.nth(hex_chars, high))
+        String.set(out, j+1, String.nth(hex_chars, low))
+        j = j + 2
+
+    String.set(out, j, 0)
+    return out
+
+func Crypto.from_hex_digit[d: U8] : I64
+    if d == 97
+        return 10
+    if d == 98
+        return 11
+    if d == 99
+        return 12
+    if d == 100
+        return 13
+    if d == 101
+        return 14
+    if d == 102
+        return 15
+    return U8.parse_i64(d)
+
+func Crypto.hex_decode[s: String] : String
+    let s_len: I64 = strlen(s)
+    let i: I64 = 0
+    let j: I64 = 0
+    let out: String = malloc(s_len/2+1)
+
+    while i < s_len
+        String.set(out, j, Crypto.from_hex_digit(String.nth(s, i)) * 16 + Crypto.from_hex_digit(String.nth(s, i+1)))
+        i = i + 2
+        j = j + 1
+
+    String.set(out, j, 0)
+    return out
+
+func Crypto.rc4[key: String, plaintext: String]: String
     let S: String = malloc(256)
     for i in 0..256
         String.set(S, i, i)
@@ -184,7 +243,7 @@ func Math.Crypto.rc4[key: String, plaintext: String]: String
     free(S)
     return ciphertext
 
-func Math.Crypto.base64_encode[s: String] : String
+func Crypto.base64_encode[s: String] : String
     let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
     let s_len: I64 = strlen(s)
     let output: String = malloc(s_len*2)
@@ -218,3 +277,40 @@ func Math.Crypto.base64_encode[s: String] : String
 
     String.set(output, j, 0)
     return output
+
+func Crypto.base64_decode[s: String] : String
+    let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    let s_len: I64 = strlen(s)
+    let out: String = malloc(s_len)
+    let i: I64 = 0
+    let j: I64 = 0
+
+    while String.nth(s, s_len-1) == 61
+        s_len = s_len - 1
+
+    while i < s_len
+        let s1: U8 = String.find(chars, String.nth(s, i))
+        let s2: U8 = 0
+        if i + 1 < s_len
+            s2 = String.find(chars, String.nth(s, i+1))
+        let s3: U8 = 0
+        if i + 2 < s_len
+            s3 = String.find(chars, String.nth(s, i+2))
+        let s4: U8 = 0
+        if i + 3 < s_len
+            s4 = String.find(chars, String.nth(s, i+3))
+        i = i + 4
+
+        let triple: U8 = Bit.or(Bit.or(Bit.or(Bit.lshift(s1, 18), Bit.lshift(s2, 12)), Bit.lshift(s3, 6)), s4)
+
+        String.set(out, j, Bit.and(Bit.rshift(triple, 16), 255))
+        j = j + 1
+        if s3 != 64
+            String.set(out, j, Bit.and(Bit.rshift(triple, 8), 255))
+            j = j + 1
+        if s4 != 64
+            String.set(out, j, Bit.and(triple, 255))
+            j = j + 1
+
+    String.set(out, j, 0)
+    return out

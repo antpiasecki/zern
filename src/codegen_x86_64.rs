@@ -74,7 +74,7 @@ impl CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
-            data_counter: 0,
+            data_counter: 1,
         }
     }
 
@@ -86,7 +86,7 @@ impl CodegenX86_64 {
     pub fn get_output(&self) -> String {
         format!(
             "section .data
-    SASSERT db \"assertion failed on line %d\",10,0
+    S0 db \"assertion failed on line %d\",10,0
 {}{}",
             self.data_section, self.output
         )
@@ -99,6 +99,7 @@ impl CodegenX86_64 {
     db 0
 
 section .text
+extern stdin
 extern malloc
 extern calloc
 extern realloc
@@ -112,6 +113,7 @@ extern strcat
 extern strcpy
 extern strdup
 extern strlcpy
+extern fgets
 extern fopen
 extern fseek
 extern ftell
@@ -125,6 +127,16 @@ extern readdir
 extern closedir
 extern exit
 extern gettimeofday
+
+section .text.deref
+deref:
+    mov rax, qword [rdi]
+    ret
+
+section .text.IO.stdin
+IO.stdin:
+    mov rax, [rel stdin]
+    ret
 
 section .text.Bit.lshift
 Bit.lshift:
@@ -386,7 +398,7 @@ Array.free:
                 let skip_label = self.label();
                 emit!(&mut self.output, "    test rax, rax");
                 emit!(&mut self.output, "    jne {}", skip_label);
-                emit!(&mut self.output, "    mov rdi, SASSERT");
+                emit!(&mut self.output, "    mov rdi, S0");
                 emit!(&mut self.output, "    mov rsi, {}", keyword.loc.line);
                 emit!(&mut self.output, "    call printf");
                 emit!(&mut self.output, "    mov rdi, 1");
@@ -605,6 +617,7 @@ Array.free:
                 emit!(&mut self.output, "    call Array.new");
                 emit!(&mut self.output, "    mov r12, rax");
 
+                // TODO: nested array literals probably dont work
                 for expr in exprs {
                     self.compile_expr(env, expr)?;
                     emit!(&mut self.output, "    mov rsi, rax");

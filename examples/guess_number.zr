@@ -1,0 +1,14 @@
+func main[] : I64
+    let answer: I64 = Math.abs(Math.urandom()) % 100
+
+    while true
+        print("Guess a number: ")
+        let guess: I64 = IO.read_line() |> String.trim() |> I64.parse()
+
+        if guess == answer
+            print("You win!")
+            return 0
+        else if guess < answer
+            print("Too low!")
+        else
+            print("Too high!")
