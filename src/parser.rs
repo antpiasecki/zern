@@ -427,6 +427,7 @@ impl Parser {
     fn primary(&mut self) -> Result<Expr, ZernError> {
         if self.match_token(&[
             TokenType::Number,
+            TokenType::Char,
             TokenType::String,
             TokenType::True,
             TokenType::False,

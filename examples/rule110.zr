@@ -18,9 +18,9 @@ func to_str[state: Array]: String
     let out: String = malloc(Array.size(state))
     for i in 0..Array.size(state)
         if Array.nth(state, i)
-            String.set(out, i, String.nth("#", 0))
+            String.set(out, i, '#')
         else
-            String.set(out, i, String.nth(" ", 0))
+            String.set(out, i, ' ')
     return out
 
 func main[] : I64

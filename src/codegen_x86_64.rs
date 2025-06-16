@@ -511,6 +511,13 @@ Array.free:
                 TokenType::Number => {
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
                 }
+                TokenType::Char => {
+                    emit!(
+                        &mut self.output,
+                        "    mov rax, {}",
+                        token.lexeme.chars().nth(1).unwrap() as u8
+                    );
+                }
                 TokenType::String => {
                     // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1]

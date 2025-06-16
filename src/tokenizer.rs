@@ -30,6 +30,7 @@ pub enum TokenType {
 
     Identifier,
     String,
+    Char,
     Number,
     True,
     False,
@@ -207,6 +208,14 @@ impl Tokenizer {
                 } else {
                     self.add_token(TokenType::Less)
                 }
+            }
+            // TODO: escape sequences
+            '\'' => {
+                self.advance();
+                if !self.match_char('\'') {
+                    return error!(self.loc, "expected ' after char literal");
+                }
+                self.add_token(TokenType::Char);
             }
             '"' => {
                 while !self.eof() && self.peek() != '"' {
