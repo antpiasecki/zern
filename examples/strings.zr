@@ -1,7 +1,0 @@
-func main[] : I64
-    let a: String = I64.to_string(58394)
-    print_i64(strlen(a))
-    let b: String = String.concat(a, "test")
-    print_i64(strlen(b))
-    free(a)
-    free(b)

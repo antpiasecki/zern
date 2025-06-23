@@ -112,7 +112,7 @@ extern strcmp
 extern strcat
 extern strcpy
 extern strdup
-extern strlcpy
+extern strncpy
 extern fgets
 extern fopen
 extern fseek
@@ -360,6 +360,9 @@ Array.free:
                 // TODO
                 if name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
+                    if return_type.lexeme != "I64" {
+                        return error!(&name.loc, "main must return I64");
+                    }
                 }
                 emit!(&mut self.output, "section .text.{}", name.lexeme);
                 emit!(&mut self.output, "{}:", name.lexeme);

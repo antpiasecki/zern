@@ -1,15 +1,12 @@
 func panic[msg: String] : I64
     printf("PANIC: %s\n", msg)
     exit(1)
-    return 0
 
 func print[x: String] : I64
     printf("%s\n", x)
-    return 0
 
 func print_i64[x: I64] : I64
     printf("%ld\n", x)
-    return 0
 
 func String.is_whitespace[c: U8] : Bool
     return c == ' ' || c == 10 || c == 13 || c == 9
@@ -21,14 +18,19 @@ func String.concat[a: String, b: String] : String
     return c
 
 func String.find[s: String, needle: U8] : I64
-    for i in 0..strlen(s)
+    let s_len: I64 = strlen(s)
+    for i in 0..s_len
         if String.nth(s, i) == needle
             return i
     return -1
 
 func String.substr[s: String, start: I64, length: I64] : String
+    if start < 0 || length < 0 || start + length > strlen(s)
+        panic("String.substr out of bounds")
+
     let out: String = malloc(length + 1)
-    strlcpy(out, s + start, length + 1)
+    strncpy(out, s + start, length)
+    String.set(out, length, 0)
     return out
 
 func String.trim[s: String] : String
@@ -80,7 +82,6 @@ func IO.write_file[path: String, content: String] : I64
 
     fwrite(content, 1, strlen(content), file)
     fclose(file)
-    return 0
 
 func U8.parse_i64[c: U8]: I64
     return c - '0'
@@ -139,7 +140,7 @@ func Math.isqrt[n: I64] : I64
 
     return guess
 
-func Math.is_prime[n: I64]: I64
+func Math.is_prime[n: I64]: Bool
     if n <= 1
         return false
     if n == 2 || n == 3
@@ -156,7 +157,7 @@ func Math.is_prime[n: I64]: I64
 
 func Math.urandom[]: I64
     let buffer: Ptr = malloc(8)
-    let file: Ptr = fopen("/dev/urandom", "r")
+    let file: Ptr = fopen("/dev/urandom", "rb")
     fread(buffer, 8, 1, file)
     fclose(file)
     let n: I64 = deref(buffer)
@@ -183,18 +184,10 @@ func Crypto.hex_encode[s: String] : String
     return out
 
 func Crypto.from_hex_digit[d: U8] : I64
-    if d == 'a'
-        return 10
-    if d == 'b'
-        return 11
-    if d == 'c'
-        return 12
-    if d == 'd'
-        return 13
-    if d == 'e'
-        return 14
-    if d == 'f'
-        return 15
+    if d >= 'a' && d <= 'f'
+        return d - 'a' + 10
+    if d >= 'A' && d <= 'F'
+        return d - 'A' + 10
     return U8.parse_i64(d)
 
 func Crypto.hex_decode[s: String] : String
@@ -246,7 +239,7 @@ func Crypto.rc4[key: String, plaintext: String]: String
 func Crypto.base64_encode[s: String] : String
     let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
     let s_len: I64 = strlen(s)
-    let output: String = malloc(s_len*2)
+    let out: String = malloc(s_len*2)
     let i: I64 = 0
     let j: I64 = 0
 
@@ -261,21 +254,21 @@ func Crypto.base64_encode[s: String] : String
         i = i + 3
 
         let triple: I64 = Bit.or(Bit.or(Bit.lshift(b1, 16), Bit.lshift(b2, 8)), b3)
-        String.set(output, j,   String.nth(chars, Bit.and(Bit.rshift(triple, 18), 63)))
-        String.set(output, j+1, String.nth(chars, Bit.and(Bit.rshift(triple, 12), 63)))
-        String.set(output, j+2, String.nth(chars, Bit.and(Bit.rshift(triple, 6), 63)))
-        String.set(output, j+3, String.nth(chars, Bit.and(triple, 63)))
+        String.set(out, j,   String.nth(chars, Bit.and(Bit.rshift(triple, 18), 63)))
+        String.set(out, j+1, String.nth(chars, Bit.and(Bit.rshift(triple, 12), 63)))
+        String.set(out, j+2, String.nth(chars, Bit.and(Bit.rshift(triple, 6), 63)))
+        String.set(out, j+3, String.nth(chars, Bit.and(triple, 63)))
         j = j + 4
 
     let padding: I64 = s_len % 3
     if padding == 1
-        String.set(output, j-2, '=')
-        String.set(output, j-1, '=')
+        String.set(out, j-2, '=')
+        String.set(out, j-1, '=')
     else if padding == 2
-        String.set(output, j-1, '=')
+        String.set(out, j-1, '=')
 
-    String.set(output, j, 0)
-    return output
+    String.set(out, j, 0)
+    return out
 
 func Crypto.base64_decode[s: String] : String
     let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
