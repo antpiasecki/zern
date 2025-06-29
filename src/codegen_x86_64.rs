@@ -282,6 +282,13 @@ Array.free:
                 var_type,
                 initializer,
             } => {
+                if env.get_var(&name.lexeme).is_some() {
+                    return error!(
+                        name.loc,
+                        format!("variable already defined: {}", &name.lexeme)
+                    );
+                }
+
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
@@ -387,6 +394,7 @@ Array.free:
                 let begin_label = self.label();
                 let end_label = self.label();
 
+                env.push_scope();
                 let offset = env.define_var(var.lexeme, "I64".into());
 
                 self.compile_expr(env, start)?;
@@ -404,6 +412,7 @@ Array.free:
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
                 emit!(&mut self.output, "    jmp {}", begin_label);
                 emit!(&mut self.output, "{}:", end_label);
+                env.pop_scope();
             }
         }
         Ok(())
