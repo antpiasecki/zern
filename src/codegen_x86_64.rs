@@ -58,8 +58,6 @@ macro_rules! emit {
 }
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-// TODO: currently they are all just 8 byte values
-static TYPES: [&str; 6] = ["U8", "I64", "String", "Bool", "Ptr", "Array"];
 
 pub struct CodegenX86_64 {
     output: String,
@@ -234,12 +232,6 @@ OS.listdir:
     pop r14
     ret
 
-section .text.Array.nth
-Array.nth:
-    mov rax, [rdi]
-    mov rax, [rax + rsi*8]
-    ret
-
 section .text.Array.set
 Array.set:
     mov rax, [rdi]
@@ -302,11 +294,6 @@ Array.free:
                 var_type,
                 initializer,
             } => {
-                // TODO: types
-                if !TYPES.contains(&var_type.lexeme.as_str()) {
-                    return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
-                }
-
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
@@ -353,10 +340,6 @@ Array.free:
                 return_type,
                 body,
             } => {
-                if !TYPES.contains(&return_type.lexeme.as_str()) {
-                    return error!(&name.loc, format!("unknown type: {}", return_type.lexeme));
-                }
-
                 // TODO
                 if name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
@@ -377,7 +360,7 @@ Array.free:
                         Some(x) => x,
                         None => return error!(&name.loc, "only up to 6 params allowed"),
                     };
-                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg,);
+                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
                 }
 
                 self.compile_stmt(env, *body)?;
@@ -625,16 +608,24 @@ Array.free:
             }
             Expr::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    call Array.new");
-                emit!(&mut self.output, "    mov r12, rax");
+                emit!(&mut self.output, "    push rax");
 
-                // TODO: nested array literals probably dont work
                 for expr in exprs {
                     self.compile_expr(env, expr)?;
                     emit!(&mut self.output, "    mov rsi, rax");
-                    emit!(&mut self.output, "    mov rdi, r12");
+                    emit!(&mut self.output, "    pop rdi");
+                    emit!(&mut self.output, "    push rdi");
                     emit!(&mut self.output, "    call Array.push");
                 }
-                emit!(&mut self.output, "    mov rax, r12");
+                emit!(&mut self.output, "    pop rax");
+            }
+            Expr::Index { expr, index } => {
+                self.compile_expr(env, *expr)?;
+                emit!(&mut self.output, "    push rax");
+                self.compile_expr(env, *index)?;
+                emit!(&mut self.output, "    pop rbx");
+                emit!(&mut self.output, "    mov rbx, [rbx]");
+                emit!(&mut self.output, "    mov rax, [rbx + rax*8]");
             }
         }
         Ok(())

@@ -67,7 +67,14 @@ pub enum Expr {
         args: Vec<Expr>,
     },
     ArrayLiteral(Vec<Expr>),
+    Index {
+        expr: Box<Expr>,
+        index: Box<Expr>,
+    },
 }
+
+// TODO: currently they are all just 8 byte values
+static TYPES: [&str; 6] = ["U8", "I64", "String", "Bool", "Ptr", "Array"];
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -120,7 +127,12 @@ impl Parser {
             loop {
                 let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
                 self.consume(TokenType::Colon, "expected ':' after parameter name")?;
+
                 let var_type = self.consume(TokenType::Identifier, "expected parameter type")?;
+                if !TYPES.contains(&var_type.lexeme.as_str()) {
+                    return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
+                }
+
                 params.push(Param { var_type, var_name });
                 if !self.match_token(&[TokenType::Comma]) {
                     break;
@@ -131,6 +143,9 @@ impl Parser {
         self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
         self.consume(TokenType::Colon, "expected ':' after '['")?;
         let return_type = self.consume(TokenType::Identifier, "expected return type")?;
+        if !TYPES.contains(&return_type.lexeme.as_str()) {
+            return error!(&name.loc, format!("unknown type: {}", return_type.lexeme));
+        }
 
         self.is_inside_function = true;
         let body = Box::new(self.block()?);
@@ -147,7 +162,12 @@ impl Parser {
     fn let_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected variable name")?;
         self.consume(TokenType::Colon, "expected ':' after variable name")?;
+
         let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
+        if !TYPES.contains(&var_type.lexeme.as_str()) {
+            return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
+        }
+
         self.consume(TokenType::Equal, "expected '=' after variable type")?;
         let initializer = self.expression()?;
         Ok(Stmt::Let {
@@ -401,24 +421,35 @@ impl Parser {
     fn call(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.primary()?;
 
-        while self.match_token(&[TokenType::LeftParen]) {
-            let mut args = vec![];
-            if !self.check(&TokenType::RightParen) {
-                loop {
-                    args.push(self.expression()?);
-                    if !self.match_token(&[TokenType::Comma]) {
-                        break;
+        loop {
+            if self.match_token(&[TokenType::LeftParen]) {
+                let mut args = vec![];
+                if !self.check(&TokenType::RightParen) {
+                    loop {
+                        args.push(self.expression()?);
+                        if !self.match_token(&[TokenType::Comma]) {
+                            break;
+                        }
                     }
                 }
+
+                let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
+
+                expr = Expr::Call {
+                    callee: Box::new(expr),
+                    paren,
+                    args,
+                };
+            } else if self.match_token(&[TokenType::LeftBracket]) {
+                let index = self.expression()?;
+                self.consume(TokenType::RightBracket, "expected ']' after index")?;
+                expr = Expr::Index {
+                    expr: Box::new(expr),
+                    index: Box::new(index),
+                }
+            } else {
+                break;
             }
-
-            let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
-
-            expr = Expr::Call {
-                callee: Box::new(expr),
-                paren,
-                args,
-            };
         }
 
         Ok(expr)

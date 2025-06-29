@@ -1,14 +1,15 @@
 func rule110_step[state: Array] : Array
     let new_state: Array = []
+    let state_len: I64 = Array.size(state)
 
-    for i in 0..Array.size(state)
+    for i in 0..state_len
         let left: Bool = false
         if i - 1 >= 0
-            left = Array.nth(state, i-1)
-        let center: Bool = Array.nth(state, i)
+            left = state[i-1]
+        let center: Bool = state[i]
         let right: Bool = false
-        if i + 1 < Array.size(state)
-            right = Array.nth(state, i+1)
+        if i + 1 < state_len
+            right = state[i+1]
 
         Array.push(new_state, !((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
 
@@ -17,7 +18,7 @@ func rule110_step[state: Array] : Array
 func to_str[state: Array]: String
     let out: String = malloc(Array.size(state))
     for i in 0..Array.size(state)
-        if Array.nth(state, i)
+        if state[i]
             String.set(out, i, '#')
         else
             String.set(out, i, ' ')

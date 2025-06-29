@@ -26,4 +26,4 @@ func main[] : I64
 
     let files: Array = OS.listdir("examples/")
     for i in 0..Array.size(files)
-        run_test(Array.nth(files, i))
+        run_test(files[i])
