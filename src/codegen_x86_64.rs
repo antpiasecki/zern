@@ -125,37 +125,37 @@ extern closedir
 extern exit
 extern gettimeofday
 
-section .text.deref
-deref:
+section .text._builtin_deref
+_builtin_deref:
     mov rax, qword [rdi]
     ret
 
-section .text.IO.stdin
-IO.stdin:
+section .text._builtin_stdin
+_builtin_stdin:
     mov rax, [rel stdin]
     ret
 
-section .text.Bit.lshift
-Bit.lshift:
+section .text._builtin_lshift
+_builtin_lshift:
     mov rcx, rsi
     mov rax, rdi
     shl rax, cl
     ret
 
-section .text.Bit.rshift
-Bit.rshift:
+section .text._builtin_rshift
+_builtin_rshift:
     mov rcx, rsi
     mov rax, rdi
     sar rax, cl
     ret
 
-section .text.String.set
-String.set:
+section .text._builtin_string_set
+_builtin_string_set:
     mov [rdi + rsi], dl
     ret
 
-section .text.OS.listdir
-OS.listdir:
+section .text._builtin_listdir
+_builtin_listdir:
     push r14
     push rbx
     push rax
@@ -165,29 +165,29 @@ OS.listdir:
     mov rdi, r14
     call opendir
     mov r14, rax
-.OS.listdir.1:
+._builtin_listdir.1:
     mov rdi, r14
     call readdir
     test rax, rax
-    je .OS.listdir.3
+    je ._builtin_listdir.3
     cmp byte [rax+19], 46
-    jne .OS.listdir.2
+    jne ._builtin_listdir.2
     movzx ecx, byte [rax+20]
     test ecx, ecx
-    je .OS.listdir.1
+    je ._builtin_listdir.1
     cmp ecx, 46
-    jne .OS.listdir.2
+    jne ._builtin_listdir.2
     cmp byte [rax+21], 0
-    je .OS.listdir.1
-.OS.listdir.2:
+    je ._builtin_listdir.1
+._builtin_listdir.2:
     add rax, 19
     mov rdi, rax
     call strdup
     mov rsi, rax
     mov rdi, rbx
     call Array.push
-    jmp .OS.listdir.1
-.OS.listdir.3:
+    jmp ._builtin_listdir.1
+._builtin_listdir.3:
     mov rdi, r14
     call closedir
     mov rax, rbx
@@ -196,14 +196,14 @@ OS.listdir:
     pop r14
     ret
 
-section .text.Array.set
-Array.set:
+section .text._builtin_array_set
+_builtin_array_set:
     mov rax, [rdi]
     mov [rax + rsi*8], rdx
     ret
 
-section .text.Array.push
-Array.push:
+section .text._builtin_array_push
+_builtin_array_push:
     push r14
     push rbx
     push rax
@@ -212,7 +212,7 @@ Array.push:
     mov rax, [rdi]
     mov rcx, [rdi + 16]
     cmp rcx, [rdi + 8]
-    jne .Array.push.1
+    jne ._builtin_array_push.1
     lea rdx, [rcx + rcx]
     mov rsi, 4
     test rcx, rcx
@@ -223,7 +223,7 @@ Array.push:
     call realloc
     mov [rbx], rax
     mov rcx, [rbx + 16]
-.Array.push.1:
+._builtin_array_push.1:
     mov [rax + rcx*8], r14
     inc qword [rbx + 16]
     add rsp, 8
@@ -231,13 +231,13 @@ Array.push:
     pop r14
     ret
 
-section .text.Array.size
-Array.size:
+section .text._builtin_array_size
+_builtin_array_size:
     mov rax, [rdi + 16]
     ret
 
-section .text.Array.free
-Array.free:
+section .text._builtin_array_free
+_builtin_array_free:
     push rbx
     mov rbx, rdi
     mov rdi, [rdi]

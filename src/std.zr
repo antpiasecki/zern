@@ -9,7 +9,10 @@ func print_i64[x: I64] : I64
     printf("%ld\n", x)
 
 func String.nth[s: String, n: I64] : U8
-    return deref(s + n)
+    return _builtin_deref(s + n)
+
+func String.set[s: String, n: I64] : I64
+    _builtin_string_set(s, n)
 
 func String.is_whitespace[c: U8] : Bool
     return c == ' ' || c == 10 || c == 13 || c == 9
@@ -20,10 +23,10 @@ func String.concat[a: String, b: String] : String
     strcat(c, b)
     return c
 
-func String.find[s: String, needle: U8] : I64
+func String.find[s: String, c: U8] : I64
     let s_len: I64 = strlen(s)
     for i in 0..s_len
-        if String.nth(s, i) == needle
+        if String.nth(s, i) == c
             return i
     return -1
 
@@ -56,6 +59,9 @@ func String.rev[s: String] : String
         String.set(out, i, String.nth(s, len - i - 1))
     String.set(out, len, 0)
     return out
+
+func IO.stdin[]: Ptr
+    return _builtin_stdin()
 
 func IO.read_line[]: String
     let buffer: String = malloc(1024)
@@ -163,20 +169,38 @@ func Math.urandom[]: I64
     let file: Ptr = fopen("/dev/urandom", "rb")
     fread(buffer, 8, 1, file)
     fclose(file)
-    let n: I64 = deref(buffer)
+    let n: I64 = _builtin_deref(buffer)
     free(buffer)
     return n
 
 func Array.new[] : Array
     return calloc(1, 24)
 
+func Array.set[xs: Array, n: I64, x: I64] : I64
+    _builtin_array_set(xs, n, x)
+
+func Array.push[xs: Array, x: I64] : I64
+    return _builtin_array_push(xs, x)
+
+func Array.size[xs: Array] : I64
+    return _builtin_array_size(xs)
+
 func OS.time[] : I64
     let tv: Ptr = malloc(16)
     gettimeofday(tv, 0)
-    let seconds: I64 = deref(tv)
-    let microseconds: I64 = deref(tv+8)
+    let seconds: I64 = _builtin_deref(tv)
+    let microseconds: I64 = _builtin_deref(tv+8)
     free(tv)
     return seconds * 1000 + microseconds / 1000
+
+func OS.listdir[path: String] : Array
+    return _builtin_listdir(path)
+
+func Bit.lshift[a: I64, b: I64] : I64
+    return _builtin_lshift(a, b)
+
+func Bit.rshift[a: I64, b: I64] : I64
+    return _builtin_rshift(a, b)
 
 func Crypto.hex_encode[s: String] : String
     let hex_chars: String = "0123456789abcdef"
@@ -227,7 +251,7 @@ func Crypto.rc4[key: String, plaintext: String]: String
         let tmp: U8 = String.nth(S, i)
         String.set(S, i, String.nth(S, j))
         String.set(S, j, tmp)
-        
+
     let i: I64 = 0
     j = 0
     let plaintext_len: I64 = strlen(plaintext)
