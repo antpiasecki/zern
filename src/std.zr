@@ -174,8 +174,8 @@ func Crypto.hex_encode[s: String] : String
     let out: String = malloc(s_len*2+1)
 
     for i in 0..s_len
-        let high: U8 = Bit.and(Bit.rshift(String.nth(s, i), 4), 15)
-        let low: U8 = Bit.and(String.nth(s, i), 15)
+        let high: U8 = Bit.rshift(String.nth(s, i), 4) && 15
+        let low: U8 = String.nth(s, i) && 15
         String.set(out, j, String.nth(hex_chars, high))
         String.set(out, j+1, String.nth(hex_chars, low))
         j = j + 2
@@ -253,11 +253,11 @@ func Crypto.base64_encode[s: String] : String
             b3 = String.nth(s, i+2)
         i = i + 3
 
-        let triple: I64 = Bit.or(Bit.or(Bit.lshift(b1, 16), Bit.lshift(b2, 8)), b3)
-        String.set(out, j,   String.nth(chars, Bit.and(Bit.rshift(triple, 18), 63)))
-        String.set(out, j+1, String.nth(chars, Bit.and(Bit.rshift(triple, 12), 63)))
-        String.set(out, j+2, String.nth(chars, Bit.and(Bit.rshift(triple, 6), 63)))
-        String.set(out, j+3, String.nth(chars, Bit.and(triple, 63)))
+        let triple: I64 = Bit.lshift(b1, 16) || Bit.lshift(b2, 8) || b3
+        String.set(out, j,   String.nth(chars, Bit.rshift(triple, 18) && 63))
+        String.set(out, j+1, String.nth(chars, Bit.rshift(triple, 12) && 63))
+        String.set(out, j+2, String.nth(chars, Bit.rshift(triple, 6) && 63))
+        String.set(out, j+3, String.nth(chars, triple && 63))
         j = j + 4
 
     let padding: I64 = s_len % 3
@@ -293,15 +293,15 @@ func Crypto.base64_decode[s: String] : String
             s4 = String.find(chars, String.nth(s, i+3))
         i = i + 4
 
-        let triple: U8 = Bit.or(Bit.or(Bit.or(Bit.lshift(s1, 18), Bit.lshift(s2, 12)), Bit.lshift(s3, 6)), s4)
+        let triple: U8 = Bit.lshift(s1, 18) || Bit.lshift(s2, 12) || Bit.lshift(s3, 6) || s4
 
-        String.set(out, j, Bit.and(Bit.rshift(triple, 16), 255))
+        String.set(out, j, Bit.rshift(triple, 16) && 255)
         j = j + 1
         if s3 != 64
-            String.set(out, j, Bit.and(Bit.rshift(triple, 8), 255))
+            String.set(out, j, Bit.rshift(triple, 8) && 255)
             j = j + 1
         if s4 != 64
-            String.set(out, j, Bit.and(triple, 255))
+            String.set(out, j, triple && 255)
             j = j + 1
 
     String.set(out, j, 0)

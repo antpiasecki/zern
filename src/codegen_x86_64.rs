@@ -150,18 +150,6 @@ Bit.rshift:
     sar rax, cl
     ret
 
-section .text.Bit.and
-Bit.and:
-    mov rax, rdi
-    and rax, rsi
-    ret
-
-section .text.Bit.or
-Bit.or:
-    mov rax, rdi
-    or rax, rsi
-    ret
-
 section .text.String.nth
 String.nth:
     movzx rax, byte [rdi + rsi]
@@ -340,7 +328,6 @@ Array.free:
                 return_type,
                 body,
             } => {
-                // TODO
                 if name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
                     if return_type.lexeme != "I64" {
