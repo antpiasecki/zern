@@ -8,6 +8,9 @@ func print[x: String] : I64
 func print_i64[x: I64] : I64
     printf("%ld\n", x)
 
+func String.nth[s: String, n: I64] : U8
+    return deref(s + n)
+
 func String.is_whitespace[c: U8] : Bool
     return c == ' ' || c == 10 || c == 13 || c == 9
 
@@ -167,6 +170,14 @@ func Math.urandom[]: I64
 func Array.new[] : Array
     return calloc(1, 24)
 
+func OS.time[] : I64
+    let tv: Ptr = malloc(16)
+    gettimeofday(tv, 0)
+    let seconds: I64 = deref(tv)
+    let microseconds: I64 = deref(tv+8)
+    free(tv)
+    return seconds * 1000 + microseconds / 1000
+
 func Crypto.hex_encode[s: String] : String
     let hex_chars: String = "0123456789abcdef"
     let s_len: I64 = strlen(s)
@@ -293,7 +304,7 @@ func Crypto.base64_decode[s: String] : String
             s4 = String.find(chars, String.nth(s, i+3))
         i = i + 4
 
-        let triple: U8 = Bit.lshift(s1, 18) || Bit.lshift(s2, 12) || Bit.lshift(s3, 6) || s4
+        let triple: I64 = Bit.lshift(s1, 18) || Bit.lshift(s2, 12) || Bit.lshift(s3, 6) || s4
 
         String.set(out, j, Bit.rshift(triple, 16) && 255)
         j = j + 1

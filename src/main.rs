@@ -29,6 +29,17 @@ fn compile_file_to(
     Ok(())
 }
 
+fn run_command(cmd: String) {
+    if !Command::new("sh")
+        .args(["-c", &cmd])
+        .status()
+        .unwrap()
+        .success()
+    {
+        process::exit(1);
+    }
+}
+
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
         Ok(x) => x,
@@ -46,41 +57,17 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
-        if fs::write(format!("{}.s", args.out), codegen.get_output()).is_err() {
-            eprintln!("\x1b[91mERROR\x1b[0m: failed to write to {}.s", args.out);
-            process::exit(1);
-        }
+        fs::write(format!("{}.s", args.out), codegen.get_output()).unwrap();
 
-        if !Command::new("sh")
-            .args([
-                "-c",
-                &format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out),
-            ])
-            .status()
-            .unwrap()
-            .success()
-        {
-            process::exit(1);
-        }
+        run_command(format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out));
 
         // TODO: drop libc entirely
-        if !Command::new("sh")
-            .args([
-                "-c",
-                &format!(
-                    "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
-                    args.out, args.out, args.cflags
-                ),
-            ])
-            .status()
-            .unwrap()
-            .success()
-        {
-            process::exit(1);
-        }
-    } else if fs::write(&args.out, codegen.get_output()).is_err() {
-        eprintln!("\x1b[91mERROR\x1b[0m: failed to write to {}", args.out);
-        process::exit(1);
+        run_command(format!(
+            "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
+            args.out, args.out, args.cflags
+        ));
+    } else {
+        fs::write(&args.out, codegen.get_output()).unwrap();
     }
 
     Ok(())

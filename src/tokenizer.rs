@@ -43,7 +43,6 @@ pub enum TokenType {
     KeywordIn,
     KeywordFunc,
     KeywordReturn,
-    KeywordAssert,
 
     Indent,
     Dedent,
@@ -336,7 +335,6 @@ impl Tokenizer {
             "in" => TokenType::KeywordIn,
             "func" => TokenType::KeywordFunc,
             "return" => TokenType::KeywordReturn,
-            "assert" => TokenType::KeywordAssert,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

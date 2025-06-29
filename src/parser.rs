@@ -37,10 +37,6 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Return(Expr),
-    Assert {
-        keyword: Token,
-        value: Expr,
-    },
 }
 
 #[derive(Debug, Clone)]
@@ -197,11 +193,6 @@ impl Parser {
             self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             Ok(Stmt::Return(self.expression()?))
-        } else if self.match_token(&[TokenType::KeywordAssert]) {
-            Ok(Stmt::Assert {
-                keyword: self.previous().clone(),
-                value: self.expression()?,
-            })
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
@@ -490,7 +481,8 @@ impl Parser {
 
     fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, ZernError> {
         if self.check(&token_type) {
-            Ok(self.advance().clone())
+            self.current += 1;
+            Ok(self.previous().clone())
         } else {
             error!(self.previous().loc, format!("{}", message))
         }
@@ -499,7 +491,7 @@ impl Parser {
     fn match_token(&mut self, token_types: &[TokenType]) -> bool {
         for x in token_types {
             if self.check(x) {
-                self.advance();
+                self.current += 1;
                 return true;
             }
         }
@@ -512,13 +504,6 @@ impl Parser {
         } else {
             self.peek().token_type == *token_type
         }
-    }
-
-    fn advance(&mut self) -> &Token {
-        if !self.eof() {
-            self.current += 1;
-        }
-        self.previous()
     }
 
     fn peek(&self) -> &Token {

@@ -84,7 +84,6 @@ impl CodegenX86_64 {
     pub fn get_output(&self) -> String {
         format!(
             "section .data
-    S0 db \"assertion failed on line %d\",10,0
 {}{}",
             self.data_section, self.output
         )
@@ -150,32 +149,9 @@ Bit.rshift:
     sar rax, cl
     ret
 
-section .text.String.nth
-String.nth:
-    movzx rax, byte [rdi + rsi]
-    ret
-
 section .text.String.set
 String.set:
     mov [rdi + rsi], dl
-    ret
-
-section .text.OS.time
-OS.time:
-    push rbx
-    sub rsp, 16
-    mov rbx, rsp
-    mov rdi, rbx
-    xor esi, esi
-    call gettimeofday
-    imul rcx, qword [rbx], 1000
-    mov rax, qword [rbx+8]
-    mov esi, 1000
-    cqo
-    idiv rsi
-    add rax, rcx
-    add rsp, 16
-    pop rbx
     ret
 
 section .text.OS.listdir
@@ -372,18 +348,6 @@ Array.free:
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
-            }
-            Stmt::Assert { keyword, value } => {
-                self.compile_expr(env, value)?;
-                let skip_label = self.label();
-                emit!(&mut self.output, "    test rax, rax");
-                emit!(&mut self.output, "    jne {}", skip_label);
-                emit!(&mut self.output, "    mov rdi, S0");
-                emit!(&mut self.output, "    mov rsi, {}", keyword.loc.line);
-                emit!(&mut self.output, "    call printf");
-                emit!(&mut self.output, "    mov rdi, 1");
-                emit!(&mut self.output, "    call exit");
-                emit!(&mut self.output, "{}:", skip_label);
             }
             Stmt::For {
                 var,

@@ -22,7 +22,9 @@ func partition[arr: Array, low: I64, high: I64] : I64
     return i + 1
 
 func main[] : I64
-    let arr: Array = [340, 252, 352, 117, 650, 652, 322, 175, 714, 268, 725, 664]
+    let arr: Array = []
+    for i in 0..10
+        Array.push(arr, Math.abs(Math.urandom() % 1000))
 
     for i in 0..Array.size(arr)
         print_i64(arr[i])
