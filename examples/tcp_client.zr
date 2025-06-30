@@ -3,7 +3,18 @@ func main[] : I64
     if s < 0
         panic("socket() failed")
 
-    let sa: Ptr = _builtin_sa_from_addr("23.192.228.80", 80)
+    let port: I64 = 80
+    let sa: Ptr = calloc(16)
+    String.set(sa, 0, 2)
+    String.set(sa, 1, 0)
+    String.set(sa, 2, Bit.rshift(port, 8) && 255)
+    String.set(sa, 3, port && 255)
+    // 23.192.228.80
+    String.set(sa, 4, 23)
+    String.set(sa, 5, 192)
+    String.set(sa, 6, 228)
+    String.set(sa, 7, 80)
+
     if connect(s, sa, 16) < 0
         panic("connect() failed")
     free(sa)

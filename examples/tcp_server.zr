@@ -1,0 +1,27 @@
+func main[] : I64
+    let s: I64 = socket(2, 1, 0)
+    if s < 0
+        panic("socket() failed")
+
+    let port: I64 = 8080
+    let sa: Ptr = calloc(16)
+    String.set(sa, 0, 2)
+    String.set(sa, 1, 0)
+    String.set(sa, 2, Bit.rshift(port, 8) && 255)
+    String.set(sa, 3, port && 255)
+
+    if bind(s, sa, 16) < 0
+        panic("bind() failed")
+
+    if listen(s, 1) < 0
+        panic("listen() failed")
+
+    let resp: String = malloc(60000)
+    while true
+        let c: I64 = accept(s, 0, 0)
+        if c < 0
+            panic("accept() failed")
+
+        let n: I64 = read(c, resp, 60000)
+        send(c, resp, n, 0)
+        close(c)

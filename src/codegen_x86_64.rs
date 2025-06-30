@@ -130,6 +130,9 @@ extern socket
 extern send
 extern read
 extern close
+extern bind
+extern listen
+extern accept
 
 section .text._builtin_deref
 _builtin_deref:
@@ -251,28 +254,6 @@ _builtin_array_free:
     mov rdi, rbx
     pop rbx
     jmp free
-
-_builtin_sa_from_addr:
-    push r15
-    push r14
-    push rbx
-    mov rbx, rsi
-    mov r14, rdi
-    push 16
-    pop rdi
-    call malloc
-    mov r15, rax
-    mov dword [rax], 2
-    rol bx, 8
-    mov word [rax+2], bx
-    mov rdi, r14
-    call inet_addr
-    mov dword [r15+4], eax
-    mov rax, r15
-    pop rbx
-    pop r14
-    pop r15
-    ret
 "
         );
         Ok(())
