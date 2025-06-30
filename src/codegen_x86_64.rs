@@ -133,9 +133,16 @@ extern close
 extern bind
 extern listen
 extern accept
+extern getchar
 
-section .text._builtin_deref
-_builtin_deref:
+section .text._builtin_deref8
+_builtin_deref8:
+    xor rax, rax 
+    mov al, byte [rdi]
+    ret
+
+section .text._builtin_deref64
+_builtin_deref64:
     mov rax, qword [rdi]
     ret
 

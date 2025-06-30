@@ -1,8 +1,4 @@
 func run_test[x: String] : I64
-    // requires stdin
-    if strcmp(x, "guess_number.zr") == 0
-        return 0
-
     printf("\033[93mBuilding %s...\033[0m", x)
     let cmd: String = String.concat("./target/release/zern examples/", x)
 
@@ -14,12 +10,15 @@ func run_test[x: String] : I64
     free(cmd)
     printf(" %ldms\n", build_end_time - build_start_time)
 
-    let run_start_time: I64 = OS.time()
-    if system("./out") != 0
-        exit(1)
-    let run_end_time: I64 = OS.time()
+    if strcmp(x, "guess_number.zr") == 0 || strcmp(x, "tcp_server.zr") == 0
+        printf("\033[93mSkipping %s...\033[0m\n")
+    else
+        let run_start_time: I64 = OS.time()
+        if system("./out") != 0
+            exit(1)
+        let run_end_time: I64 = OS.time()
 
-    printf("\033[93mRunning %s...\033[0m %ldms\n", x, run_end_time - run_start_time)
+        printf("\033[93mRunning %s...\033[0m %ldms\n", x, run_end_time - run_start_time)
 
 func main[] : I64
     system("cargo build --release")

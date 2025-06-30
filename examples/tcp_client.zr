@@ -4,7 +4,7 @@ func main[] : I64
         panic("socket() failed")
 
     let port: I64 = 80
-    let sa: Ptr = calloc(16)
+    let sa: Ptr = calloc(1, 16)
     String.set(sa, 0, 2)
     String.set(sa, 1, 0)
     String.set(sa, 2, Bit.rshift(port, 8) && 255)

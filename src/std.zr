@@ -9,7 +9,7 @@ func print_i64[x: I64] : I64
     printf("%ld\n", x)
 
 func String.nth[s: String, n: I64] : U8
-    return _builtin_deref(s + n)
+    return _builtin_deref8(s + n)
 
 func String.set[s: String, n: I64, c: U8] : I64
     _builtin_string_set(s, n, c)
@@ -169,7 +169,7 @@ func Math.urandom[]: I64
     let file: Ptr = fopen("/dev/urandom", "rb")
     fread(buffer, 8, 1, file)
     fclose(file)
-    let n: I64 = _builtin_deref(buffer)
+    let n: I64 = _builtin_deref64(buffer)
     free(buffer)
     return n
 
@@ -188,8 +188,8 @@ func Array.size[xs: Array] : I64
 func OS.time[] : I64
     let tv: Ptr = malloc(16)
     gettimeofday(tv, 0)
-    let seconds: I64 = _builtin_deref(tv)
-    let microseconds: I64 = _builtin_deref(tv+8)
+    let seconds: I64 = _builtin_deref64(tv)
+    let microseconds: I64 = _builtin_deref64(tv+8)
     free(tv)
     return seconds * 1000 + microseconds / 1000
 
