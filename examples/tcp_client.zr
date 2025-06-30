@@ -1,0 +1,20 @@
+func main[] : I64
+    let s: I64 = socket(2, 1, 0)
+    if s < 0
+        panic("socket() failed")
+
+    let sa: Ptr = _builtin_sa_from_addr("23.192.228.80", 80)
+    if connect(s, sa, 16) < 0
+        panic("connect() failed")
+    free(sa)
+
+    let req: String = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+    send(s, req, strlen(req), 0)
+
+    let resp: String = malloc(60000)
+    let n: I64 = read(s, resp, 60000)
+    String.set(resp, n, 0)
+    print(resp)
+    free(resp)
+
+    close(s)

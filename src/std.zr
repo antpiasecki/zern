@@ -11,8 +11,8 @@ func print_i64[x: I64] : I64
 func String.nth[s: String, n: I64] : U8
     return _builtin_deref(s + n)
 
-func String.set[s: String, n: I64] : I64
-    _builtin_string_set(s, n)
+func String.set[s: String, n: I64, c: U8] : I64
+    _builtin_string_set(s, n, c)
 
 func String.is_whitespace[c: U8] : Bool
     return c == ' ' || c == 10 || c == 13 || c == 9
