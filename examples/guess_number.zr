@@ -7,7 +7,7 @@ func main[] : I64
 
         if guess == answer
             print("You win!")
-            return 0
+            break
         else if guess < answer
             print("Too low!")
         else

@@ -13,6 +13,8 @@ pub struct Var {
 pub struct Env {
     scopes: Vec<HashMap<String, Var>>,
     next_offset: usize,
+    loop_begin_label: String,
+    loop_end_label: String,
 }
 
 impl Env {
@@ -20,6 +22,8 @@ impl Env {
         Env {
             scopes: vec![HashMap::new()],
             next_offset: 8,
+            loop_begin_label: String::new(),
+            loop_end_label: String::new(),
         }
     }
 
@@ -310,16 +314,21 @@ _builtin_array_free:
                 emit!(&mut self.output, "{}:", end_label);
             }
             Stmt::While { condition, body } => {
-                let begin_label = self.label();
-                let end_label = self.label();
+                let old_loop_begin_label = env.loop_begin_label.clone();
+                let old_loop_end_label = env.loop_end_label.clone();
+                env.loop_begin_label = self.label();
+                env.loop_end_label = self.label();
 
-                emit!(&mut self.output, "{}:", begin_label);
+                emit!(&mut self.output, "{}:", env.loop_begin_label);
                 self.compile_expr(env, condition)?;
                 emit!(&mut self.output, "    test rax, rax");
-                emit!(&mut self.output, "    je {}", end_label);
+                emit!(&mut self.output, "    je {}", env.loop_end_label);
                 self.compile_stmt(env, *body.clone())?;
-                emit!(&mut self.output, "    jmp {}", begin_label);
-                emit!(&mut self.output, "{}:", end_label);
+                emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
+                emit!(&mut self.output, "{}:", env.loop_end_label);
+
+                env.loop_begin_label = old_loop_begin_label;
+                env.loop_end_label = old_loop_end_label;
             }
             Stmt::Function {
                 name,
@@ -371,28 +380,40 @@ _builtin_array_free:
                 end,
                 body,
             } => {
-                let begin_label = self.label();
-                let end_label = self.label();
+                let old_loop_begin_label = env.loop_begin_label.clone();
+                let old_loop_end_label = env.loop_end_label.clone();
+                env.loop_begin_label = self.label();
+                env.loop_end_label = self.label();
 
                 env.push_scope();
                 let offset = env.define_var(var.lexeme, "I64".into());
 
                 self.compile_expr(env, start)?;
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
-                emit!(&mut self.output, "{}:", begin_label);
+                emit!(&mut self.output, "{}:", env.loop_begin_label);
                 emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
                 emit!(&mut self.output, "    push rax");
                 self.compile_expr(env, end)?;
                 emit!(&mut self.output, "    pop rcx");
                 emit!(&mut self.output, "    cmp rcx, rax");
-                emit!(&mut self.output, "    jge {}", end_label);
+                emit!(&mut self.output, "    jge {}", env.loop_end_label);
                 self.compile_stmt(env, *body)?;
                 emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
                 emit!(&mut self.output, "    add rax, 1");
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
-                emit!(&mut self.output, "    jmp {}", begin_label);
-                emit!(&mut self.output, "{}:", end_label);
+                emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
+                emit!(&mut self.output, "{}:", env.loop_end_label);
                 env.pop_scope();
+
+                env.loop_begin_label = old_loop_begin_label;
+                env.loop_end_label = old_loop_end_label;
+            }
+            Stmt::Break => {
+                emit!(&mut self.output, "    jmp {}", env.loop_end_label);
+            }
+            Stmt::Continue => {
+                // TODO: skips incrementing when used in a for loop
+                emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
             }
         }
         Ok(())

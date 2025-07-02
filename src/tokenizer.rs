@@ -43,6 +43,8 @@ pub enum TokenType {
     KeywordIn,
     KeywordFunc,
     KeywordReturn,
+    KeywordBreak,
+    KeywordContinue,
 
     Indent,
     Dedent,
@@ -335,6 +337,8 @@ impl Tokenizer {
             "in" => TokenType::KeywordIn,
             "func" => TokenType::KeywordFunc,
             "return" => TokenType::KeywordReturn,
+            "break" => TokenType::KeywordBreak,
+            "continue" => TokenType::KeywordContinue,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

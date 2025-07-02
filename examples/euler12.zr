@@ -17,5 +17,5 @@ func main[] : I64
         n = n + i
         if num_divisors(n) > 500
             print_i64(n)
-            return 0
+            break
         i = i + 1

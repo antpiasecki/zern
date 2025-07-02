@@ -37,6 +37,8 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Return(Expr),
+    Break,
+    Continue,
 }
 
 #[derive(Debug, Clone)]
@@ -193,6 +195,10 @@ impl Parser {
             self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             Ok(Stmt::Return(self.expression()?))
+        } else if self.match_token(&[TokenType::KeywordBreak]) {
+            Ok(Stmt::Break)
+        } else if self.match_token(&[TokenType::KeywordContinue]) {
+            Ok(Stmt::Continue)
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
