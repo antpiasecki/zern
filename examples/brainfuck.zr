@@ -1,4 +1,5 @@
 func main[] : I64
+    // https://brainfuck.org/sierpinski.b
     let src: String = "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
     let src_len: I64 = strlen(src)
     let i: I64 = 0

@@ -150,6 +150,16 @@ _builtin_deref64:
     mov rax, qword [rdi]
     ret
 
+section .text._builtin_set8
+_builtin_set8:
+    mov [rdi], sil
+    ret
+
+section .text._builtin_set64
+_builtin_set64:
+    mov [rdi], rsi
+    ret
+
 section .text._builtin_stdin
 _builtin_stdin:
     mov rax, [rel stdin]
@@ -167,11 +177,6 @@ _builtin_rshift:
     mov rcx, rsi
     mov rax, rdi
     sar rax, cl
-    ret
-
-section .text._builtin_string_set
-_builtin_string_set:
-    mov [rdi + rsi], dl
     ret
 
 section .text._builtin_listdir
@@ -215,56 +220,6 @@ _builtin_listdir:
     pop rbx
     pop r14
     ret
-
-section .text._builtin_array_set
-_builtin_array_set:
-    mov rax, [rdi]
-    mov [rax + rsi*8], rdx
-    ret
-
-section .text._builtin_array_push
-_builtin_array_push:
-    push r14
-    push rbx
-    push rax
-    mov r14, rsi
-    mov rbx, rdi
-    mov rax, [rdi]
-    mov rcx, [rdi + 16]
-    cmp rcx, [rdi + 8]
-    jne ._builtin_array_push.1
-    lea rdx, [rcx + rcx]
-    mov rsi, 4
-    test rcx, rcx
-    cmovnz rsi, rdx
-    mov [rbx + 8], rsi
-    shl rsi, 3
-    mov rdi, rax
-    call realloc
-    mov [rbx], rax
-    mov rcx, [rbx + 16]
-._builtin_array_push.1:
-    mov [rax + rcx*8], r14
-    inc qword [rbx + 16]
-    add rsp, 8
-    pop rbx
-    pop r14
-    ret
-
-section .text._builtin_array_size
-_builtin_array_size:
-    mov rax, [rdi + 16]
-    ret
-
-section .text._builtin_array_free
-_builtin_array_free:
-    push rbx
-    mov rbx, rdi
-    mov rdi, [rdi]
-    call free
-    mov rdi, rbx
-    pop rbx
-    jmp free
 "
         );
         Ok(())

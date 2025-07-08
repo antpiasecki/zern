@@ -1,7 +1,7 @@
-func quicksort[arr: Array] : I64
+func quicksort[arr: Array] : Void
     do_quicksort(arr, 0, Array.size(arr)-1)
 
-func do_quicksort[arr: Array, low: I64, high: I64] : I64
+func do_quicksort[arr: Array, low: I64, high: I64] : Void
     if low < high
         let i: I64 = partition(arr, low, high)
         do_quicksort(arr, low, i - 1)

@@ -9,7 +9,7 @@ func main[] : I64
     String.set(sa, 1, 0)
     String.set(sa, 2, Bit.rshift(port, 8) && 255)
     String.set(sa, 3, port && 255)
-    // 23.192.228.80
+    // 23.192.228.80 (example.com)
     String.set(sa, 4, 23)
     String.set(sa, 5, 192)
     String.set(sa, 6, 228)

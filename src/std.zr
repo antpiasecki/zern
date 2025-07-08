@@ -1,18 +1,18 @@
-func panic[msg: String] : I64
+func panic[msg: String] : Void
     printf("PANIC: %s\n", msg)
     exit(1)
 
-func print[x: String] : I64
+func print[x: String] : Void
     printf("%s\n", x)
 
-func print_i64[x: I64] : I64
+func print_i64[x: I64] : Void
     printf("%ld\n", x)
 
 func String.nth[s: String, n: I64] : U8
     return _builtin_deref8(s + n)
 
-func String.set[s: String, n: I64, c: U8] : I64
-    _builtin_string_set(s, n, c)
+func String.set[s: String, n: I64, c: U8] : Void
+    _builtin_set8(s+n, c)
 
 func String.is_whitespace[c: U8] : Bool
     return c == ' ' || c == 10 || c == 13 || c == 9
@@ -84,7 +84,7 @@ func IO.read_file[path: String]: String
     fclose(file)
     return buffer
 
-func IO.write_file[path: String, content: String] : I64
+func IO.write_file[path: String, content: String] : Void
     let file: Ptr = fopen(path, "wb")
     if !file
         panic("failed to open file")
@@ -176,14 +176,33 @@ func Math.urandom[]: I64
 func Array.new[] : Array
     return calloc(1, 24)
 
-func Array.set[xs: Array, n: I64, x: I64] : I64
-    _builtin_array_set(xs, n, x)
+func Array.set[xs: Array, n: I64, x: I64] : Void
+    let data: Ptr = _builtin_deref64(xs)
+    _builtin_set64(data+n*8, x)
 
-func Array.push[xs: Array, x: I64] : I64
-    return _builtin_array_push(xs, x)
+func Array.push[xs: Array, x: I64] : Void
+    let data: Ptr = _builtin_deref64(xs)
+    let capacity: I64 = _builtin_deref64(xs+8)
+    let size: I64 = _builtin_deref64(xs+16)
+
+    if size == capacity
+        let new_capacity: I64 = 4
+        if capacity != 0
+            new_capacity = capacity * 2
+        let new_data: Ptr = realloc(data, new_capacity * 8)
+        _builtin_set64(xs, new_data)
+        _builtin_set64(xs+8, new_capacity)
+        data = new_data
+
+    _builtin_set64(data+size*8, x)
+    _builtin_set64(xs+16, size + 1)
 
 func Array.size[xs: Array] : I64
-    return _builtin_array_size(xs)
+    return _builtin_deref64(xs+16)
+
+func Array.free[xs: Array] : Void
+    free(_builtin_deref64(xs))
+    free(xs)
 
 func OS.time[] : I64
     let tv: Ptr = malloc(16)

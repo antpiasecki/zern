@@ -72,7 +72,7 @@ pub enum Expr {
 }
 
 // TODO: currently they are all just 8 byte values
-static TYPES: [&str; 6] = ["U8", "I64", "String", "Bool", "Ptr", "Array"];
+static TYPES: [&str; 7] = ["Void", "U8", "I64", "String", "Bool", "Ptr", "Array"];
 
 pub struct Parser {
     tokens: Vec<Token>,

@@ -1,4 +1,4 @@
-func run_test[x: String] : I64
+func run_test[x: String] : Void
     printf("\033[93mBuilding %s...\033[0m", x)
     let cmd: String = String.concat("./target/release/zern examples/", x)
 
