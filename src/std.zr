@@ -60,12 +60,11 @@ func String.rev[s: String] : String
     String.set(out, len, 0)
     return out
 
-func IO.stdin[]: Ptr
-    return _builtin_stdin()
-
 func IO.read_line[]: String
     let buffer: String = malloc(1024)
-    fgets(buffer, 1024, IO.stdin())
+    let sys_read: I64 = 0
+    let stdin: I64 = 0
+    syscall(sys_read, stdin, buffer, 1024)
     return buffer
 
 func IO.read_file[path: String]: String
@@ -91,9 +90,6 @@ func IO.write_file[path: String, content: String] : Void
 
     fwrite(content, 1, strlen(content), file)
     fclose(file)
-
-func U8.parse_i64[c: U8]: I64
-    return c - '0'
 
 func I64.to_string[n: I64] : String
     let x: String = malloc(21)
@@ -213,7 +209,26 @@ func OS.time[] : I64
     return seconds * 1000 + microseconds / 1000
 
 func OS.listdir[path: String] : Array
-    return _builtin_listdir(path)
+    let dir: Ptr = opendir(path)
+    let files: Array = []
+
+    while true
+        let entry: Ptr = readdir(dir)
+        if entry == 0
+            break
+
+        let skip: Bool = false
+        if String.nth(entry, 19) == '.'
+            if String.nth(entry, 20) == 0
+                skip = true
+            else if String.nth(entry, 20) == '.'
+                if String.nth(entry, 21) == 0
+                    skip = true
+
+        if !skip
+            Array.push(files, strdup(entry + 19))
+    closedir(dir)
+    return files
 
 func Bit.lshift[a: I64, b: I64] : I64
     return _builtin_lshift(a, b)
@@ -242,7 +257,7 @@ func Crypto.from_hex_digit[d: U8] : I64
         return d - 'a' + 10
     if d >= 'A' && d <= 'F'
         return d - 'A' + 10
-    return U8.parse_i64(d)
+    return d - '0'
 
 func Crypto.hex_decode[s: String] : String
     let s_len: I64 = strlen(s)

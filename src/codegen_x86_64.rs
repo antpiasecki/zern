@@ -114,7 +114,7 @@ extern strcat
 extern strcpy
 extern strdup
 extern strncpy
-extern fgets
+extern syscall
 extern fopen
 extern fseek
 extern ftell
@@ -160,11 +160,6 @@ _builtin_set64:
     mov [rdi], rsi
     ret
 
-section .text._builtin_stdin
-_builtin_stdin:
-    mov rax, [rel stdin]
-    ret
-
 section .text._builtin_lshift
 _builtin_lshift:
     mov rcx, rsi
@@ -177,50 +172,6 @@ _builtin_rshift:
     mov rcx, rsi
     mov rax, rdi
     sar rax, cl
-    ret
-
-section .text._builtin_listdir
-_builtin_listdir:
-    push r14
-    push rbx
-    push rax
-    mov r14, rdi
-    call Array.new
-    mov rbx, rax
-    mov rdi, r14
-    call opendir
-    mov r14, rax
-._builtin_listdir.1:
-    mov rdi, r14
-    call readdir
-    test rax, rax
-    je ._builtin_listdir.3
-    cmp byte [rax+19], 46
-    jne ._builtin_listdir.2
-    movzx ecx, byte [rax+20]
-    test ecx, ecx
-    je ._builtin_listdir.1
-    cmp ecx, 46
-    jne ._builtin_listdir.2
-    cmp byte [rax+21], 0
-    je ._builtin_listdir.1
-._builtin_listdir.2:
-    add rax, 19
-    mov rdi, rax
-    call strdup
-    mov rsi, rax
-    mov rdi, rbx
-    mov [rsp], rbx
-    call Array.push
-    mov rbx, [rsp]
-    jmp ._builtin_listdir.1
-._builtin_listdir.3:
-    mov rdi, r14
-    call closedir
-    mov rax, rbx
-    add rsp, 8
-    pop rbx
-    pop r14
     ret
 "
         );

@@ -7,7 +7,7 @@ func main[] : I64
         let s: I64 = 1
         let j: I64 = 0
         while j < 13
-            s = s * U8.parse_i64(String.nth(n, i + j))
+            s = s * (String.nth(n, i + j) - '0')
             j = j + 1
         if s > out
             out = s
