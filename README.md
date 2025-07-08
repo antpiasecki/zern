@@ -3,9 +3,9 @@
 A very cool language
 
 ## Huh?
-* Indentation-based syntax
+* Clean indentation-based syntax
 * Compiles to x86_64 Assembly
-* Sometimes works
+* Almost works
 
 ## Syntax
 ```rust

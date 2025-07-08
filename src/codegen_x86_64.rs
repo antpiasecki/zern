@@ -210,7 +210,9 @@ _builtin_listdir:
     call strdup
     mov rsi, rax
     mov rdi, rbx
+    mov [rsp], rbx
     call Array.push
+    mov rbx, [rsp]
     jmp ._builtin_listdir.1
 ._builtin_listdir.3:
     mov rdi, r14
