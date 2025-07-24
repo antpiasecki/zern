@@ -100,44 +100,80 @@ impl CodegenX86_64 {
     db 0
 
 section .text
-extern stdin
 extern malloc
+c.malloc equ malloc
 extern calloc
+c.calloc equ calloc
 extern realloc
+c.realloc equ realloc
 extern free
+c.free equ free
+extern puts
+c.puts equ puts
 extern printf
+c.printf equ printf
 extern sprintf
+c.sprintf equ sprintf
 extern strtol
+c.strtol equ strtol
 extern strlen
+c.strlen equ strlen
 extern strcmp
+c.strcmp equ strcmp
 extern strcat
+c.strcat equ strcat
 extern strcpy
+c.strcpy equ strcpy
 extern strdup
+c.strdup equ strdup
 extern strncpy
+c.strncpy equ strncpy
 extern syscall
+c.syscall equ syscall
 extern fopen
+c.fopen equ fopen
 extern fseek
+c.fseek equ fseek
 extern ftell
+c.ftell equ ftell
 extern fread
+c.fread equ fread
 extern fwrite
+c.fwrite equ fwrite
 extern fclose
+c.fclose equ fclose
 extern rewind
+c.rewind equ rewind
 extern system
+c.system equ system
 extern opendir
+c.opendir equ opendir
 extern readdir
+c.readdir equ readdir
 extern closedir
+c.closedir equ closedir
 extern exit
+c.exit equ exit
 extern gettimeofday
+c.gettimeofday equ gettimeofday
 extern connect
-extern inet_addr
+c.connect equ connect
 extern socket
+c.socket equ socket
 extern send
+c.send equ send
 extern read
+c.read equ read
 extern close
+c.close equ close
 extern bind
+c.bind equ bind
 extern listen
+c.listen equ listen
 extern accept
+c.accept equ accept
 extern getchar
+c.getchar equ getchar
 
 section .text._builtin_deref8
 _builtin_deref8:
@@ -418,22 +454,19 @@ _builtin_rshift:
                         .replace("\\033", "\x1b")
                         .replace("\\0", "\0");
 
+                    let label = format!("str_{:03}", self.data_counter);
+
                     if value.is_empty() {
-                        emit!(&mut self.data_section, "    S{} db 0", self.data_counter);
+                        emit!(&mut self.data_section, "    {} db 0", label);
                     } else {
                         let charcodes = value
                             .chars()
                             .map(|x| (x as u8).to_string())
                             .collect::<Vec<String>>()
                             .join(",");
-                        emit!(
-                            &mut self.data_section,
-                            "    S{} db {},0",
-                            self.data_counter,
-                            charcodes,
-                        );
+                        emit!(&mut self.data_section, "    {} db {},0", label, charcodes,);
                     }
-                    emit!(&mut self.output, "    mov rax, S{}", self.data_counter);
+                    emit!(&mut self.output, "    mov rax, {}", label);
                     self.data_counter += 1;
                 }
                 TokenType::True => {
@@ -512,7 +545,7 @@ _builtin_rshift:
                 emit!(&mut self.output, "    call {}", callee);
             }
             Expr::ArrayLiteral(exprs) => {
-                emit!(&mut self.output, "    call Array.new");
+                emit!(&mut self.output, "    call array.new");
                 emit!(&mut self.output, "    push rax");
 
                 for expr in exprs {
@@ -520,7 +553,7 @@ _builtin_rshift:
                     emit!(&mut self.output, "    mov rsi, rax");
                     emit!(&mut self.output, "    pop rdi");
                     emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call Array.push");
+                    emit!(&mut self.output, "    call array.push");
                 }
                 emit!(&mut self.output, "    pop rax");
             }

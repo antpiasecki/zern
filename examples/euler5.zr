@@ -2,5 +2,5 @@ func main[] : I64
     let out: I64 = 1
 
     for i in 1..21
-        out = Math.lcm(out, i)
-    print_i64(out)
+        out = math.lcm(out, i)
+    io.print_i64(out)

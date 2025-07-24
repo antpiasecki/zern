@@ -8,4 +8,4 @@ func main[] : I64
         square_of_sum = square_of_sum + i
     square_of_sum = square_of_sum * square_of_sum
 
-    print_i64(square_of_sum - sum_of_squares)
+    io.print_i64(square_of_sum - sum_of_squares)

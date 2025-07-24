@@ -2,6 +2,6 @@ func main[] : I64
     let sum: I64 = 0
 
     for i in 0..2000000
-        if Math.is_prime(i)
+        if math.is_prime(i)
             sum = sum + i
-    print_i64(sum)
+    io.print_i64(sum)

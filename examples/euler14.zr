@@ -19,4 +19,4 @@ func main[] : I64
         if seq > max
             max = seq
             max_index = i
-    print_i64(max_index)
+    io.print_i64(max_index)

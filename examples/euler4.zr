@@ -4,10 +4,10 @@ func main[] : I64
     for a in 500..1000
         for b in 500..1000
             if a * b > out
-                let s: String = I64.to_string(a * b)
-                let s_rev: String = String.rev(s)
-                if strcmp(s, s_rev) == 0
+                let s: String = str.from_i64(a * b)
+                let s_rev: String = str.reverse(s)
+                if c.strcmp(s, s_rev) == 0
                     out = a * b
-                free(s)
-                free(s_rev)
-    print_i64(out)
+                c.free(s)
+                c.free(s_rev)
+    io.print_i64(out)

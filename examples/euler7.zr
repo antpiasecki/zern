@@ -3,9 +3,9 @@ func main[] : I64
 
     let i: I64 = 1
     while true
-        if Math.is_prime(i)
+        if math.is_prime(i)
             found = found + 1
             if found == 10001
-                print_i64(i)
+                io.print_i64(i)
                 break
         i = i + 1

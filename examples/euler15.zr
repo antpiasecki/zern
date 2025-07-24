@@ -6,4 +6,4 @@ func main[] : I64
     for i in 1..r+1
         out = out * (n - (r - i)) / i
 
-    print_i64(out)
+    io.print_i64(out)

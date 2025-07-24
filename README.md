@@ -6,6 +6,7 @@ A very cool language
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
 * Almost works
+* Has the pipe operator
 
 ## Syntax
 ```rust

@@ -8,4 +8,4 @@ func main[] : I64
         else
             f = f + 1
 
-    print_i64(n)
+    io.print_i64(n)
