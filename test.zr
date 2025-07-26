@@ -10,7 +10,7 @@ func run_test[x: String] : Void
     c.free(cmd)
     c.printf(" %ldms\n", build_end_time - build_start_time)
 
-    if c.strcmp(x, "guess_number.zr") == 0 || c.strcmp(x, "tcp_server.zr") == 0
+    if c.strcmp(x, "guess_number.zr") == 0 | c.strcmp(x, "tcp_server.zr") == 0
         c.printf("\033[93mSkipping %s...\033[0m\n", x)
     else
         let run_start_time: I64 = os.time()

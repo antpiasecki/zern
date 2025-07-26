@@ -15,7 +15,7 @@ func str.set[s: String, n: I64, c: U8] : Void
     _builtin_set8(s+n, c)
 
 func str.is_whitespace[c: U8] : Bool
-    return c == ' ' || c == 10 || c == 13 || c == 9
+    return c == ' ' | c == 10 | c == 13 | c == 9
 
 func str.concat[a: String, b: String] : String
     let c: String = c.malloc(c.strlen(a) + c.strlen(b) + 1)
@@ -31,7 +31,7 @@ func str.find[s: String, c: U8] : I64
     return -1
 
 func str.substr[s: String, start: I64, length: I64] : String
-    if start < 0 || length < 0 || start + length > c.strlen(s)
+    if start < 0 | length < 0 | start + length > c.strlen(s)
         dbg.panic("String.substr out of bounds")
 
     let out: String = c.malloc(length + 1)
@@ -43,10 +43,10 @@ func str.trim[s: String] : String
     let start: I64 = 0
     let end: I64 = c.strlen(s) - 1
 
-    while start <= end && str.is_whitespace(str.nth(s, start))
+    while start <= end & str.is_whitespace(str.nth(s, start))
         start = start + 1
 
-    while end >= start && str.is_whitespace(str.nth(s, end))
+    while end >= start & str.is_whitespace(str.nth(s, end))
         end = end - 1
 
     return str.substr(s, start, end - start + 1)
@@ -133,7 +133,7 @@ func math.lcm[a: I64, b: I64] : I64
 func math.isqrt[n: I64] : I64
     if n < 0
         return -1
-    if n == 0 || n == 1
+    if n == 0 | n == 1
         return n
 
     let guess: I64 = n
@@ -148,14 +148,14 @@ func math.isqrt[n: I64] : I64
 func math.is_prime[n: I64]: Bool
     if n <= 1
         return false
-    if n == 2 || n == 3
+    if n == 2 | n == 3
         return true
-    if n % 2 == 0 || n % 3 == 0
+    if n % 2 == 0 | n % 3 == 0
         return false
 
     let i: I64 = 5
     while i * i <= n
-        if n % i == 0 || n % (i + 2) == 0
+        if n % i == 0 | n % (i + 2) == 0
             return false
         i = i + 6
     return true
@@ -243,8 +243,8 @@ func crypto.hex_encode[s: String] : String
     let out: String = c.malloc(s_len*2+1)
 
     for i in 0..s_len
-        let high: U8 = bit.rshift(str.nth(s, i), 4) && 15
-        let low: U8 = str.nth(s, i) && 15
+        let high: U8 = bit.rshift(str.nth(s, i), 4) & 15
+        let low: U8 = str.nth(s, i) & 15
         str.set(out, j, str.nth(hex_chars, high))
         str.set(out, j+1, str.nth(hex_chars, low))
         j = j + 2
@@ -253,9 +253,9 @@ func crypto.hex_encode[s: String] : String
     return out
 
 func crypto.from_hex_digit[d: U8] : I64
-    if d >= 'a' && d <= 'f'
+    if d >= 'a' & d <= 'f'
         return d - 'a' + 10
-    if d >= 'A' && d <= 'F'
+    if d >= 'A' & d <= 'F'
         return d - 'A' + 10
     return d - '0'
 
@@ -322,11 +322,11 @@ func crypto.base64_encode[s: String] : String
             b3 = str.nth(s, i+2)
         i = i + 3
 
-        let triple: I64 = bit.lshift(b1, 16) || bit.lshift(b2, 8) || b3
-        str.set(out, j,   str.nth(chars, bit.rshift(triple, 18) && 63))
-        str.set(out, j+1, str.nth(chars, bit.rshift(triple, 12) && 63))
-        str.set(out, j+2, str.nth(chars, bit.rshift(triple, 6) && 63))
-        str.set(out, j+3, str.nth(chars, triple && 63))
+        let triple: I64 = bit.lshift(b1, 16) | bit.lshift(b2, 8) | b3
+        str.set(out, j,   str.nth(chars, bit.rshift(triple, 18) & 63))
+        str.set(out, j+1, str.nth(chars, bit.rshift(triple, 12) & 63))
+        str.set(out, j+2, str.nth(chars, bit.rshift(triple, 6) & 63))
+        str.set(out, j+3, str.nth(chars, triple & 63))
         j = j + 4
 
     let padding: I64 = s_len % 3
@@ -362,16 +362,66 @@ func crypto.base64_decode[s: String] : String
             s4 = str.find(chars, str.nth(s, i+3))
         i = i + 4
 
-        let triple: I64 = bit.lshift(s1, 18) || bit.lshift(s2, 12) || bit.lshift(s3, 6) || s4
+        let triple: I64 = bit.lshift(s1, 18) | bit.lshift(s2, 12) | bit.lshift(s3, 6) | s4
 
-        str.set(out, j, bit.rshift(triple, 16) && 255)
+        str.set(out, j, bit.rshift(triple, 16) & 255)
         j = j + 1
         if s3 != 64
-            str.set(out, j, bit.rshift(triple, 8) && 255)
+            str.set(out, j, bit.rshift(triple, 8) & 255)
             j = j + 1
         if s4 != 64
-            str.set(out, j, triple && 255)
+            str.set(out, j, triple & 255)
             j = j + 1
 
     str.set(out, j, 0)
     return out
+
+func net.listen[port: I64] : I64
+    let s: I64 = c.socket(2, 1, 0)
+    if s < 0
+        return -1
+
+    let sa: Ptr = c.calloc(1, 16)
+    str.set(sa, 0, 2)
+    str.set(sa, 1, 0)
+    str.set(sa, 2, bit.rshift(port, 8) & 255)
+    str.set(sa, 3, port & 255)
+
+    if c.bind(s, sa, 16) < 0
+        c.close(s)
+        return -1
+    c.free(sa)
+
+    if c.listen(s, 1) < 0
+        c.close(s)
+        return -1
+    
+    return s
+
+func net.connect[host: String, port: I64] : I64
+    let he: Ptr = c.gethostbyname(host)
+    if he == 0
+        return -1
+
+    let ip_ptr: Ptr = _builtin_deref64(_builtin_deref64(he + 24))
+
+    let s: I64 = c.socket(2, 1, 0)
+    if s < 0
+        return -1
+
+    let sa: Ptr = c.calloc(1, 16)
+    str.set(sa, 0, 2)
+    str.set(sa, 2, bit.rshift(port, 8) & 255)
+    str.set(sa, 3, port & 255)
+    str.set(sa, 4, _builtin_deref8(ip_ptr + 0))
+    str.set(sa, 5, _builtin_deref8(ip_ptr + 1))
+    str.set(sa, 6, _builtin_deref8(ip_ptr + 2))
+    str.set(sa, 7, _builtin_deref8(ip_ptr + 3))
+
+    if c.connect(s, sa, 16) < 0
+        c.free(sa)
+        c.close(s)
+        return -1
+
+    c.free(sa)
+    return s

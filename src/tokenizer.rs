@@ -166,20 +166,12 @@ impl Tokenizer {
                     self.add_token(TokenType::Slash)
                 }
             }
-            '&' => {
-                if self.match_char('&') {
-                    self.add_token(TokenType::And);
-                } else {
-                    return error!(self.loc, "expected '&' after '&'");
-                }
-            }
+            '&' => self.add_token(TokenType::And),
             '|' => {
-                if self.match_char('|') {
-                    self.add_token(TokenType::Or);
-                } else if self.match_char('>') {
+                if self.match_char('>') {
                     self.add_token(TokenType::Pipe);
                 } else {
-                    return error!(self.loc, "expected '>' or '|' after '|'");
+                    self.add_token(TokenType::Or);
                 }
             }
             '!' => {

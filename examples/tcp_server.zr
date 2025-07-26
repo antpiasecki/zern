@@ -1,26 +1,11 @@
 func main[] : I64
-    let s: I64 = c.socket(2, 1, 0)
-    if s < 0
-        dbg.panic("socket() failed")
-
-    let port: I64 = 8080
-    let sa: Ptr = c.calloc(1, 16)
-    str.set(sa, 0, 2)
-    str.set(sa, 1, 0)
-    str.set(sa, 2, bit.rshift(port, 8) && 255)
-    str.set(sa, 3, port && 255)
-
-    if c.bind(s, sa, 16) < 0
-        dbg.panic("bind() failed")
-
-    if c.listen(s, 1) < 0
-        dbg.panic("listen() failed")
+    let s: I64 = net.listen(8000)
 
     let resp: String = c.malloc(60000)
     while true
         let c: I64 = c.accept(s, 0, 0)
         if c < 0
-            dbg.panic("accept() failed")
+            continue
 
         let n: I64 = c.read(c, resp, 60000)
         c.send(c, resp, n, 0)

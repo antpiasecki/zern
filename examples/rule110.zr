@@ -11,7 +11,7 @@ func rule110_step[state: Array] : Array
         if i + 1 < state_len
             right = state[i+1]
 
-        array.push(new_state, !((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
+        array.push(new_state, !((!left & !center & !right) | (left & !center & !right) | (left & center & right)))
 
     return new_state
 

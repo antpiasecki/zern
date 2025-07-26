@@ -100,81 +100,19 @@ impl CodegenX86_64 {
     db 0
 
 section .text
-extern malloc
-c.malloc equ malloc
-extern calloc
-c.calloc equ calloc
-extern realloc
-c.realloc equ realloc
-extern free
-c.free equ free
-extern puts
-c.puts equ puts
-extern printf
-c.printf equ printf
-extern sprintf
-c.sprintf equ sprintf
-extern strtol
-c.strtol equ strtol
-extern strlen
-c.strlen equ strlen
-extern strcmp
-c.strcmp equ strcmp
-extern strcat
-c.strcat equ strcat
-extern strcpy
-c.strcpy equ strcpy
-extern strdup
-c.strdup equ strdup
-extern strncpy
-c.strncpy equ strncpy
-extern syscall
-c.syscall equ syscall
-extern fopen
-c.fopen equ fopen
-extern fseek
-c.fseek equ fseek
-extern ftell
-c.ftell equ ftell
-extern fread
-c.fread equ fread
-extern fwrite
-c.fwrite equ fwrite
-extern fclose
-c.fclose equ fclose
-extern rewind
-c.rewind equ rewind
-extern system
-c.system equ system
-extern opendir
-c.opendir equ opendir
-extern readdir
-c.readdir equ readdir
-extern closedir
-c.closedir equ closedir
-extern exit
-c.exit equ exit
-extern gettimeofday
-c.gettimeofday equ gettimeofday
-extern connect
-c.connect equ connect
-extern socket
-c.socket equ socket
-extern send
-c.send equ send
-extern read
-c.read equ read
-extern close
-c.close equ close
-extern bind
-c.bind equ bind
-extern listen
-c.listen equ listen
-extern accept
-c.accept equ accept
-extern getchar
-c.getchar equ getchar
+"
+        );
 
+        // take that rustfmt
+        for name in "malloc,calloc,realloc,free,puts,printf,sprintf,strtol,strlen,strcmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
+        {
+            emit!(&mut self.output, "extern {}", name);
+            emit!(&mut self.output, "c.{} equ {}", name, name);
+        }
+
+        emit!(
+            &mut self.output,
+            "
 section .text._builtin_deref8
 _builtin_deref8:
     xor rax, rax 

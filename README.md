@@ -17,5 +17,5 @@ func fib[n: I64] : I64
 
 func main[] : I64
     for i in 0..20
-        fib(i) |> I64.to_string() |> print()
+        fib(i) |> str.from_i64() |> io.print()
 ```

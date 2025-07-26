@@ -1,25 +1,7 @@
 func main[] : I64
-    let s: I64 = c.socket(2, 1, 0)
-    if s < 0
-        dbg.panic("socket() failed")
+    let s: I64 = net.connect("devernay.free.fr", 80)
 
-    let port: I64 = 80
-    let sa: Ptr = c.calloc(1, 16)
-    str.set(sa, 0, 2)
-    str.set(sa, 1, 0)
-    str.set(sa, 2, bit.rshift(port, 8) && 255)
-    str.set(sa, 3, port && 255)
-    // 23.192.228.80 (example.com)
-    str.set(sa, 4, 23)
-    str.set(sa, 5, 192)
-    str.set(sa, 6, 228)
-    str.set(sa, 7, 80)
-
-    if c.connect(s, sa, 16) < 0
-        dbg.panic("connect() failed")
-    c.free(sa)
-
-    let req: String = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+    let req: String = "GET /hacks/chip8/C8TECH10.HTM HTTP/1.0\r\nHost: devernay.free.fr\r\nConnection: close\r\n\r\n"
     c.send(s, req, c.strlen(req), 0)
 
     let resp: String = c.malloc(60000)
