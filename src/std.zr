@@ -8,6 +8,36 @@ func io.print[x: String] : Void
 func io.print_i64[x: I64] : Void
     c.printf("%ld\n", x)
 
+func io.read_stdin[]: String
+    let buffer: String = c.malloc(1025)
+    let n: I64 = c.syscall(0, 0, buffer, 1024)
+    str.set(buffer, n, 0)
+    return buffer
+
+func io.read_file[path: String]: String
+    let file: Ptr = c.fopen(path, "rb")
+    if !file
+        dbg.panic("failed to open file")
+
+    c.fseek(file, 0, 2)
+    let size: I64 = c.ftell(file)
+    c.rewind(file)
+
+    let buffer: String = c.malloc(size + 1)
+
+    let n: I64 = c.fread(buffer, 1, size, file)
+    str.set(buffer, n, 0)
+    c.fclose(file)
+    return buffer
+
+func io.write_file[path: String, content: String] : Void
+    let file: Ptr = c.fopen(path, "wb")
+    if !file
+        dbg.panic("failed to open file")
+
+    c.fwrite(content, 1, c.strlen(content), file)
+    c.fclose(file)
+
 func str.nth[s: String, n: I64] : U8
     return _builtin_deref8(s + n)
 
@@ -59,37 +89,6 @@ func str.reverse[s: String] : String
         str.set(out, i, str.nth(s, len - i - 1))
     str.set(out, len, 0)
     return out
-
-func io.read_line[]: String
-    let buffer: String = c.malloc(1024)
-    let sys_read: I64 = 0
-    let stdin: I64 = 0
-    c.syscall(sys_read, stdin, buffer, 1024)
-    return buffer
-
-func io.read_file[path: String]: String
-    let file: Ptr = c.fopen(path, "rb")
-    if !file
-        dbg.panic("failed to open file")
-
-    c.fseek(file, 0, 2)
-    let size: I64 = c.ftell(file)
-    c.rewind(file)
-
-    let buffer: String = c.malloc(size + 1)
-
-    let n: I64 = c.fread(buffer, 1, size, file)
-    str.set(buffer, n, 0)
-    c.fclose(file)
-    return buffer
-
-func io.write_file[path: String, content: String] : Void
-    let file: Ptr = c.fopen(path, "wb")
-    if !file
-        dbg.panic("failed to open file")
-
-    c.fwrite(content, 1, c.strlen(content), file)
-    c.fclose(file)
 
 func str.from_i64[n: I64] : String
     let x: String = c.malloc(21)
