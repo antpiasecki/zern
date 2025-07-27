@@ -160,6 +160,7 @@ _builtin_rshift:
                 var_type,
                 initializer,
             } => {
+                // TODO: move to analyzer
                 if env.get_var(&name.lexeme).is_some() {
                     return error!(
                         name.loc,
@@ -215,14 +216,11 @@ _builtin_rshift:
             Stmt::Function {
                 name,
                 params,
-                return_type,
+                return_type: _,
                 body,
             } => {
                 if name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
-                    if return_type.lexeme != "I64" {
-                        return error!(&name.loc, "main must return I64");
-                    }
                 }
                 emit!(&mut self.output, "section .text.{}", name.lexeme);
                 emit!(&mut self.output, "{}:", name.lexeme);
@@ -430,6 +428,7 @@ _builtin_rshift:
                 }
             }
             Expr::Variable(name) => {
+                // TODO: move to analyzer
                 let var = match env.get_var(&name.lexeme) {
                     Some(x) => x,
                     None => {
@@ -445,6 +444,7 @@ _builtin_rshift:
             Expr::Assign { name, value } => {
                 self.compile_expr(env, *value)?;
 
+                // TODO: move to analyzer
                 let var = match env.get_var(&name.lexeme) {
                     Some(x) => x,
                     None => {
