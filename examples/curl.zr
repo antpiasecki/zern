@@ -1,0 +1,47 @@
+func main[] : I64
+    // TODO: parse url
+    let host: String = "devernay.free.fr"
+    let path: String = "/hacks/chip8/C8TECH10.HTM"
+
+    let s: I64 = net.connect(host, 80)
+    if s < 0
+        dbg.panic("failed to connect")
+
+    let req: String = c.malloc(2048)
+    c.snprintf(req, 2048, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
+    c.send(s, req, c.strlen(req), 0)
+    c.free(req)
+
+    let header_buf: Ptr = c.malloc(8192)
+    let header_size: I64 = 0
+    let found: Bool = false
+    let end_index: I64 = -1
+
+    while !found & header_size < 8192
+        let n: I64 = c.read(s, header_buf + header_size, 8192 - header_size)
+        if n <= 0
+            break
+        let current_size: I64 = header_size + n
+        let i: I64 = 0
+        while i <= current_size - 4
+            let p: Ptr = header_buf + i
+            if str.nth(p, 0) == 13 & str.nth(p, 1) == 10 & str.nth(p, 2) == 13 & str.nth(p, 3) == 10
+                found = true
+                end_index = i + 4
+                break
+            i = i + 1
+        header_size = current_size
+
+    if end_index < header_size
+        c.write(1, header_buf + end_index, header_size - end_index)
+    c.free(header_buf)
+
+    let buffer: Ptr = c.malloc(4096)
+    while true
+        let n: I64 = c.read(s, buffer, 4096)
+        if n <= 0
+            break
+        c.write(1, buffer, n)
+    c.free(buffer)
+
+    c.close(s)

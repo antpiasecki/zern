@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct Var {
-    pub var_type: String,
+    // pub var_type: String,
     pub stack_offset: usize,
 }
 
@@ -35,11 +35,10 @@ impl Env {
         self.scopes.pop();
     }
 
-    pub fn define_var(&mut self, name: String, var_type: String) -> usize {
+    pub fn define_var(&mut self, name: String, _var_type: String) -> usize {
         let offset = self.next_offset;
         self.next_offset += 8;
         self.scopes.last_mut().unwrap().insert(name, Var {
-            var_type,
             stack_offset: offset,
         });
         offset
@@ -104,7 +103,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "malloc,calloc,realloc,free,puts,printf,sprintf,strtol,strlen,strcmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
+        for name in "malloc,calloc,realloc,free,puts,printf,sprintf,snprintf,strtol,strlen,strcmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
         {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
