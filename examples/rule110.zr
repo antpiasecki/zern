@@ -15,14 +15,13 @@ func rule110_step[state: Array] : Array
 
     return new_state
 
-func to_str[state: Array]: String
-    let out: String = malloc(array.size(state))
+func print_state[state: Array]: Void
     for i in 0..array.size(state)
         if state[i]
-            str.set(out, i, '#')
+            c.putchar('#')
         else
-            str.set(out, i, ' ')
-    return out
+            c.putchar(' ')
+    io.print("")
 
 func main[] : I64
     let SIZE: I64 = 60
@@ -32,7 +31,9 @@ func main[] : I64
         array.push(state, false)
     array.push(state, true)
 
-    io.print(to_str(state))
+    print_state(state)
     for i in 0..SIZE
         state = rule110_step(state)
-        io.print(to_str(state))
+        print_state(state)
+
+    array.free(state)

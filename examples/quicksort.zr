@@ -34,3 +34,5 @@ func main[] : I64
 
     for i in 0..array.size(arr)
         io.print_i64(arr[i])
+
+    array.free(arr)

@@ -1,7 +1,24 @@
-func main[] : I64
-    // TODO: parse url
-    let host: String = "devernay.free.fr"
-    let path: String = "/hacks/chip8/C8TECH10.HTM"
+func main[argc: I64, argv: Ptr] : I64
+    if argc < 2
+        dbg.panic("url missing")
+
+    let url: String = _builtin_deref64(argv + 8)
+
+    if c.strncmp(url, "http://", 7) != 0
+        dbg.panic("invalid url scheme")
+    
+    let url_len: I64 = c.strlen(url)
+    let host_start: I64 = 7
+    let i: I64 = host_start
+    while i < url_len
+        if str.nth(url, i) == '/'
+            break
+        i = i + 1
+
+    let host: String = str.substr(url, host_start, i - host_start)
+    let path: String = "/"
+    if i < url_len
+        path = str.substr(url, i, url_len - i)
 
     let s: I64 = net.connect(host, 80)
     if s < 0
@@ -22,7 +39,7 @@ func main[] : I64
         if n <= 0
             break
         let current_size: I64 = header_size + n
-        let i: I64 = 0
+        i = 0
         while i <= current_size - 4
             let p: Ptr = header_buf + i
             if str.nth(p, 0) == 13 & str.nth(p, 1) == 10 & str.nth(p, 2) == 13 & str.nth(p, 3) == 10

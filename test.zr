@@ -14,8 +14,12 @@ func run_test[x: String] : Void
         c.printf("\033[93mSkipping %s...\033[0m\n", x)
     else
         let run_start_time: I64 = os.time()
-        if c.system("./out") != 0
-            c.exit(1)
+        if c.strcmp(x, "curl.zr") == 0
+            if c.system("./out http://devernay.free.fr/hacks/chip8/C8TECH10.HTM") != 0
+                c.exit(1)
+        else
+            if c.system("./out") != 0
+                c.exit(1)
         let run_end_time: I64 = os.time()
 
         c.printf("\033[93mRunning %s...\033[0m %ldms\n", x, run_end_time - run_start_time)
@@ -26,3 +30,5 @@ func main[] : I64
     let files: Array = os.listdir("examples/")
     for i in 0..array.size(files)
         run_test(files[i])
+    
+    array.free(files)

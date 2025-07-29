@@ -103,7 +103,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "malloc,calloc,realloc,free,puts,printf,sprintf,snprintf,strtol,strlen,strcmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
+        for name in "malloc,calloc,realloc,free,puts,putchar,printf,sprintf,snprintf,strtol,strlen,strcmp,strncmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
         {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);

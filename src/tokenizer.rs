@@ -280,13 +280,8 @@ impl Tokenizer {
     fn count_indentation(&mut self) -> usize {
         let mut count = 0;
 
-        while self.peek() == ' ' || self.peek() == '\t' {
-            if self.peek() == ' ' {
-                count += 1;
-            }
-            if self.peek() == '\t' {
-                count += 4;
-            }
+        while self.peek() == ' ' {
+            count += 1;
             self.advance();
         }
         count
