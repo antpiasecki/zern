@@ -2,6 +2,12 @@ func dbg.panic[msg: String] : Void
     c.printf("PANIC: %s\n", msg)
     c.exit(1)
 
+func mem.deref8[x: Ptr] : I64
+    return _builtin_deref8(x)
+
+func mem.deref64[x: Ptr] : I64
+    return _builtin_deref64(x)
+
 func io.print[x: String] : Void
     c.puts(x)
 
@@ -39,7 +45,7 @@ func io.write_file[path: String, content: String] : Void
     c.fclose(file)
 
 func str.nth[s: String, n: I64] : U8
-    return _builtin_deref8(s + n)
+    return mem.deref8(s + n)
 
 func str.set[s: String, n: I64, c: U8] : Void
     _builtin_set8(s+n, c)
@@ -97,6 +103,43 @@ func str.from_i64[n: I64] : String
 
 func str.parse_i64[s: String] : I64
     return c.strtol(s, 0, 0)
+
+func str.hex_encode[s: String] : String
+    let hex_chars: String = "0123456789abcdef"
+    let s_len: I64 = c.strlen(s)
+    let j: I64 = 0
+    let out: String = c.malloc(s_len*2+1)
+
+    for i in 0..s_len
+        let high: U8 = (str.nth(s, i) >> 4) & 15
+        let low: U8 = str.nth(s, i) & 15
+        str.set(out, j, str.nth(hex_chars, high))
+        str.set(out, j+1, str.nth(hex_chars, low))
+        j = j + 2
+
+    str.set(out, j, 0)
+    return out
+
+func str.from_hex_digit[d: U8] : I64
+    if d >= 'a' & d <= 'f'
+        return d - 'a' + 10
+    if d >= 'A' & d <= 'F'
+        return d - 'A' + 10
+    return d - '0'
+
+func str.hex_decode[s: String] : String
+    let s_len: I64 = c.strlen(s)
+    let i: I64 = 0
+    let j: I64 = 0
+    let out: String = c.malloc(s_len/2+1)
+
+    while i < s_len
+        str.set(out, j, str.from_hex_digit(str.nth(s, i)) * 16 + str.from_hex_digit(str.nth(s, i+1)))
+        i = i + 2
+        j = j + 1
+
+    str.set(out, j, 0)
+    return out
 
 func math.gcd[a: I64, b: I64] : I64
     while b != 0
@@ -164,7 +207,7 @@ func math.urandom[]: I64
     let file: Ptr = c.fopen("/dev/urandom", "rb")
     c.fread(buffer, 8, 1, file)
     c.fclose(file)
-    let n: I64 = _builtin_deref64(buffer)
+    let n: I64 = mem.deref64(buffer)
     c.free(buffer)
     return n
 
@@ -172,13 +215,13 @@ func array.new[] : Array
     return c.calloc(1, 24)
 
 func array.set[xs: Array, n: I64, x: I64] : Void
-    let data: Ptr = _builtin_deref64(xs)
+    let data: Ptr = mem.deref64(xs)
     _builtin_set64(data+n*8, x)
 
 func array.push[xs: Array, x: I64] : Void
-    let data: Ptr = _builtin_deref64(xs)
-    let capacity: I64 = _builtin_deref64(xs+8)
-    let size: I64 = _builtin_deref64(xs+16)
+    let data: Ptr = mem.deref64(xs)
+    let capacity: I64 = mem.deref64(xs+8)
+    let size: I64 = mem.deref64(xs+16)
 
     if size == capacity
         let new_capacity: I64 = 4
@@ -193,17 +236,17 @@ func array.push[xs: Array, x: I64] : Void
     _builtin_set64(xs+16, size + 1)
 
 func array.size[xs: Array] : I64
-    return _builtin_deref64(xs+16)
+    return mem.deref64(xs+16)
 
 func array.free[xs: Array] : Void
-    c.free(_builtin_deref64(xs))
+    c.free(mem.deref64(xs))
     c.free(xs)
 
 func os.time[] : I64
     let tv: Ptr = c.malloc(16)
     c.gettimeofday(tv, 0)
-    let seconds: I64 = _builtin_deref64(tv)
-    let microseconds: I64 = _builtin_deref64(tv+8)
+    let seconds: I64 = mem.deref64(tv)
+    let microseconds: I64 = mem.deref64(tv+8)
     c.free(tv)
     return seconds * 1000 + microseconds / 1000
 
@@ -229,152 +272,6 @@ func os.listdir[path: String] : Array
     c.closedir(dir)
     return files
 
-func bit.lshift[a: I64, b: I64] : I64
-    return _builtin_lshift(a, b)
-
-func bit.rshift[a: I64, b: I64] : I64
-    return _builtin_rshift(a, b)
-
-func crypto.hex_encode[s: String] : String
-    let hex_chars: String = "0123456789abcdef"
-    let s_len: I64 = c.strlen(s)
-    let j: I64 = 0
-    let out: String = c.malloc(s_len*2+1)
-
-    for i in 0..s_len
-        let high: U8 = bit.rshift(str.nth(s, i), 4) & 15
-        let low: U8 = str.nth(s, i) & 15
-        str.set(out, j, str.nth(hex_chars, high))
-        str.set(out, j+1, str.nth(hex_chars, low))
-        j = j + 2
-
-    str.set(out, j, 0)
-    return out
-
-func crypto.from_hex_digit[d: U8] : I64
-    if d >= 'a' & d <= 'f'
-        return d - 'a' + 10
-    if d >= 'A' & d <= 'F'
-        return d - 'A' + 10
-    return d - '0'
-
-func crypto.hex_decode[s: String] : String
-    let s_len: I64 = c.strlen(s)
-    let i: I64 = 0
-    let j: I64 = 0
-    let out: String = c.malloc(s_len/2+1)
-
-    while i < s_len
-        str.set(out, j, crypto.from_hex_digit(str.nth(s, i)) * 16 + crypto.from_hex_digit(str.nth(s, i+1)))
-        i = i + 2
-        j = j + 1
-
-    str.set(out, j, 0)
-    return out
-
-func crypto.rc4[key: String, plaintext: String]: String
-    let S: String = c.malloc(256)
-    for i in 0..256
-        str.set(S, i, i)
-    
-    let j: I64 = 0
-    let key_len: I64 = c.strlen(key)
-    for i in 0..256
-        j = (j + str.nth(S, i) + str.nth(key, i % key_len)) % 256
-        let tmp: U8 = str.nth(S, i)
-        str.set(S, i, str.nth(S, j))
-        str.set(S, j, tmp)
-
-    let i: I64 = 0
-    j = 0
-    let plaintext_len: I64 = c.strlen(plaintext)
-    let ciphertext: String = c.malloc(plaintext_len+1)
-    for n in 0..plaintext_len
-        i = (i + 1) % 256
-        j = (j + str.nth(S, i)) % 256
-
-        let tmp: U8 = str.nth(S, i)
-        str.set(S, i, str.nth(S, j))
-        str.set(S, j, tmp)
-
-        let r: I64 = str.nth(S, (str.nth(S, i) + str.nth(S, j)) % 256)
-        str.set(ciphertext, n, r ^ str.nth(plaintext, n))
-
-    str.set(ciphertext, plaintext_len, 0)
-    c.free(S)
-    return ciphertext
-
-func crypto.base64_encode[s: String] : String
-    let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    let s_len: I64 = c.strlen(s)
-    let out: String = c.malloc(s_len*2)
-    let i: I64 = 0
-    let j: I64 = 0
-
-    while i < s_len
-        let b1: U8 = str.nth(s, i)
-        let b2: U8 = 0
-        if i + 1 < s_len
-            b2 = str.nth(s, i+1)
-        let b3: U8 = 0
-        if i + 2 < s_len
-            b3 = str.nth(s, i+2)
-        i = i + 3
-
-        let triple: I64 = bit.lshift(b1, 16) | bit.lshift(b2, 8) | b3
-        str.set(out, j,   str.nth(chars, bit.rshift(triple, 18) & 63))
-        str.set(out, j+1, str.nth(chars, bit.rshift(triple, 12) & 63))
-        str.set(out, j+2, str.nth(chars, bit.rshift(triple, 6) & 63))
-        str.set(out, j+3, str.nth(chars, triple & 63))
-        j = j + 4
-
-    let padding: I64 = s_len % 3
-    if padding == 1
-        str.set(out, j-2, '=')
-        str.set(out, j-1, '=')
-    else if padding == 2
-        str.set(out, j-1, '=')
-
-    str.set(out, j, 0)
-    return out
-
-func crypto.base64_decode[s: String] : String
-    let chars: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    let s_len: I64 = c.strlen(s)
-    let out: String = c.malloc(s_len)
-    let i: I64 = 0
-    let j: I64 = 0
-
-    while str.nth(s, s_len-1) == '='
-        s_len = s_len - 1
-
-    while i < s_len
-        let s1: U8 = str.find(chars, str.nth(s, i))
-        let s2: U8 = 0
-        if i + 1 < s_len
-            s2 = str.find(chars, str.nth(s, i+1))
-        let s3: U8 = 0
-        if i + 2 < s_len
-            s3 = str.find(chars, str.nth(s, i+2))
-        let s4: U8 = 0
-        if i + 3 < s_len
-            s4 = str.find(chars, str.nth(s, i+3))
-        i = i + 4
-
-        let triple: I64 = bit.lshift(s1, 18) | bit.lshift(s2, 12) | bit.lshift(s3, 6) | s4
-
-        str.set(out, j, bit.rshift(triple, 16) & 255)
-        j = j + 1
-        if s3 != 64
-            str.set(out, j, bit.rshift(triple, 8) & 255)
-            j = j + 1
-        if s4 != 64
-            str.set(out, j, triple & 255)
-            j = j + 1
-
-    str.set(out, j, 0)
-    return out
-
 func net.listen[port: I64] : I64
     let s: I64 = c.socket(2, 1, 0)
     if s < 0
@@ -383,7 +280,7 @@ func net.listen[port: I64] : I64
     let sa: Ptr = c.calloc(1, 16)
     str.set(sa, 0, 2)
     str.set(sa, 1, 0)
-    str.set(sa, 2, bit.rshift(port, 8) & 255)
+    str.set(sa, 2, (port >> 8) & 255)
     str.set(sa, 3, port & 255)
 
     if c.bind(s, sa, 16) < 0
@@ -402,7 +299,7 @@ func net.connect[host: String, port: I64] : I64
     if he == 0
         return -1
 
-    let ip_ptr: Ptr = _builtin_deref64(_builtin_deref64(he + 24))
+    let ip_ptr: Ptr = mem.deref64(mem.deref64(he + 24))
 
     let s: I64 = c.socket(2, 1, 0)
     if s < 0
@@ -410,12 +307,12 @@ func net.connect[host: String, port: I64] : I64
 
     let sa: Ptr = c.calloc(1, 16)
     str.set(sa, 0, 2)
-    str.set(sa, 2, bit.rshift(port, 8) & 255)
+    str.set(sa, 2, (port >> 8) & 255)
     str.set(sa, 3, port & 255)
-    str.set(sa, 4, _builtin_deref8(ip_ptr + 0))
-    str.set(sa, 5, _builtin_deref8(ip_ptr + 1))
-    str.set(sa, 6, _builtin_deref8(ip_ptr + 2))
-    str.set(sa, 7, _builtin_deref8(ip_ptr + 3))
+    str.set(sa, 4, mem.deref8(ip_ptr + 0))
+    str.set(sa, 5, mem.deref8(ip_ptr + 1))
+    str.set(sa, 6, mem.deref8(ip_ptr + 2))
+    str.set(sa, 7, mem.deref8(ip_ptr + 3))
 
     if c.connect(s, sa, 16) < 0
         c.free(sa)

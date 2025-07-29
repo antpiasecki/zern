@@ -389,7 +389,13 @@ impl Parser {
     fn factor(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.unary()?;
 
-        while self.match_token(&[TokenType::Star, TokenType::Slash, TokenType::Mod]) {
+        while self.match_token(&[
+            TokenType::Star,
+            TokenType::Slash,
+            TokenType::Mod,
+            TokenType::ShiftLeft,
+            TokenType::ShiftRight,
+        ]) {
             let op = self.previous().clone();
             let right = self.unary()?;
             expr = Expr::Binary {

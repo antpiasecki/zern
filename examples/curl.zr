@@ -2,7 +2,7 @@ func main[argc: I64, argv: Ptr] : I64
     if argc < 2
         dbg.panic("url missing")
 
-    let url: String = _builtin_deref64(argv + 8)
+    let url: String = mem.deref64(argv + 8)
 
     if c.strncmp(url, "http://", 7) != 0
         dbg.panic("invalid url scheme")

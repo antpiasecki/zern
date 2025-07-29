@@ -132,20 +132,6 @@ section .text._builtin_set64
 _builtin_set64:
     mov [rdi], rsi
     ret
-
-section .text._builtin_lshift
-_builtin_lshift:
-    mov rcx, rsi
-    mov rax, rdi
-    shl rax, cl
-    ret
-
-section .text._builtin_rshift
-_builtin_rshift:
-    mov rcx, rsi
-    mov rax, rdi
-    sar rax, cl
-    ret
 "
         );
         Ok(())
@@ -364,6 +350,14 @@ _builtin_rshift:
                         emit!(&mut self.output, "    cmp rax, rbx");
                         emit!(&mut self.output, "    setle al");
                         emit!(&mut self.output, "    movzx rax, al");
+                    }
+                    TokenType::ShiftLeft => {
+                        emit!(&mut self.output, "    mov rcx, rbx");
+                        emit!(&mut self.output, "    sal rax, cl");
+                    }
+                    TokenType::ShiftRight => {
+                        emit!(&mut self.output, "    mov rcx, rbx");
+                        emit!(&mut self.output, "    sar rax, cl");
                     }
                     _ => unreachable!(),
                 }
