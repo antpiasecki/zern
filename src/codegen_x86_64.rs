@@ -225,10 +225,8 @@ _builtin_set64:
 
                 self.compile_stmt(env, *body)?;
 
-                if name.lexeme == "main" {
-                    emit!(&mut self.output, "    mov rax, 0");
-                }
-
+                // fallback to returning null
+                emit!(&mut self.output, "    mov rax, 0");
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");

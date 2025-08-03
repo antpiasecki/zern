@@ -7,7 +7,7 @@ func main[argc: I64, argv: Ptr] : I64
     if c.strncmp(url, "http://", 7) != 0
         dbg.panic("invalid url scheme")
     
-    let url_len: I64 = c.strlen(url)
+    let url_len: I64 = str.len(url)
     let host_start: I64 = 7
     let i: I64 = host_start
     while i < url_len
@@ -24,12 +24,12 @@ func main[argc: I64, argv: Ptr] : I64
     if s < 0
         dbg.panic("failed to connect")
 
-    let req: String = c.malloc(2048)
+    let req: String = mem.alloc(2048)
     c.snprintf(req, 2048, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
-    c.send(s, req, c.strlen(req), 0)
-    c.free(req)
+    c.send(s, req, str.len(req), 0)
+    mem.free(req)
 
-    let header_buf: Ptr = c.malloc(8192)
+    let header_buf: Ptr = mem.alloc(8192)
     let header_size: I64 = 0
     let found: Bool = false
     let end_index: I64 = -1
@@ -51,14 +51,14 @@ func main[argc: I64, argv: Ptr] : I64
 
     if end_index < header_size
         c.write(1, header_buf + end_index, header_size - end_index)
-    c.free(header_buf)
+    mem.free(header_buf)
 
-    let buffer: Ptr = c.malloc(4096)
+    let buffer: Ptr = mem.alloc(4096)
     while true
         let n: I64 = c.read(s, buffer, 4096)
         if n <= 0
             break
         c.write(1, buffer, n)
-    c.free(buffer)
+    mem.free(buffer)
 
     c.close(s)

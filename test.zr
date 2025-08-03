@@ -7,14 +7,14 @@ func run_test[x: String] : Void
         c.exit(1)
     let build_end_time: I64 = os.time()
 
-    c.free(cmd)
+    mem.free(cmd)
     c.printf(" %ldms\n", build_end_time - build_start_time)
 
-    if c.strcmp(x, "guess_number.zr") == 0 | c.strcmp(x, "tcp_server.zr") == 0
+    if str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr")
         c.printf("\033[93mSkipping %s...\033[0m\n", x)
     else
         let run_start_time: I64 = os.time()
-        if c.strcmp(x, "curl.zr") == 0
+        if str.equal(x, "curl.zr")
             if c.system("./out http://devernay.free.fr/hacks/chip8/C8TECH10.HTM") != 0
                 c.exit(1)
         else

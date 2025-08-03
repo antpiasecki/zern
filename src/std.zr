@@ -2,6 +2,12 @@ func dbg.panic[msg: String] : Void
     c.printf("PANIC: %s\n", msg)
     c.exit(1)
 
+func mem.alloc[x: I64] : Ptr
+    return c.malloc(x)
+
+func mem.free[x: I64] : Ptr
+    return c.free(x)
+
 func mem.deref8[x: Ptr] : I64
     return _builtin_deref8(x)
 
@@ -15,7 +21,7 @@ func io.print_i64[x: I64] : Void
     c.printf("%ld\n", x)
 
 func io.read_stdin[]: String
-    let buffer: String = c.malloc(1025)
+    let buffer: String = mem.alloc(1025)
     let n: I64 = c.syscall(0, 0, buffer, 1024)
     str.set(buffer, n, 0)
     return buffer
@@ -29,7 +35,7 @@ func io.read_file[path: String]: String
     let size: I64 = c.ftell(file)
     c.rewind(file)
 
-    let buffer: String = c.malloc(size + 1)
+    let buffer: String = mem.alloc(size + 1)
 
     let n: I64 = c.fread(buffer, 1, size, file)
     str.set(buffer, n, 0)
@@ -41,8 +47,11 @@ func io.write_file[path: String, content: String] : Void
     if !file
         dbg.panic("failed to open file")
 
-    c.fwrite(content, 1, c.strlen(content), file)
+    c.fwrite(content, 1, str.len(content), file)
     c.fclose(file)
+
+func str.len[s: String] : I64
+    return c.strlen(s)
 
 func str.nth[s: String, n: I64] : U8
     return mem.deref8(s + n)
@@ -50,34 +59,37 @@ func str.nth[s: String, n: I64] : U8
 func str.set[s: String, n: I64, c: U8] : Void
     _builtin_set8(s+n, c)
 
-func str.is_whitespace[c: U8] : Bool
-    return c == ' ' | c == 10 | c == 13 | c == 9
+func str.equal[a: String, b: String] : Bool
+    return c.strcmp(a, b) == 0
+
+func str.is_whitespace[x: U8] : Bool
+    return x == ' ' | x == 10 | x == 13 | x == 9
 
 func str.concat[a: String, b: String] : String
-    let c: String = c.malloc(c.strlen(a) + c.strlen(b) + 1)
-    c.strcpy(c, a)
-    c.strcat(c, b)
-    return c
+    let out: String = mem.alloc(str.len(a) + str.len(b) + 1)
+    c.strcpy(out, a)
+    c.strcat(out, b)
+    return out
 
 func str.find[s: String, c: U8] : I64
-    let s_len: I64 = c.strlen(s)
+    let s_len: I64 = str.len(s)
     for i in 0..s_len
         if str.nth(s, i) == c
             return i
     return -1
 
 func str.substr[s: String, start: I64, length: I64] : String
-    if start < 0 | length < 0 | start + length > c.strlen(s)
+    if start < 0 | length < 0 | start + length > str.len(s)
         dbg.panic("String.substr out of bounds")
 
-    let out: String = c.malloc(length + 1)
+    let out: String = mem.alloc(length + 1)
     c.strncpy(out, s + start, length)
     str.set(out, length, 0)
     return out
 
 func str.trim[s: String] : String
     let start: I64 = 0
-    let end: I64 = c.strlen(s) - 1
+    let end: I64 = str.len(s) - 1
 
     while start <= end & str.is_whitespace(str.nth(s, start))
         start = start + 1
@@ -87,9 +99,41 @@ func str.trim[s: String] : String
 
     return str.substr(s, start, end - start + 1)
 
+func str.split[haystack: String, needle: String]: Array
+    let haystack_len: I64 = str.len(haystack)
+    let needle_len: I64 = str.len(needle)
+    let result: Array = []
+    
+    if !needle_len
+        if !haystack_len
+            return result
+        else
+            for i in 0..haystack_len
+                array.push(result, str.substr(haystack, i, 1))
+            return result
+
+    let start: I64 = 0
+    let i: I64 = 0
+    while i < haystack_len
+        if i <= haystack_len - needle_len
+            let match: Bool = true
+            for j in 0..needle_len
+                if str.nth(haystack, i+j) != str.nth(needle, j)
+                    match = false
+                    break
+            if match
+                array.push(result, str.substr(haystack, start, i - start))
+                start = i + needle_len
+                i = i + needle_len
+                continue
+        i = i + 1
+
+    array.push(result, str.substr(haystack, start, haystack_len - start))
+    return result
+
 func str.reverse[s: String] : String
-    let len: I64 = c.strlen(s)
-    let out: String = c.malloc(len + 1)
+    let len: I64 = str.len(s)
+    let out: String = mem.alloc(len + 1)
 
     for i in 0..len
         str.set(out, i, str.nth(s, len - i - 1))
@@ -97,7 +141,7 @@ func str.reverse[s: String] : String
     return out
 
 func str.from_i64[n: I64] : String
-    let x: String = c.malloc(21)
+    let x: String = mem.alloc(21)
     c.sprintf(x, "%ld", n)
     return x
 
@@ -106,9 +150,9 @@ func str.parse_i64[s: String] : I64
 
 func str.hex_encode[s: String] : String
     let hex_chars: String = "0123456789abcdef"
-    let s_len: I64 = c.strlen(s)
+    let s_len: I64 = str.len(s)
     let j: I64 = 0
-    let out: String = c.malloc(s_len*2+1)
+    let out: String = mem.alloc(s_len*2+1)
 
     for i in 0..s_len
         let high: U8 = (str.nth(s, i) >> 4) & 15
@@ -128,10 +172,10 @@ func str.from_hex_digit[d: U8] : I64
     return d - '0'
 
 func str.hex_decode[s: String] : String
-    let s_len: I64 = c.strlen(s)
+    let s_len: I64 = str.len(s)
     let i: I64 = 0
     let j: I64 = 0
-    let out: String = c.malloc(s_len/2+1)
+    let out: String = mem.alloc(s_len/2+1)
 
     while i < s_len
         str.set(out, j, str.from_hex_digit(str.nth(s, i)) * 16 + str.from_hex_digit(str.nth(s, i+1)))
@@ -203,16 +247,19 @@ func math.is_prime[n: I64]: Bool
     return true
 
 func math.urandom[]: I64
-    let buffer: Ptr = c.malloc(8)
+    let buffer: Ptr = mem.alloc(8)
     let file: Ptr = c.fopen("/dev/urandom", "rb")
     c.fread(buffer, 8, 1, file)
     c.fclose(file)
     let n: I64 = mem.deref64(buffer)
-    c.free(buffer)
+    mem.free(buffer)
     return n
 
 func array.new[] : Array
     return c.calloc(1, 24)
+
+func array.nth[xs: Array, n: I64] : I64
+    return xs[n]
 
 func array.set[xs: Array, n: I64, x: I64] : Void
     let data: Ptr = mem.deref64(xs)
@@ -239,15 +286,15 @@ func array.size[xs: Array] : I64
     return mem.deref64(xs+16)
 
 func array.free[xs: Array] : Void
-    c.free(mem.deref64(xs))
-    c.free(xs)
+    mem.free(mem.deref64(xs))
+    mem.free(xs)
 
 func os.time[] : I64
-    let tv: Ptr = c.malloc(16)
+    let tv: Ptr = mem.alloc(16)
     c.gettimeofday(tv, 0)
     let seconds: I64 = mem.deref64(tv)
     let microseconds: I64 = mem.deref64(tv+8)
-    c.free(tv)
+    mem.free(tv)
     return seconds * 1000 + microseconds / 1000
 
 func os.listdir[path: String] : Array
@@ -286,7 +333,7 @@ func net.listen[port: I64] : I64
     if c.bind(s, sa, 16) < 0
         c.close(s)
         return -1
-    c.free(sa)
+    mem.free(sa)
 
     if c.listen(s, 1) < 0
         c.close(s)
@@ -315,9 +362,9 @@ func net.connect[host: String, port: I64] : I64
     str.set(sa, 7, mem.deref8(ip_ptr + 3))
 
     if c.connect(s, sa, 16) < 0
-        c.free(sa)
+        mem.free(sa)
         c.close(s)
         return -1
 
-    c.free(sa)
+    mem.free(sa)
     return s
