@@ -82,6 +82,15 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
             "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
             args.out, args.out, args.cflags
         ));
+
+        if args.run_exe {
+            run_command(
+                std::fs::canonicalize(args.out)
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+        }
     } else {
         fs::write(&args.out, codegen.get_output()).unwrap();
     }
@@ -99,6 +108,9 @@ struct Args {
 
     #[arg(short = 'S', help = "Only generate assembly")]
     output_asm: bool,
+
+    #[arg(short = 'r', help = "Run the compiled executable")]
+    run_exe: bool,
 
     #[arg(short = 'C', default_value = "", help = "Extra flags to pass to gcc")]
     cflags: String,

@@ -2,7 +2,7 @@ func main[argc: I64, argv: Ptr] : I64
     if argc < 2
         dbg.panic("url missing")
 
-    let url: String = mem.deref64(argv + 8)
+    let url: String = mem.read64(argv + 8)
 
     if c.strncmp(url, "http://", 7) != 0
         dbg.panic("invalid url scheme")
@@ -29,7 +29,7 @@ func main[argc: I64, argv: Ptr] : I64
     c.send(s, req, str.len(req), 0)
     mem.free(req)
 
-    let header_buf: Ptr = mem.alloc(8192)
+    let header_buf: String = mem.alloc(8192)
     let header_size: I64 = 0
     let found: Bool = false
     let end_index: I64 = -1
@@ -41,8 +41,7 @@ func main[argc: I64, argv: Ptr] : I64
         let current_size: I64 = header_size + n
         i = 0
         while i <= current_size - 4
-            let p: Ptr = header_buf + i
-            if str.nth(p, 0) == 13 & str.nth(p, 1) == 10 & str.nth(p, 2) == 13 & str.nth(p, 3) == 10
+            if str.nth(header_buf, i) == 13 & str.nth(header_buf, i+1) == 10 & str.nth(header_buf, i+2) == 13 & str.nth(header_buf, i+3) == 10
                 found = true
                 end_index = i + 4
                 break

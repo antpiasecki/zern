@@ -5,14 +5,14 @@ func dbg.panic[msg: String] : Void
 func mem.alloc[x: I64] : Ptr
     return c.malloc(x)
 
-func mem.free[x: I64] : Ptr
-    return c.free(x)
+func mem.free[x: Ptr] : Void
+    c.free(x)
 
-func mem.deref8[x: Ptr] : I64
-    return _builtin_deref8(x)
+func mem.read8[x: Ptr] : U8
+    return _builtin_read8(x)
 
-func mem.deref64[x: Ptr] : I64
-    return _builtin_deref64(x)
+func mem.read64[x: Ptr] : I64
+    return _builtin_read64(x)
 
 func io.print[x: String] : Void
     c.puts(x)
@@ -37,6 +37,7 @@ func io.read_file[path: String]: String
 
     let buffer: String = mem.alloc(size + 1)
 
+    // TODO: check if works with huge files
     let n: I64 = c.fread(buffer, 1, size, file)
     str.set(buffer, n, 0)
     c.fclose(file)
@@ -54,7 +55,7 @@ func str.len[s: String] : I64
     return c.strlen(s)
 
 func str.nth[s: String, n: I64] : U8
-    return mem.deref8(s + n)
+    return mem.read8(s + n)
 
 func str.set[s: String, n: I64, c: U8] : Void
     _builtin_set8(s+n, c)
@@ -80,7 +81,7 @@ func str.find[s: String, c: U8] : I64
 
 func str.substr[s: String, start: I64, length: I64] : String
     if start < 0 | length < 0 | start + length > str.len(s)
-        dbg.panic("String.substr out of bounds")
+        dbg.panic("str.substr out of bounds")
 
     let out: String = mem.alloc(length + 1)
     c.strncpy(out, s + start, length)
@@ -251,7 +252,7 @@ func math.urandom[]: I64
     let file: Ptr = c.fopen("/dev/urandom", "rb")
     c.fread(buffer, 8, 1, file)
     c.fclose(file)
-    let n: I64 = mem.deref64(buffer)
+    let n: I64 = mem.read64(buffer)
     mem.free(buffer)
     return n
 
@@ -259,16 +260,19 @@ func array.new[] : Array
     return c.calloc(1, 24)
 
 func array.nth[xs: Array, n: I64] : I64
+    // this probably should be implemented in the codegen
+    if n < 0 | n >= array.size(xs)
+        dbg.panic("array.nth out of bounds")
     return xs[n]
 
 func array.set[xs: Array, n: I64, x: I64] : Void
-    let data: Ptr = mem.deref64(xs)
+    let data: Ptr = mem.read64(xs)
     _builtin_set64(data+n*8, x)
 
 func array.push[xs: Array, x: I64] : Void
-    let data: Ptr = mem.deref64(xs)
-    let capacity: I64 = mem.deref64(xs+8)
-    let size: I64 = mem.deref64(xs+16)
+    let data: Ptr = mem.read64(xs)
+    let capacity: I64 = mem.read64(xs+8)
+    let size: I64 = mem.read64(xs+16)
 
     if size == capacity
         let new_capacity: I64 = 4
@@ -283,17 +287,17 @@ func array.push[xs: Array, x: I64] : Void
     _builtin_set64(xs+16, size + 1)
 
 func array.size[xs: Array] : I64
-    return mem.deref64(xs+16)
+    return mem.read64(xs+16)
 
 func array.free[xs: Array] : Void
-    mem.free(mem.deref64(xs))
+    mem.free(mem.read64(xs))
     mem.free(xs)
 
 func os.time[] : I64
     let tv: Ptr = mem.alloc(16)
     c.gettimeofday(tv, 0)
-    let seconds: I64 = mem.deref64(tv)
-    let microseconds: I64 = mem.deref64(tv+8)
+    let seconds: I64 = mem.read64(tv)
+    let microseconds: I64 = mem.read64(tv+8)
     mem.free(tv)
     return seconds * 1000 + microseconds / 1000
 
@@ -307,11 +311,11 @@ func os.listdir[path: String] : Array
             break
 
         let skip: Bool = false
-        if str.nth(entry, 19) == '.'
-            if str.nth(entry, 20) == 0
+        if mem.read8(entry + 19) == '.'
+            if mem.read8(entry + 20) == 0
                 skip = true
-            else if str.nth(entry, 20) == '.'
-                if str.nth(entry, 21) == 0
+            else if mem.read8(entry + 20) == '.'
+                if mem.read8(entry + 21) == 0
                     skip = true
 
         if !skip
@@ -346,7 +350,7 @@ func net.connect[host: String, port: I64] : I64
     if he == 0
         return -1
 
-    let ip_ptr: Ptr = mem.deref64(mem.deref64(he + 24))
+    let ip_ptr: Ptr = mem.read64(mem.read64(he + 24))
 
     let s: I64 = c.socket(2, 1, 0)
     if s < 0
@@ -356,10 +360,10 @@ func net.connect[host: String, port: I64] : I64
     str.set(sa, 0, 2)
     str.set(sa, 2, (port >> 8) & 255)
     str.set(sa, 3, port & 255)
-    str.set(sa, 4, mem.deref8(ip_ptr + 0))
-    str.set(sa, 5, mem.deref8(ip_ptr + 1))
-    str.set(sa, 6, mem.deref8(ip_ptr + 2))
-    str.set(sa, 7, mem.deref8(ip_ptr + 3))
+    str.set(sa, 4, mem.read8(ip_ptr + 0))
+    str.set(sa, 5, mem.read8(ip_ptr + 1))
+    str.set(sa, 6, mem.read8(ip_ptr + 2))
+    str.set(sa, 7, mem.read8(ip_ptr + 3))
 
     if c.connect(s, sa, 16) < 0
         mem.free(sa)

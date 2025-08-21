@@ -15,7 +15,7 @@ func run_test[x: String] : Void
     else
         let run_start_time: I64 = os.time()
         if str.equal(x, "curl.zr")
-            if c.system("./out http://devernay.free.fr/hacks/chip8/C8TECH10.HTM") != 0
+            if c.system("./out http://example.com") != 0
                 c.exit(1)
         else
             if c.system("./out") != 0

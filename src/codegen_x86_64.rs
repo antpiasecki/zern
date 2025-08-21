@@ -112,14 +112,14 @@ section .text
         emit!(
             &mut self.output,
             "
-section .text._builtin_deref8
-_builtin_deref8:
+section .text._builtin_read8
+_builtin_read8:
     xor rax, rax 
     mov al, byte [rdi]
     ret
 
-section .text._builtin_deref64
-_builtin_deref64:
+section .text._builtin_read64
+_builtin_read64:
     mov rax, qword [rdi]
     ret
 
