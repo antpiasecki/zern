@@ -4,17 +4,39 @@ func main[] : I64
     let rl: Ptr = c.dlopen("libraylib.so", 2)
 
     let rl.InitWindow: Ptr = c.dlsym(rl, "InitWindow")
+    let rl.SetTargetFPS: Ptr = c.dlsym(rl, "SetTargetFPS")
     let rl.WindowShouldClose: Ptr = c.dlsym(rl, "WindowShouldClose")
     let rl.BeginDrawing: Ptr = c.dlsym(rl, "BeginDrawing")
     let rl.EndDrawing: Ptr = c.dlsym(rl, "EndDrawing")
     let rl.ClearBackground: Ptr = c.dlsym(rl, "ClearBackground")
     let rl.CloseWindow: Ptr = c.dlsym(rl, "CloseWindow")
+    let rl.DrawRectangle: Ptr = c.dlsym(rl, "DrawRectangle")
+    let rl.IsKeyDown: Ptr = c.dlsym(rl, "IsKeyDown")
+
+    let rl.KEY_W: I64 = 87
+    let rl.KEY_S: I64 = 83
+    let rl.KEY_A: I64 = 65
+    let rl.KEY_D: I64 = 68
+
+    let x: I64 = 200
+    let y: I64 = 200
 
     rl.InitWindow(800, 600, "Hello, World!")
+    rl.SetTargetFPS(60)
 
     while !rl.WindowShouldClose()
+        if rl.IsKeyDown(rl.KEY_W) & 255
+            y = y - 10
+        if rl.IsKeyDown(rl.KEY_S) & 255
+            y = y + 10
+        if rl.IsKeyDown(rl.KEY_A) & 255
+            x = x - 10
+        if rl.IsKeyDown(rl.KEY_D) & 255
+            x = x + 10
+
         rl.BeginDrawing()
-        rl.ClearBackground(4278190335) // 0xff0000ff
+        rl.ClearBackground(0xffffffff)
+        rl.DrawRectangle(x, y, 100, 100, 0xff0000ff)
         rl.EndDrawing()
 
     rl.CloseWindow()

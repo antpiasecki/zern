@@ -232,7 +232,7 @@ impl Tokenizer {
                 self.advance();
                 self.add_token(TokenType::String);
             }
-            ' ' | '\t' | '\r' => {}
+            ' ' | '\r' => {}
             '\n' => {
                 self.loc.line += 1;
                 self.loc.column = 1;
@@ -294,17 +294,23 @@ impl Tokenizer {
     }
 
     fn scan_number(&mut self) {
-        while self.peek().is_ascii_digit() {
-            self.advance();
-        }
-
-        if self.peek() == '.'
-            && (self.current + 1 >= self.source.len())
-            && self.source[self.current + 1].is_ascii_digit()
-        {
-            self.advance();
+        if self.match_char('x') {
+            while self.peek().is_ascii_hexdigit() {
+                self.advance();
+            }
+        } else {
             while self.peek().is_ascii_digit() {
                 self.advance();
+            }
+
+            if self.peek() == '.'
+                && self.current + 1 < self.source.len()
+                && self.source[self.current + 1].is_ascii_digit()
+            {
+                self.advance();
+                while self.peek().is_ascii_digit() {
+                    self.advance();
+                }
             }
         }
 
@@ -312,11 +318,7 @@ impl Tokenizer {
     }
 
     fn scan_identifier(&mut self) {
-        while self.peek().is_alphanumeric()
-            || self.peek() == '_'
-            || self.peek() == '.'
-            || self.peek() == '!'
-        {
+        while self.peek().is_alphanumeric() || self.peek() == '_' || self.peek() == '.' {
             self.advance();
         }
 
@@ -343,6 +345,7 @@ impl Tokenizer {
             false
         } else {
             self.current += 1;
+            self.loc.column += 1;
             true
         }
     }

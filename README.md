@@ -2,10 +2,10 @@
 
 A very cool language
 
-## Huh?
+## Features
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
-* Almost works
+* Sometimes works
 * Has the pipe operator
 
 ## Syntax
