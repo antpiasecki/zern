@@ -77,11 +77,17 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         run_command(format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out));
 
-        // TODO: drop libc entirely
-        run_command(format!(
-            "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
-            args.out, args.out, args.cflags
-        ));
+        if args.no_musl {
+            run_command(format!(
+                "gcc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
+                args.out, args.out, args.cflags
+            ));
+        } else {
+            run_command(format!(
+                "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
+                args.out, args.out, args.cflags
+            ));
+        }
 
         if args.run_exe {
             run_command(
@@ -111,6 +117,9 @@ struct Args {
 
     #[arg(short = 'r', help = "Run the compiled executable")]
     run_exe: bool,
+
+    #[arg(short = 'm', help = "Don't use musl")]
+    no_musl: bool,
 
     #[arg(short = 'C', default_value = "", help = "Extra flags to pass to gcc")]
     cflags: String,

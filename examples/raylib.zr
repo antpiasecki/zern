@@ -1,0 +1,20 @@
+// musl doesnt like dlopen, needs to be compiled with -m
+
+func main[] : I64
+    let rl: Ptr = c.dlopen("libraylib.so", 2)
+
+    let rl.InitWindow: Ptr = c.dlsym(rl, "InitWindow")
+    let rl.WindowShouldClose: Ptr = c.dlsym(rl, "WindowShouldClose")
+    let rl.BeginDrawing: Ptr = c.dlsym(rl, "BeginDrawing")
+    let rl.EndDrawing: Ptr = c.dlsym(rl, "EndDrawing")
+    let rl.ClearBackground: Ptr = c.dlsym(rl, "ClearBackground")
+    let rl.CloseWindow: Ptr = c.dlsym(rl, "CloseWindow")
+
+    rl.InitWindow(800, 600, "Hello, World!")
+
+    while !rl.WindowShouldClose()
+        rl.BeginDrawing()
+        rl.ClearBackground(4278190335) // 0xff0000ff
+        rl.EndDrawing()
+
+    rl.CloseWindow()

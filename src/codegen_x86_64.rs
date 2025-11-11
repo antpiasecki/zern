@@ -38,9 +38,12 @@ impl Env {
     pub fn define_var(&mut self, name: String, _var_type: String) -> usize {
         let offset = self.next_offset;
         self.next_offset += 8;
-        self.scopes.last_mut().unwrap().insert(name, Var {
-            stack_offset: offset,
-        });
+        self.scopes.last_mut().unwrap().insert(
+            name,
+            Var {
+                stack_offset: offset,
+            },
+        );
         offset
     }
 
@@ -103,7 +106,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "malloc,calloc,realloc,free,puts,putchar,printf,sprintf,snprintf,strtol,strlen,strcmp,strncmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname".split(",")
+        for name in "malloc,calloc,realloc,free,puts,putchar,printf,sprintf,snprintf,strtol,strlen,strcmp,strncmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname,dlopen,dlsym,dlerror".split(",")
         {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
@@ -471,7 +474,19 @@ _builtin_set64:
                     emit!(&mut self.output, "    pop {}", reg);
                 }
 
-                emit!(&mut self.output, "    call {}", callee);
+                match env.get_var(&callee) {
+                    Some(var) => {
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, QWORD [rbp-{}]",
+                            var.stack_offset,
+                        );
+                        emit!(&mut self.output, "    call rax");
+                    }
+                    None => {
+                        emit!(&mut self.output, "    call {}", callee);
+                    }
+                };
             }
             Expr::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    call array.new");
