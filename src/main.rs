@@ -84,7 +84,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
             ));
         } else {
             run_command(format!(
-                "./musl-1.2.4/root/bin/musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
+                "musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
                 args.out, args.out, args.cflags
             ));
         }
