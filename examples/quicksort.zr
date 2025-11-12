@@ -1,26 +1,3 @@
-func quicksort[arr: Array] : Void
-    do_quicksort(arr, 0, array.size(arr)-1)
-
-func do_quicksort[arr: Array, low: I64, high: I64] : Void
-    if low < high
-        let i: I64 = partition(arr, low, high)
-        do_quicksort(arr, low, i - 1)
-        do_quicksort(arr, i + 1, high)
-
-func partition[arr: Array, low: I64, high: I64] : I64
-    let pivot: I64 = arr[high]
-    let i: I64 = low - 1
-    for j in (low)..high
-        if arr[j] <= pivot
-            i = i + 1
-            let temp: I64 = arr[i]
-            array.set(arr, i, arr[j])
-            array.set(arr, j, temp)
-    let temp: I64 = arr[i + 1]
-    array.set(arr, i + 1, arr[high])
-    array.set(arr, high, temp)
-    return i + 1
-
 func main[] : I64
     let arr: Array = []
     for i in 0..10
@@ -30,7 +7,7 @@ func main[] : I64
         io.print_i64(arr[i])
     io.print("------------")
 
-    quicksort(arr)
+    alg.quicksort(arr)
 
     for i in 0..array.size(arr)
         io.print_i64(arr[i])

@@ -4,7 +4,8 @@ func main[] : I64
     let src_len: I64 = str.len(src)
     let i: I64 = 0
 
-    let memory: Ptr = c.calloc(1, 30000)
+    let memory: Ptr = mem.alloc(30000)
+    mem.zero(memory, 30000)
     let p: I64 = 0
 
     while i < src_len

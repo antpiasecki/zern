@@ -4,22 +4,22 @@ func run_test[x: String] : Void
 
     let build_start_time: I64 = os.time()
     if c.system(cmd) != 0
-        c.exit(1)
+        os.exit(1)
     let build_end_time: I64 = os.time()
 
     mem.free(cmd)
     c.printf(" %ldms\n", build_end_time - build_start_time)
 
-    if str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr")
+    if str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr") | str.equal(x, "raylib.zr")
         c.printf("\033[93mSkipping %s...\033[0m\n", x)
     else
         let run_start_time: I64 = os.time()
         if str.equal(x, "curl.zr")
             if c.system("./out http://example.com") != 0
-                c.exit(1)
+                os.exit(1)
         else
             if c.system("./out") != 0
-                c.exit(1)
+                os.exit(1)
         let run_end_time: I64 = os.time()
 
         c.printf("\033[93mRunning %s...\033[0m %ldms\n", x, run_end_time - run_start_time)

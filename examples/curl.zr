@@ -4,7 +4,10 @@ func main[argc: I64, argv: Ptr] : I64
 
     let url: String = mem.read64(argv + 8)
 
-    if c.strncmp(url, "http://", 7) != 0
+    if str.len(url) <= 7
+        dbg.panic("missing url scheme")
+
+    if !str.equal(str.substr(url, 0, 7), "http://")
         dbg.panic("invalid url scheme")
     
     let url_len: I64 = str.len(url)

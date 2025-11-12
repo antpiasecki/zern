@@ -8,11 +8,20 @@ func mem.alloc[x: I64] : Ptr
 func mem.free[x: Ptr] : Void
     c.free(x)
 
+func mem.zero[x: I64, size: I64] : Void
+    c.memset(x, 0, size)
+
 func mem.read8[x: Ptr] : U8
     return _builtin_read8(x)
 
 func mem.read64[x: Ptr] : I64
     return _builtin_read64(x)
+
+func mem.write8[x: Ptr, d: U8] : Void
+    _builtin_set8(x, d)
+
+func mem.write64[x: Ptr, d: I64] : Void
+    _builtin_set64(x, d)
 
 func io.print[x: String] : Void
     c.puts(x)
@@ -22,7 +31,9 @@ func io.print_i64[x: I64] : Void
 
 func io.read_stdin[]: String
     let buffer: String = mem.alloc(1025)
-    let n: I64 = c.syscall(0, 0, buffer, 1024)
+    let n: I64 = c.read(0, buffer, 1024)
+    if n < 0
+        return ""
     str.set(buffer, n, 0)
     return buffer
 
@@ -57,8 +68,15 @@ func str.len[s: String] : I64
 func str.nth[s: String, n: I64] : U8
     return mem.read8(s + n)
 
+func str.copy[s: String] : String
+    let size: I64 = str.len(s) + 1
+    let dup: String = mem.alloc(size)
+    for i in 0..size+1
+        str.set(dup, i, str.nth(s, i))
+    return dup
+
 func str.set[s: String, n: I64, c: U8] : Void
-    _builtin_set8(s+n, c)
+    mem.write8(s+n, c)
 
 func str.equal[a: String, b: String] : Bool
     return c.strcmp(a, b) == 0
@@ -143,7 +161,7 @@ func str.reverse[s: String] : String
 
 func str.from_i64[n: I64] : String
     let x: String = mem.alloc(21)
-    c.sprintf(x, "%ld", n)
+    c.snprintf(x, 21, "%ld", n)
     return x
 
 func str.parse_i64[s: String] : I64
@@ -257,7 +275,9 @@ func math.urandom[]: I64
     return n
 
 func array.new[] : Array
-    return c.calloc(1, 24)
+    let arr: Ptr = mem.alloc(24)
+    mem.zero(arr, 24)
+    return arr
 
 func array.nth[xs: Array, n: I64] : I64
     // this probably should be implemented in the codegen
@@ -267,7 +287,7 @@ func array.nth[xs: Array, n: I64] : I64
 
 func array.set[xs: Array, n: I64, x: I64] : Void
     let data: Ptr = mem.read64(xs)
-    _builtin_set64(data+n*8, x)
+    mem.write64(data+n*8, x)
 
 func array.push[xs: Array, x: I64] : Void
     let data: Ptr = mem.read64(xs)
@@ -279,19 +299,47 @@ func array.push[xs: Array, x: I64] : Void
         if capacity != 0
             new_capacity = capacity * 2
         let new_data: Ptr = c.realloc(data, new_capacity * 8)
-        _builtin_set64(xs, new_data)
-        _builtin_set64(xs+8, new_capacity)
+        mem.write64(xs, new_data)
+        mem.write64(xs+8, new_capacity)
         data = new_data
 
-    _builtin_set64(data+size*8, x)
-    _builtin_set64(xs+16, size + 1)
+    mem.write64(data+size*8, x)
+    mem.write64(xs+16, size + 1)
 
 func array.size[xs: Array] : I64
     return mem.read64(xs+16)
 
 func array.free[xs: Array] : Void
-    mem.free(mem.read64(xs))
+    let data: Ptr = mem.read64(xs)
+    if data != 0
+        mem.free(data)
     mem.free(xs)
+
+func alg.quicksort[arr: Array] : Void
+    alg._do_quicksort(arr, 0, array.size(arr)-1)
+
+func alg._do_quicksort[arr: Array, low: I64, high: I64] : Void
+    if low < high
+        let i: I64 = alg._partition(arr, low, high)
+        alg._do_quicksort(arr, low, i - 1)
+        alg._do_quicksort(arr, i + 1, high)
+
+func alg._partition[arr: Array, low: I64, high: I64] : I64
+    let pivot: I64 = arr[high]
+    let i: I64 = low - 1
+    for j in (low)..high
+        if arr[j] <= pivot
+            i = i + 1
+            let temp: I64 = arr[i]
+            array.set(arr, i, arr[j])
+            array.set(arr, j, temp)
+    let temp: I64 = arr[i + 1]
+    array.set(arr, i + 1, arr[high])
+    array.set(arr, high, temp)
+    return i + 1
+
+func os.exit[code: I64] : Void
+    c.exit(code)
 
 func os.time[] : I64
     let tv: Ptr = mem.alloc(16)
@@ -319,7 +367,7 @@ func os.listdir[path: String] : Array
                     skip = true
 
         if !skip
-            array.push(files, c.strdup(entry + 19))
+            array.push(files, str.copy(entry + 19))
     c.closedir(dir)
     return files
 
@@ -328,11 +376,12 @@ func net.listen[port: I64] : I64
     if s < 0
         return -1
 
-    let sa: Ptr = c.calloc(1, 16)
-    str.set(sa, 0, 2)
-    str.set(sa, 1, 0)
-    str.set(sa, 2, (port >> 8) & 255)
-    str.set(sa, 3, port & 255)
+    let sa: Ptr = mem.alloc(16)
+    mem.zero(sa, 16)
+    mem.write8(sa + 0, 2)
+    mem.write8(sa + 1, 0)
+    mem.write8(sa + 2, (port >> 8) & 255)
+    mem.write8(sa + 3, port & 255)
 
     if c.bind(s, sa, 16) < 0
         c.close(s)
@@ -356,14 +405,15 @@ func net.connect[host: String, port: I64] : I64
     if s < 0
         return -1
 
-    let sa: Ptr = c.calloc(1, 16)
-    str.set(sa, 0, 2)
-    str.set(sa, 2, (port >> 8) & 255)
-    str.set(sa, 3, port & 255)
-    str.set(sa, 4, mem.read8(ip_ptr + 0))
-    str.set(sa, 5, mem.read8(ip_ptr + 1))
-    str.set(sa, 6, mem.read8(ip_ptr + 2))
-    str.set(sa, 7, mem.read8(ip_ptr + 3))
+    let sa: Ptr = mem.alloc(16)
+    mem.zero(sa, 16)
+    mem.write8(sa + 0, 2)
+    mem.write8(sa + 2, (port >> 8) & 255)
+    mem.write8(sa + 3, port & 255)
+    mem.write8(sa + 4, mem.read8(ip_ptr + 0))
+    mem.write8(sa + 5, mem.read8(ip_ptr + 1))
+    mem.write8(sa + 6, mem.read8(ip_ptr + 2))
+    mem.write8(sa + 7, mem.read8(ip_ptr + 3))
 
     if c.connect(s, sa, 16) < 0
         mem.free(sa)

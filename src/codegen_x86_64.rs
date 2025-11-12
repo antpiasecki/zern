@@ -106,7 +106,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "malloc,calloc,realloc,free,puts,putchar,printf,sprintf,snprintf,strtol,strlen,strcmp,strncmp,strcat,strcpy,strdup,strncpy,syscall,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname,dlopen,dlsym,dlerror".split(",")
+        for name in "malloc,memset,realloc,free,puts,putchar,printf,snprintf,strtol,strlen,strcmp,strcat,strcpy,strncpy,fopen,fseek,ftell,fread,fwrite,fclose,rewind,system,opendir,readdir,closedir,exit,gettimeofday,connect,socket,send,write,read,close,bind,listen,accept,getchar,gethostbyname,dlopen,dlsym".split(",")
         {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
@@ -316,10 +316,10 @@ _builtin_set64:
                     TokenType::Xor => {
                         emit!(&mut self.output, "    xor rax, rbx");
                     }
-                    TokenType::And => {
+                    TokenType::BitAnd => {
                         emit!(&mut self.output, "    and rax, rbx");
                     }
-                    TokenType::Or => {
+                    TokenType::BitOr => {
                         emit!(&mut self.output, "    or rax, rbx");
                     }
                     TokenType::DoubleEqual => {

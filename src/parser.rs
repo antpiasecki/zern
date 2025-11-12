@@ -115,7 +115,6 @@ impl Parser {
         }
     }
 
-    // TOOD: parse return type
     fn func_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
@@ -304,7 +303,7 @@ impl Parser {
     fn logical_or(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.logical_and()?;
 
-        while self.match_token(&[TokenType::Or]) {
+        while self.match_token(&[TokenType::BitOr]) {
             let op = self.previous().clone();
             let right = self.logical_and()?;
             expr = Expr::Binary {
@@ -320,7 +319,7 @@ impl Parser {
     fn logical_and(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.equality()?;
 
-        while self.match_token(&[TokenType::And]) {
+        while self.match_token(&[TokenType::BitAnd]) {
             let op = self.previous().clone();
             let right = self.equality()?;
             expr = Expr::Binary {
