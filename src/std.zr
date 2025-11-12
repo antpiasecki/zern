@@ -183,7 +183,7 @@ func str.hex_encode[s: String] : String
     str.set(out, j, 0)
     return out
 
-func str.from_hex_digit[d: U8] : I64
+func str._from_hex_digit[d: U8] : I64
     if d >= 'a' & d <= 'f'
         return d - 'a' + 10
     if d >= 'A' & d <= 'F'
@@ -197,7 +197,7 @@ func str.hex_decode[s: String] : String
     let out: String = mem.alloc(s_len/2+1)
 
     while i < s_len
-        str.set(out, j, str.from_hex_digit(str.nth(s, i)) * 16 + str.from_hex_digit(str.nth(s, i+1)))
+        str.set(out, j, str._from_hex_digit(str.nth(s, i)) * 16 + str._from_hex_digit(str.nth(s, i+1)))
         i = i + 2
         j = j + 1
 

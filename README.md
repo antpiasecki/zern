@@ -10,12 +10,18 @@ A very cool language
 
 ## Syntax
 ```rust
-func fib[n: I64] : I64
-    if n <= 1
-        return n
-    return fib(n-2) + fib(n-1)
-
 func main[] : I64
-    for i in 0..20
-        fib(i) |> str.from_i64() |> io.print()
+    let answer: I64 = math.abs(math.urandom()) % 100
+
+    while true
+        io.print("Guess a number: ")
+        let guess: I64 = io.read_stdin() |> str.trim() |> str.parse_i64()
+
+        if guess == answer
+            io.print("You win!")
+            break
+        else if guess < answer
+            io.print("Too low!")
+        else
+            io.print("Too high!")
 ```
