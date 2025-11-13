@@ -14,7 +14,7 @@ func main[argc: I64, argv: Ptr] : I64
     let host_start: I64 = 7
     let i: I64 = host_start
     while i < url_len
-        if str.nth(url, i) == '/'
+        if url[i] == '/'
             break
         i = i + 1
 
@@ -44,7 +44,7 @@ func main[argc: I64, argv: Ptr] : I64
         let current_size: I64 = header_size + n
         i = 0
         while i <= current_size - 4
-            if str.nth(header_buf, i) == 13 & str.nth(header_buf, i+1) == 10 & str.nth(header_buf, i+2) == 13 & str.nth(header_buf, i+3) == 10
+            if header_buf[i] == 13 & header_buf[i+1] == 10 & header_buf[i+2] == 13 & header_buf[i+3] == 10
                 found = true
                 end_index = i + 4
                 break

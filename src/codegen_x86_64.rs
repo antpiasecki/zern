@@ -117,7 +117,7 @@ section .text
             "
 section .text._builtin_read8
 _builtin_read8:
-    xor rax, rax 
+    xor rax, rax
     mov al, byte [rdi]
     ret
 
@@ -503,11 +503,10 @@ _builtin_set64:
             }
             Expr::Index { expr, index } => {
                 self.compile_expr(env, *expr)?;
-                emit!(&mut self.output, "    push rax");
+                emit!(&mut self.output, "    mov rdi, rax");
                 self.compile_expr(env, *index)?;
-                emit!(&mut self.output, "    pop rbx");
-                emit!(&mut self.output, "    mov rbx, [rbx]");
-                emit!(&mut self.output, "    mov rax, [rbx + rax*8]");
+                emit!(&mut self.output, "    add rdi, rax");
+                emit!(&mut self.output, "    call _builtin_read8");
             }
         }
         Ok(())

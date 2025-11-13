@@ -65,14 +65,11 @@ func io.write_file[path: String, content: String] : Void
 func str.len[s: String] : I64
     return c.strlen(s)
 
-func str.nth[s: String, n: I64] : U8
-    return mem.read8(s + n)
-
 func str.copy[s: String] : String
     let size: I64 = str.len(s) + 1
     let dup: String = mem.alloc(size)
     for i in 0..size+1
-        str.set(dup, i, str.nth(s, i))
+        str.set(dup, i, s[i])
     return dup
 
 func str.set[s: String, n: I64, c: U8] : Void
@@ -93,7 +90,7 @@ func str.concat[a: String, b: String] : String
 func str.find[s: String, c: U8] : I64
     let s_len: I64 = str.len(s)
     for i in 0..s_len
-        if str.nth(s, i) == c
+        if s[i] == c
             return i
     return -1
 
@@ -110,10 +107,10 @@ func str.trim[s: String] : String
     let start: I64 = 0
     let end: I64 = str.len(s) - 1
 
-    while start <= end & str.is_whitespace(str.nth(s, start))
+    while start <= end & str.is_whitespace(s[start])
         start = start + 1
 
-    while end >= start & str.is_whitespace(str.nth(s, end))
+    while end >= start & str.is_whitespace(s[end])
         end = end - 1
 
     return str.substr(s, start, end - start + 1)
@@ -137,7 +134,7 @@ func str.split[haystack: String, needle: String]: Array
         if i <= haystack_len - needle_len
             let match: Bool = true
             for j in 0..needle_len
-                if str.nth(haystack, i+j) != str.nth(needle, j)
+                if haystack[i+j] != needle[j]
                     match = false
                     break
             if match
@@ -155,7 +152,7 @@ func str.reverse[s: String] : String
     let out: String = mem.alloc(len + 1)
 
     for i in 0..len
-        str.set(out, i, str.nth(s, len - i - 1))
+        str.set(out, i, s[len-i-1])
     str.set(out, len, 0)
     return out
 
@@ -174,10 +171,10 @@ func str.hex_encode[s: String] : String
     let out: String = mem.alloc(s_len*2+1)
 
     for i in 0..s_len
-        let high: U8 = (str.nth(s, i) >> 4) & 15
-        let low: U8 = str.nth(s, i) & 15
-        str.set(out, j, str.nth(hex_chars, high))
-        str.set(out, j+1, str.nth(hex_chars, low))
+        let high: U8 = (s[i] >> 4) & 15
+        let low: U8 = s[i] & 15
+        str.set(out, j, hex_chars[high])
+        str.set(out, j+1, hex_chars[low])
         j = j + 2
 
     str.set(out, j, 0)
@@ -197,7 +194,7 @@ func str.hex_decode[s: String] : String
     let out: String = mem.alloc(s_len/2+1)
 
     while i < s_len
-        str.set(out, j, str._from_hex_digit(str.nth(s, i)) * 16 + str._from_hex_digit(str.nth(s, i+1)))
+        str.set(out, j, str._from_hex_digit(s[i]) * 16 + str._from_hex_digit(s[i+1]))
         i = i + 2
         j = j + 1
 
@@ -283,7 +280,8 @@ func array.nth[xs: Array, n: I64] : I64
     // this probably should be implemented in the codegen
     if n < 0 | n >= array.size(xs)
         dbg.panic("array.nth out of bounds")
-    return xs[n]
+    let data: Ptr = mem.read64(xs)
+    return mem.read64(data + n * 8)
 
 func array.set[xs: Array, n: I64, x: I64] : Void
     let data: Ptr = mem.read64(xs)
@@ -325,16 +323,16 @@ func alg._do_quicksort[arr: Array, low: I64, high: I64] : Void
         alg._do_quicksort(arr, i + 1, high)
 
 func alg._partition[arr: Array, low: I64, high: I64] : I64
-    let pivot: I64 = arr[high]
+    let pivot: I64 = array.nth(arr, high)
     let i: I64 = low - 1
     for j in (low)..high
-        if arr[j] <= pivot
+        if array.nth(arr, j) <= pivot
             i = i + 1
-            let temp: I64 = arr[i]
-            array.set(arr, i, arr[j])
+            let temp: I64 = array.nth(arr ,i)
+            array.set(arr, i, array.nth(arr, j))
             array.set(arr, j, temp)
-    let temp: I64 = arr[i + 1]
-    array.set(arr, i + 1, arr[high])
+    let temp: I64 = array.nth(arr, i + 1)
+    array.set(arr, i + 1, array.nth(arr, high))
     array.set(arr, high, temp)
     return i + 1
 
@@ -359,11 +357,11 @@ func os.listdir[path: String] : Array
             break
 
         let skip: Bool = false
-        if mem.read8(entry + 19) == '.'
-            if mem.read8(entry + 20) == 0
+        if entry[19] == '.'
+            if entry[20] == 0
                 skip = true
-            else if mem.read8(entry + 20) == '.'
-                if mem.read8(entry + 21) == 0
+            else if entry[20] == '.'
+                if entry[21] == 0
                     skip = true
 
         if !skip
@@ -410,10 +408,10 @@ func net.connect[host: String, port: I64] : I64
     mem.write8(sa + 0, 2)
     mem.write8(sa + 2, (port >> 8) & 255)
     mem.write8(sa + 3, port & 255)
-    mem.write8(sa + 4, mem.read8(ip_ptr + 0))
-    mem.write8(sa + 5, mem.read8(ip_ptr + 1))
-    mem.write8(sa + 6, mem.read8(ip_ptr + 2))
-    mem.write8(sa + 7, mem.read8(ip_ptr + 3))
+    mem.write8(sa + 4, ip_ptr[0])
+    mem.write8(sa + 5, ip_ptr[1])
+    mem.write8(sa + 6, ip_ptr[2])
+    mem.write8(sa + 7, ip_ptr[3])
 
     if c.connect(s, sa, 16) < 0
         mem.free(sa)
