@@ -466,12 +466,28 @@ _builtin_set64:
                     emit!(&mut self.output, "    push rax");
                 }
 
-                for i in (0..args.len()).rev() {
-                    let reg = match REGISTERS.get(i) {
-                        Some(x) => x,
-                        None => return error!(&paren.loc, "only up to 6 args allowed"),
-                    };
-                    emit!(&mut self.output, "    pop {}", reg);
+                let arg_count = args.len();
+                if arg_count <= 6 {
+                    for i in (0..arg_count).rev() {
+                        emit!(&mut self.output, "    pop {}", REGISTERS[i]);
+                    }
+                } else {
+                    for (i, reg) in REGISTERS.iter().enumerate() {
+                        let offset = 8 * (arg_count - 1 - i);
+                        emit!(
+                            &mut self.output,
+                            "    mov {}, QWORD [rsp + {}]",
+                            reg,
+                            offset
+                        );
+                    }
+                    let num_stack = arg_count - 6;
+                    for i in 0..num_stack {
+                        let arg_idx = arg_count - 1 - i;
+                        let offset = 8 * (arg_count - 1 - arg_idx);
+                        emit!(&mut self.output, "    mov rax, QWORD [rsp + {}]", offset);
+                        emit!(&mut self.output, "    push rax");
+                    }
                 }
 
                 match env.get_var(&callee) {
@@ -487,6 +503,12 @@ _builtin_set64:
                         emit!(&mut self.output, "    call {}", callee);
                     }
                 };
+
+                if arg_count > 6 {
+                    let num_stack = arg_count - 6;
+                    emit!(&mut self.output, "    add rsp, {}", 8 * num_stack);
+                    emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
+                }
             }
             Expr::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    call array.new");

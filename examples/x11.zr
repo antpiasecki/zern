@@ -1,0 +1,38 @@
+// musl doesnt like dlopen, needs to be compiled with -m
+
+func main[] : I64
+    let x11: Ptr = c.dlopen("libX11.so", 2)
+
+    let XOpenDisplay: Ptr = c.dlsym(x11, "XOpenDisplay")
+    let XDefaultRootWindow: Ptr = c.dlsym(x11, "XDefaultRootWindow")
+    let XCreateSimpleWindow: Ptr = c.dlsym(x11, "XCreateSimpleWindow")
+    let XMapWindow: Ptr = c.dlsym(x11, "XMapWindow")
+    let XSelectInput: Ptr = c.dlsym(x11, "XSelectInput")
+    let XNextEvent: Ptr = c.dlsym(x11, "XNextEvent")
+    let XBlackPixel: Ptr = c.dlsym(x11, "XBlackPixel")
+    let XWhitePixel: Ptr = c.dlsym(x11, "XWhitePixel")
+    let XSetForeground: Ptr = c.dlsym(x11, "XSetForeground")
+    let XCreateGC: Ptr = c.dlsym(x11, "XCreateGC")
+    let XDefaultScreen: Ptr = c.dlsym(x11, "XDefaultScreen")
+    let XDrawString: Ptr = c.dlsym(x11, "XDrawString")
+
+    let dpy: Ptr = XOpenDisplay(0)
+    let screen: Ptr = XDefaultScreen(dpy)
+
+    let white: Ptr = XWhitePixel(dpy, screen)
+    let black: Ptr = XBlackPixel(dpy, screen)
+
+    let win: Ptr = XCreateSimpleWindow(dpy, XDefaultRootWindow(dpy), 0, 0, 200, 100, 0, black, white)
+
+    XSelectInput(dpy, win, 1 << 15)
+    XMapWindow(dpy, win)
+
+    let gc: Ptr = XCreateGC(dpy, win, 0, 0)
+    XSetForeground(dpy, gc, black)
+    
+    let ev: Ptr = mem.alloc(256)
+    
+    while true
+        XNextEvent(dpy, ev)
+        if ev[0] == 12
+            XDrawString(dpy, win, gc, 20, 50, "Hello, World!", 13)
