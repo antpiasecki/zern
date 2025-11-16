@@ -47,6 +47,7 @@ pub enum TokenType {
     KeywordReturn,
     KeywordBreak,
     KeywordContinue,
+    KeywordExtern,
 
     Indent,
     Dedent,
@@ -334,6 +335,7 @@ impl Tokenizer {
             "return" => TokenType::KeywordReturn,
             "break" => TokenType::KeywordBreak,
             "continue" => TokenType::KeywordContinue,
+            "extern" => TokenType::KeywordExtern,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

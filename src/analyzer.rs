@@ -87,6 +87,7 @@ impl Analyzer {
             }
             Stmt::Break => {}
             Stmt::Continue => {}
+            Stmt::Extern(_) => {}
         }
         Ok(())
     }

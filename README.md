@@ -26,7 +26,7 @@ func main[] : I64
             io.print("Too high!")
 ```
 
-## Quick Start
+## Quickstart
 ```
 cargo install --git https://github.com/antpiasecki/zern
 zern -m -r hello.zr

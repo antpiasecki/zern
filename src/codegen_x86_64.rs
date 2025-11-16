@@ -281,6 +281,9 @@ _builtin_set64:
                 // TODO: skips incrementing when used in a for loop
                 emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
             }
+            Stmt::Extern(name) => {
+                emit!(&mut self.output, "    extern {}", name.lexeme);
+            }
         }
         Ok(())
     }

@@ -39,6 +39,7 @@ pub enum Stmt {
     Return(Expr),
     Break,
     Continue,
+    Extern(Token),
 }
 
 #[derive(Debug, Clone)]
@@ -198,6 +199,10 @@ impl Parser {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
+        } else if self.match_token(&[TokenType::KeywordExtern]) {
+            Ok(Stmt::Extern(
+                self.consume(TokenType::Identifier, "expected extern name")?,
+            ))
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }
