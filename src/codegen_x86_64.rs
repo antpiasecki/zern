@@ -106,7 +106,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "syscall,malloc,realloc,free,snprintf,strtol,system,opendir,readdir,closedir,gettimeofday,send,write,read,close,getchar,gethostbyname".split(",")
+        for name in "malloc,realloc,free,snprintf,system,gettimeofday,send,write,read,close,getchar,gethostbyname".split(",")
         {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
@@ -119,6 +119,12 @@ section .text._builtin_read8
 _builtin_read8:
     xor rax, rax
     mov al, byte [rdi]
+    ret
+
+section .text._builtin_read16
+_builtin_read16:
+    xor rax, rax
+    mov ax, word [rdi]
     ret
 
 section .text._builtin_read32
@@ -139,6 +145,18 @@ _builtin_set8:
 section .text._builtin_set64
 _builtin_set64:
     mov [rdi], rsi
+    ret
+
+section .text._builtin_syscall
+_builtin_syscall:
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8,  r9
+    mov r9,  [rsp+8]
+    syscall
     ret
 "
         );
