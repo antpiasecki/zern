@@ -104,12 +104,12 @@ func str.len[s: String] : I64
 func str.copy[s: String] : String
     let size: I64 = str.len(s) + 1
     let dup: String = mem.alloc(size)
-    for i in 0..size+1
+    for i in 0..size
         str.set(dup, i, s[i])
     return dup
 
 func str.set[s: String, n: I64, c: U8] : Void
-    mem.write8(s+n, c)
+    mem.write8(s + n, c)
 
 func str.equal[a: String, b: String] : Bool
     let i: I64 = 0
@@ -181,7 +181,7 @@ func str.split[haystack: String, needle: String]: Array
         if i <= haystack_len - needle_len
             let match: Bool = true
             for j in 0..needle_len
-                if haystack[i+j] != needle[j]
+                if haystack[i + j] != needle[j]
                     match = false
                     break
             if match
@@ -199,14 +199,35 @@ func str.reverse[s: String] : String
     let out: String = mem.alloc(len + 1)
 
     for i in 0..len
-        str.set(out, i, s[len-i-1])
+        str.set(out, i, s[len - i - 1])
     str.set(out, len, 0)
     return out
 
+// not sure this covers all wacky edge cases
 func str.from_i64[n: I64] : String
-    let x: String = mem.alloc(21)
-    c.snprintf(x, 21, "%ld", n)
-    return x
+    if n == 0
+        let s: String = mem.alloc(2)
+        str.set(s, 0, '0')
+        str.set(s, 1, 0)
+        return s
+
+    let neg: Bool = n < 0
+    if neg
+        n = -n
+    let buf: String = mem.alloc(21)
+    let i: I64 = 0
+    while n > 0
+        let d: U8 = n % 10
+        str.set(buf, i, '0' + d)
+        n = n / 10
+        i = i + 1
+    if neg
+        str.set(buf, i, '-')
+        i = i + 1
+    str.set(buf, i, 0)
+    let s: String = str.reverse(buf)
+    mem.free(buf)
+    return s
 
 func str.parse_i64[s: String] : I64
     let len: I64 = str.len(s)
@@ -230,13 +251,13 @@ func str.hex_encode[s: String] : String
     let hex_chars: String = "0123456789abcdef"
     let s_len: I64 = str.len(s)
     let j: I64 = 0
-    let out: String = mem.alloc(s_len*2+1)
+    let out: String = mem.alloc(s_len * 2 + 1)
 
     for i in 0..s_len
         let high: U8 = (s[i] >> 4) & 15
         let low: U8 = s[i] & 15
         str.set(out, j, hex_chars[high])
-        str.set(out, j+1, hex_chars[low])
+        str.set(out, j + 1, hex_chars[low])
         j = j + 2
 
     str.set(out, j, 0)
@@ -253,10 +274,10 @@ func str.hex_decode[s: String] : String
     let s_len: I64 = str.len(s)
     let i: I64 = 0
     let j: I64 = 0
-    let out: String = mem.alloc(s_len/2+1)
+    let out: String = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
-        str.set(out, j, str._from_hex_digit(s[i]) * 16 + str._from_hex_digit(s[i+1]))
+        str.set(out, j, str._from_hex_digit(s[i]) * 16 + str._from_hex_digit(s[i + 1]))
         i = i + 2
         j = j + 1
 
@@ -338,12 +359,12 @@ func array.nth[xs: Array, n: I64] : I64
 
 func array.set[xs: Array, n: I64, x: I64] : Void
     let data: Ptr = mem.read64(xs)
-    mem.write64(data+n*8, x)
+    mem.write64(data + n * 8, x)
 
 func array.push[xs: Array, x: I64] : Void
     let data: Ptr = mem.read64(xs)
-    let capacity: I64 = mem.read64(xs+8)
-    let size: I64 = mem.read64(xs+16)
+    let capacity: I64 = mem.read64(xs + 8)
+    let size: I64 = mem.read64(xs + 16)
 
     if size == capacity
         let new_capacity: I64 = 4
@@ -351,14 +372,14 @@ func array.push[xs: Array, x: I64] : Void
             new_capacity = capacity * 2
         let new_data: Ptr = c.realloc(data, new_capacity * 8)
         mem.write64(xs, new_data)
-        mem.write64(xs+8, new_capacity)
+        mem.write64(xs + 8, new_capacity)
         data = new_data
 
-    mem.write64(data+size*8, x)
-    mem.write64(xs+16, size + 1)
+    mem.write64(data + size * 8, x)
+    mem.write64(xs + 16, size + 1)
 
 func array.size[xs: Array] : I64
-    return mem.read64(xs+16)
+    return mem.read64(xs + 16)
 
 func array.free[xs: Array] : Void
     let data: Ptr = mem.read64(xs)
@@ -367,7 +388,7 @@ func array.free[xs: Array] : Void
     mem.free(xs)
 
 func alg.quicksort[arr: Array] : Void
-    alg._do_quicksort(arr, 0, array.size(arr)-1)
+    alg._do_quicksort(arr, 0, array.size(arr) - 1)
 
 func alg._do_quicksort[arr: Array, low: I64, high: I64] : Void
     if low < high

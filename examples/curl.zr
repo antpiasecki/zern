@@ -48,7 +48,7 @@ func main[argc: I64, argv: Ptr] : I64
         let current_size: I64 = header_size + n
         i = 0
         while i <= current_size - 4
-            if header_buf[i] == 13 & header_buf[i+1] == 10 & header_buf[i+2] == 13 & header_buf[i+3] == 10
+            if header_buf[i] == 13 & header_buf[i + 1] == 10 & header_buf[i + 2] == 13 & header_buf[i + 3] == 10
                 found = true
                 end_index = i + 4
                 break

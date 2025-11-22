@@ -105,8 +105,7 @@ section .text
 "
         );
 
-        // take that rustfmt
-        for name in "malloc,realloc,free,snprintf,system,gethostbyname".split(",") {
+        for name in &["malloc", "realloc", "free", "system", "gethostbyname"] {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
         }

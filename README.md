@@ -5,7 +5,7 @@ A very cool language
 ## Features
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
-* ~~No libc required~~ (SOON; still used for `malloc,realloc,free,snprintf,system,gethostbyname`)
+* ~~No libc required~~ (SOON; still used for memory allocation and DNS resolution)
 * Produces tiny static executables (~50KB with musl)
 * Sometimes works
 * Has the pipe operator
