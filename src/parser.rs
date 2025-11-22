@@ -103,6 +103,9 @@ impl Parser {
             if self.match_token(&[TokenType::KeywordFunc]) {
                 return self.func_declaration();
             }
+            if self.match_token(&[TokenType::KeywordExtern]) {
+                return self.extern_declaration();
+            }
             return error!(
                 self.peek().loc,
                 "statements not allowed outside function body"
@@ -175,6 +178,12 @@ impl Parser {
         })
     }
 
+    fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {
+        Ok(Stmt::Extern(
+            self.consume(TokenType::Identifier, "expected extern name")?,
+        ))
+    }
+
     fn block(&mut self) -> Result<Stmt, ZernError> {
         self.consume(TokenType::Indent, "expected an indent")?;
 
@@ -199,10 +208,6 @@ impl Parser {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
-        } else if self.match_token(&[TokenType::KeywordExtern]) {
-            Ok(Stmt::Extern(
-                self.consume(TokenType::Identifier, "expected extern name")?,
-            ))
         } else {
             Ok(Stmt::Expression(self.expression()?))
         }

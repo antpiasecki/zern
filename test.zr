@@ -1,5 +1,5 @@
 func run_test[x: String] : Void
-    if str.equal(x, "raylib.zr") | str.equal(x, "x11.zr")
+    if str.equal(x, "raylib.zr") | str.equal(x, "x11.zr") | str.equal(x, "sqlite_todo.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
         io.println("...\033[0m")
@@ -11,7 +11,7 @@ func run_test[x: String] : Void
     let cmd: String = str.concat("./target/release/zern examples/", x)
 
     let build_start_time: I64 = os.time()
-    if c.system(cmd) != 0
+    if os.shell(cmd) != 0
         os.exit(1)
     let build_end_time: I64 = os.time()
 
@@ -31,10 +31,10 @@ func run_test[x: String] : Void
 
     let run_start_time: I64 = os.time()
     if str.equal(x, "curl.zr")
-        if c.system("./out http://example.com") != 0
+        if os.shell("./out http://example.com") != 0
             os.exit(1)
     else
-        if c.system("./out") != 0
+        if os.shell("./out") != 0
             os.exit(1)
     let run_end_time: I64 = os.time()
 
@@ -45,7 +45,7 @@ func run_test[x: String] : Void
     io.println("ms")
 
 func main[] : I64
-    c.system("cargo build --release")
+    os.shell("cargo build --release")
 
     let files: Array = os.listdir("examples/")
     for i in 0..array.size(files)

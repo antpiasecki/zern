@@ -1,14 +1,13 @@
 // needs to be compiled with -m -C="-lsqlite3"
+extern sqlite3_open
+extern sqlite3_exec
+extern sqlite3_prepare_v2
+extern sqlite3_bind_text
+extern sqlite3_step
+extern sqlite3_errmsg
+extern sqlite3_finalize
 
 func main[] : I64
-    extern sqlite3_open
-    extern sqlite3_exec
-    extern sqlite3_prepare_v2
-    extern sqlite3_bind_text
-    extern sqlite3_step
-    extern sqlite3_errmsg
-    extern sqlite3_finalize
-
     let rc: I64 = 0
     let db: Ptr = mem.alloc(8)
     let stmt: Ptr = mem.alloc(8)

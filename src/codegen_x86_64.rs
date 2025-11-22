@@ -6,7 +6,6 @@ use crate::{
 };
 
 pub struct Var {
-    // pub var_type: String,
     pub stack_offset: usize,
 }
 
@@ -105,7 +104,7 @@ section .text
 "
         );
 
-        for name in &["malloc", "realloc", "free", "system", "gethostbyname"] {
+        for name in &["malloc", "realloc", "free", "gethostbyname"] {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
         }
@@ -155,6 +154,12 @@ _builtin_syscall:
     mov r8,  r9
     mov r9,  [rsp+8]
     syscall
+    ret
+
+section .text._builtin_environ
+_builtin_environ:
+    extern environ
+    mov rax, [rel environ]
     ret
 "
         );
@@ -303,7 +308,7 @@ _builtin_syscall:
                 emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
             }
             Stmt::Extern(name) => {
-                emit!(&mut self.output, "    extern {}", name.lexeme);
+                emit!(&mut self.output, "extern {}", name.lexeme);
             }
         }
         Ok(())

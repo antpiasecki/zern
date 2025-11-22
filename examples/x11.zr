@@ -1,18 +1,18 @@
 // needs to be compiled with -m -C="-lX11"
+extern XOpenDisplay
+extern XDefaultRootWindow
+extern XCreateSimpleWindow
+extern XMapWindow
+extern XSelectInput
+extern XNextEvent
+extern XBlackPixel
+extern XWhitePixel
+extern XSetForeground
+extern XCreateGC
+extern XDefaultScreen
+extern XDrawString
 
 func main[] : I64
-    extern XOpenDisplay
-    extern XDefaultRootWindow
-    extern XCreateSimpleWindow
-    extern XMapWindow
-    extern XSelectInput
-    extern XNextEvent
-    extern XBlackPixel
-    extern XWhitePixel
-    extern XSetForeground
-    extern XCreateGC
-    extern XDefaultScreen
-    extern XDrawString
 
     let dpy: Ptr = XOpenDisplay(0)
     let screen: Ptr = XDefaultScreen(dpy)

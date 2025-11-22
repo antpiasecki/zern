@@ -1,16 +1,16 @@
 // needs to be compiled with -m -C="/usr/local/lib/libraylib.a -lm"
 
-func main[] : I64
-    extern InitWindow
-    extern SetTargetFPS
-    extern WindowShouldClose
-    extern BeginDrawing
-    extern EndDrawing
-    extern ClearBackground
-    extern CloseWindow
-    extern DrawRectangle
-    extern IsKeyDown
+extern InitWindow
+extern SetTargetFPS
+extern WindowShouldClose
+extern BeginDrawing
+extern EndDrawing
+extern ClearBackground
+extern CloseWindow
+extern DrawRectangle
+extern IsKeyDown
 
+func main[] : I64
     let x: I64 = 200
     let y: I64 = 200
 

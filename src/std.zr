@@ -430,6 +430,27 @@ func os.time[] : I64
     mem.free(tv)
     return seconds * 1000 + microseconds / 1000
 
+// voodoo magic
+func os.shell[command: String] : I64
+    let pid: I64 = _builtin_syscall(57) // fork
+    if pid == 0
+        let argv: Array = ["sh", "-c", command, 0]
+        _builtin_syscall(59, "/bin/sh", mem.read64(argv), _builtin_environ()) // execve
+        _builtin_syscall(60, 1) // exit
+    else
+        let status: Ptr = mem.alloc(4)
+        let wp: I64 = _builtin_syscall(61, pid, status, 0, 0) // waitpid
+        if wp == -1
+            mem.free(status)
+            return -1
+        let st: I64 = mem.read32(status)
+        mem.free(status)
+        
+        if (st & 0x7f) == 0
+            return (st >> 8) & 0xff
+        else
+            return -(st & 0x7f)
+
 func os.listdir[path: String] : Array
     let fd: I64 = _builtin_syscall(2, path, 0, 0) // open
     if fd < 0
