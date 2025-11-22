@@ -27,9 +27,13 @@ func main[argc: I64, argv: Ptr] : I64
     if s < 0
         dbg.panic("failed to connect")
 
-    let req: String = mem.alloc(2048)
-    c.snprintf(req, 2048, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
-    c.send(s, req, str.len(req), 0)
+    // very leaky
+    let req: String = "GET "
+    req = str.concat(req, path)
+    req = str.concat(req, " HTTP/1.0\r\nHost: ")
+    req = str.concat(req, host)
+    req = str.concat(req, "\r\nConnection: close\r\n\r\n")
+    net.send(s, req, str.len(req))
     mem.free(req)
 
     let header_buf: String = mem.alloc(8192)
@@ -38,7 +42,7 @@ func main[argc: I64, argv: Ptr] : I64
     let end_index: I64 = -1
 
     while !found & header_size < 8192
-        let n: I64 = c.read(s, header_buf + header_size, 8192 - header_size)
+        let n: I64 = net.read(s, header_buf + header_size, 8192 - header_size)
         if n <= 0
             break
         let current_size: I64 = header_size + n
@@ -52,15 +56,15 @@ func main[argc: I64, argv: Ptr] : I64
         header_size = current_size
 
     if end_index < header_size
-        c.write(1, header_buf + end_index, header_size - end_index)
+        io.print_sized(header_buf + end_index, header_size - end_index)
     mem.free(header_buf)
 
     let buffer: Ptr = mem.alloc(4096)
     while true
-        let n: I64 = c.read(s, buffer, 4096)
+        let n: I64 = net.read(s, buffer, 4096)
         if n <= 0
             break
-        c.write(1, buffer, n)
+        io.print_sized(buffer, n)
     mem.free(buffer)
 
-    c.close(s)
+    net.close(s)

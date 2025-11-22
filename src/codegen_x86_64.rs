@@ -106,8 +106,7 @@ section .text
         );
 
         // take that rustfmt
-        for name in "malloc,realloc,free,snprintf,system,gettimeofday,send,write,read,close,getchar,gethostbyname".split(",")
-        {
+        for name in "malloc,realloc,free,snprintf,system,gethostbyname".split(",") {
             emit!(&mut self.output, "extern {}", name);
             emit!(&mut self.output, "c.{} equ {}", name, name);
         }

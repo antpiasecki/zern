@@ -1,5 +1,5 @@
 func main[] : I64
-    let answer: I64 = math.abs(math.urandom()) % 100
+    let answer: I64 = math.abs(os.urandom()) % 100
 
     while true
         io.println("Guess a number: ")

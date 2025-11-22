@@ -38,6 +38,9 @@ func io.println[x: String] : Void
     io.print(x)
     io.print("\n")
 
+func io.print_sized[x: String, size: I64] : Void
+    _builtin_syscall(1, 1, x, size)
+
 func io.print_char[x: U8] : Void
     let s: String = mem.alloc(1)
     str.set(s, 0, x)
@@ -53,6 +56,14 @@ func io.println_i64[x: I64] : Void
     let s: String = str.from_i64(x)
     io.println(s)
     mem.free(s)
+
+func io.read_char[] : U8
+    let s: String = mem.alloc(1)
+    str.set(s, 0, 0)
+    _builtin_syscall(0, 0, s, 1)
+    let c: U8 = s[0]
+    mem.free(s)
+    return c
 
 func io.read_stdin[]: String
     let buffer: String = mem.alloc(1025)
@@ -313,15 +324,6 @@ func math.is_prime[n: I64]: Bool
         i = i + 6
     return true
 
-func math.urandom[]: I64
-    let buffer: Ptr = mem.alloc(8)
-    let fd: I64 = _builtin_syscall(2, "/dev/urandom", 0, 0) // open
-    _builtin_syscall(0, fd, buffer, 8) // read
-    _builtin_syscall(3, fd) // close
-    let n: I64 = mem.read64(buffer)
-    mem.free(buffer)
-    return n
-
 func array.new[] : Array
     let arr: Ptr = mem.alloc(24)
     mem.zero(arr, 24)
@@ -390,11 +392,20 @@ func alg._partition[arr: Array, low: I64, high: I64] : I64
 func os.exit[code: I64] : Void
     _builtin_syscall(60, code)
 
+func os.urandom[]: I64
+    let buffer: Ptr = mem.alloc(8)
+    let fd: I64 = _builtin_syscall(2, "/dev/urandom", 0, 0) // open
+    _builtin_syscall(0, fd, buffer, 8) // read
+    _builtin_syscall(3, fd) // close
+    let n: I64 = mem.read64(buffer)
+    mem.free(buffer)
+    return n
+
 func os.time[] : I64
     let tv: Ptr = mem.alloc(16)
-    c.gettimeofday(tv, 0)
+    _builtin_syscall(96, tv, 0) // gettimeofday
     let seconds: I64 = mem.read64(tv)
-    let microseconds: I64 = mem.read64(tv+8)
+    let microseconds: I64 = mem.read64(tv + 8)
     mem.free(tv)
     return seconds * 1000 + microseconds / 1000
 
@@ -482,3 +493,15 @@ func net.connect[host: String, port: I64] : I64
 
     mem.free(sa)
     return s
+
+func net.accept[s: I64] : I64
+    return _builtin_syscall(43, s, 0, 0)
+
+func net.send[s: I64, data: String, size: I64] : Void
+    _builtin_syscall(44, s, data, size, 0, 0, 0)
+
+func net.read[s: I64, buffer: Ptr, size: I64] : I64
+    return _builtin_syscall(0, s, buffer, size)
+
+func net.close[s: I64] : Void
+    _builtin_syscall(3, s)
