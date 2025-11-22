@@ -1,5 +1,5 @@
 func dbg.panic[msg: String] : Void
-    io.print("PANIC:")
+    io.print("PANIC: ")
     io.println(msg)
     os.exit(1)
 

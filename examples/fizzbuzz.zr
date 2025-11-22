@@ -1,0 +1,10 @@
+func main[] : I64
+    for i in 1..40
+        if i % 15 == 0
+            io.println("FizzBuzz")
+        else if i % 5 == 0
+            io.println("Buzz")
+        else if i %3 == 0
+            io.println("Fizz")
+        else
+            io.println_i64(i)

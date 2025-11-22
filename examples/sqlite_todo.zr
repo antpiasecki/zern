@@ -1,0 +1,33 @@
+// needs to be compiled with -m -C="-lsqlite3"
+
+func main[] : I64
+    extern sqlite3_open
+    extern sqlite3_exec
+    extern sqlite3_prepare_v2
+    extern sqlite3_bind_text
+    extern sqlite3_step
+    extern sqlite3_errmsg
+    extern sqlite3_finalize
+
+    let rc: I64 = 0
+    let db: Ptr = mem.alloc(8)
+    let stmt: Ptr = mem.alloc(8)
+
+    rc = sqlite3_open("todo.db", db)
+    if rc
+        dbg.panic("failed to open db")
+
+    rc = sqlite3_exec(mem.read64(db), "CREATE TABLE IF NOT EXISTS todo(id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL);", 0, 0, 0)
+    if rc
+        dbg.panic(sqlite3_errmsg(mem.read64(db)))
+    
+    sqlite3_prepare_v2(mem.read64(db), "INSERT INTO todo(task) VALUES(?);", -1, stmt, 0)
+
+    sqlite3_bind_text(mem.read64(stmt), 1, "World domination", -1, 0)
+
+    if sqlite3_step(mem.read64(stmt)) != 101
+        dbg.panic(sqlite3_errmsg(mem.read64(db)))
+    
+    io.println("Task added!")
+
+    sqlite3_finalize(mem.read64(stmt))
