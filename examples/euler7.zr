@@ -6,6 +6,6 @@ func main[] : I64
         if math.is_prime(i)
             found = found + 1
             if found == 10001
-                io.print_i64(i)
+                io.println_i64(i)
                 break
         i = i + 1

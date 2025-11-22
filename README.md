@@ -14,16 +14,16 @@ func main[] : I64
     let answer: I64 = math.abs(math.urandom()) % 100
 
     while true
-        io.print("Guess a number: ")
+        io.println("Guess a number: ")
         let guess: I64 = io.read_stdin() |> str.trim() |> str.parse_i64()
 
         if guess == answer
-            io.print("You win!")
+            io.println("You win!")
             break
         else if guess < answer
-            io.print("Too low!")
+            io.println("Too low!")
         else
-            io.print("Too high!")
+            io.println("Too high!")
 ```
 
 ## Quickstart

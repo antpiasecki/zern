@@ -18,10 +18,10 @@ func rule110_step[state: Array] : Array
 func print_state[state: Array]: Void
     for i in 0..array.size(state)
         if array.nth(state, i)
-            c.putchar('#')
+            io.print_char('#')
         else
-            c.putchar(' ')
-    io.print("")
+            io.print_char(' ')
+    io.println("")
 
 func main[] : I64
     let SIZE: I64 = 60

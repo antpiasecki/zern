@@ -1,4 +1,4 @@
-// musl doesnt like dlopen, needs to be compiled with -m -C="/usr/local/lib/libraylib.a -lm"
+// needs to be compiled with -m -C="/usr/local/lib/libraylib.a -lm"
 
 func main[] : I64
     extern InitWindow
@@ -11,11 +11,6 @@ func main[] : I64
     extern DrawRectangle
     extern IsKeyDown
 
-    let KEY_W: I64 = 87
-    let KEY_S: I64 = 83
-    let KEY_A: I64 = 65
-    let KEY_D: I64 = 68
-
     let x: I64 = 200
     let y: I64 = 200
 
@@ -23,13 +18,13 @@ func main[] : I64
     SetTargetFPS(60)
 
     while !WindowShouldClose()
-        if IsKeyDown(KEY_W) & 255
+        if IsKeyDown(87) & 255 // W
             y = y - 10
-        if IsKeyDown(KEY_S) & 255
+        if IsKeyDown(83) & 255 // S
             y = y + 10
-        if IsKeyDown(KEY_A) & 255
+        if IsKeyDown(65) & 255 // A
             x = x - 10
-        if IsKeyDown(KEY_D) & 255
+        if IsKeyDown(68) & 255 // D
             x = x + 10
 
         BeginDrawing()

@@ -3,5 +3,5 @@ func main[] : I64
         for b in 1..1000
             let c: I64 = 1000 - b - a
             if a * a + b * b == c * c
-                io.print_i64(a * b * c)
+                io.println_i64(a * b * c)
                 return 0

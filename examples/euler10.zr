@@ -4,4 +4,4 @@ func main[] : I64
     for i in 0..2000000
         if math.is_prime(i)
             sum = sum + i
-    io.print_i64(sum)
+    io.println_i64(sum)

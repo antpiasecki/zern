@@ -10,4 +10,4 @@ func main[] : I64
         b = a + b
         a = temp
 
-    io.print_i64(sum)
+    io.println_i64(sum)

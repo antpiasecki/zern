@@ -20,7 +20,7 @@ func main[] : I64
         else if op == '-'
             str.set(memory, p, memory[p]-1)
         else if op == '.'
-            c.printf("%c", memory[p])
+            io.print_char(memory[p])
         else if op == ','
             str.set(memory, p, c.getchar())
         else if op == '['

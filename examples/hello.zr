@@ -1,2 +1,2 @@
 func main[] : I64
-    io.print("Hello, World!")
+    io.println("Hello, World!")

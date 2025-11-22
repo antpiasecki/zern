@@ -276,7 +276,7 @@ impl Parser {
     }
 
     fn pipe(&mut self) -> Result<Expr, ZernError> {
-        let mut expr = self.logical_or()?;
+        let mut expr = self.or_and()?;
 
         while self.match_token(&[TokenType::Pipe]) {
             let pipe = self.previous().clone();
@@ -305,26 +305,10 @@ impl Parser {
         Ok(expr)
     }
 
-    fn logical_or(&mut self) -> Result<Expr, ZernError> {
-        let mut expr = self.logical_and()?;
-
-        while self.match_token(&[TokenType::BitOr]) {
-            let op = self.previous().clone();
-            let right = self.logical_and()?;
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            }
-        }
-
-        Ok(expr)
-    }
-
-    fn logical_and(&mut self) -> Result<Expr, ZernError> {
+    fn or_and(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.equality()?;
 
-        while self.match_token(&[TokenType::BitAnd]) {
+        while self.match_token(&[TokenType::BitOr, TokenType::BitAnd]) {
             let op = self.previous().clone();
             let right = self.equality()?;
             expr = Expr::Binary {

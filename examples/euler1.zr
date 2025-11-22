@@ -4,4 +4,4 @@ func main[] : I64
     for i in 0..1000
         if i % 5 == 0 | i % 3 == 0
             sum = sum + i
-    io.print_i64(sum)
+    io.println_i64(sum)

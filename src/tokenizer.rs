@@ -299,6 +299,10 @@ impl Tokenizer {
             while self.peek().is_ascii_hexdigit() {
                 self.advance();
             }
+        } else if self.match_char('o') {
+            while matches!(self.peek(), '0'..='7') {
+                self.advance();
+            }
         } else {
             while self.peek().is_ascii_digit() {
                 self.advance();

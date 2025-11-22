@@ -1,20 +1,18 @@
-// musl doesnt like dlopen, needs to be compiled with -m
+// needs to be compiled with -m -C="-lX11"
 
 func main[] : I64
-    let x11: Ptr = c.dlopen("libX11.so", 2)
-
-    let XOpenDisplay: Ptr = c.dlsym(x11, "XOpenDisplay")
-    let XDefaultRootWindow: Ptr = c.dlsym(x11, "XDefaultRootWindow")
-    let XCreateSimpleWindow: Ptr = c.dlsym(x11, "XCreateSimpleWindow")
-    let XMapWindow: Ptr = c.dlsym(x11, "XMapWindow")
-    let XSelectInput: Ptr = c.dlsym(x11, "XSelectInput")
-    let XNextEvent: Ptr = c.dlsym(x11, "XNextEvent")
-    let XBlackPixel: Ptr = c.dlsym(x11, "XBlackPixel")
-    let XWhitePixel: Ptr = c.dlsym(x11, "XWhitePixel")
-    let XSetForeground: Ptr = c.dlsym(x11, "XSetForeground")
-    let XCreateGC: Ptr = c.dlsym(x11, "XCreateGC")
-    let XDefaultScreen: Ptr = c.dlsym(x11, "XDefaultScreen")
-    let XDrawString: Ptr = c.dlsym(x11, "XDrawString")
+    extern XOpenDisplay
+    extern XDefaultRootWindow
+    extern XCreateSimpleWindow
+    extern XMapWindow
+    extern XSelectInput
+    extern XNextEvent
+    extern XBlackPixel
+    extern XWhitePixel
+    extern XSetForeground
+    extern XCreateGC
+    extern XDefaultScreen
+    extern XDrawString
 
     let dpy: Ptr = XOpenDisplay(0)
     let screen: Ptr = XDefaultScreen(dpy)

@@ -11,4 +11,4 @@ func main[] : I64
             j = j + 1
         if s > out
             out = s
-    io.print_i64(out)
+    io.println_i64(out)

@@ -10,4 +10,4 @@ func main[] : I64
                     out = a * b
                 mem.free(s)
                 mem.free(s_rev)
-    io.print_i64(out)
+    io.println_i64(out)

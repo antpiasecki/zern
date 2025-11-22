@@ -4,12 +4,12 @@ func main[] : I64
         array.push(arr, math.abs(math.urandom() % 1000))
 
     for i in 0..array.size(arr)
-        io.print_i64(array.nth(arr, i))
-    io.print("------------")
+        io.println_i64(array.nth(arr, i))
+    io.println("------------")
 
     alg.quicksort(arr)
 
     for i in 0..array.size(arr)
-        io.print_i64(array.nth(arr, i))
+        io.println_i64(array.nth(arr, i))
 
     array.free(arr)
