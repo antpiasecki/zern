@@ -232,8 +232,9 @@ _builtin_environ:
                 params,
                 return_type: _,
                 body,
+                exported,
             } => {
-                if name.lexeme == "main" {
+                if exported || name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
                 }
                 emit!(&mut self.output, "section .text.{}", name.lexeme);

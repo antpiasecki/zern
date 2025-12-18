@@ -35,6 +35,7 @@ pub enum Stmt {
         params: Vec<Param>,
         return_type: Token,
         body: Box<Stmt>,
+        exported: bool,
     },
     Return(Expr),
     Break,
@@ -101,7 +102,11 @@ impl Parser {
     fn declaration(&mut self) -> Result<Stmt, ZernError> {
         if !self.is_inside_function {
             if self.match_token(&[TokenType::KeywordFunc]) {
-                return self.func_declaration();
+                return self.func_declaration(false);
+            }
+            if self.match_token(&[TokenType::KeywordExport]) {
+                self.consume(TokenType::KeywordFunc, "expected 'func' after 'export'")?;
+                return self.func_declaration(true);
             }
             if self.match_token(&[TokenType::KeywordExtern]) {
                 return self.extern_declaration();
@@ -119,7 +124,7 @@ impl Parser {
         }
     }
 
-    fn func_declaration(&mut self) -> Result<Stmt, ZernError> {
+    fn func_declaration(&mut self, exported: bool) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
@@ -157,6 +162,7 @@ impl Parser {
             params,
             return_type,
             body,
+            exported,
         })
     }
 

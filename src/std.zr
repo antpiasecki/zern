@@ -229,6 +229,12 @@ func str.from_i64[n: I64] : String
     mem.free(buf)
     return s
 
+func str.from_char[c: U8] : String
+    let s: String = mem.alloc(2)
+    str.set(s, 0, c)
+    str.set(s, 1, 0)
+    return s
+
 func str.parse_i64[s: String] : I64
     let len: I64 = str.len(s)
     let i: I64 = 0

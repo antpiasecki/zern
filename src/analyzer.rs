@@ -22,6 +22,7 @@ impl Analyzer {
             params,
             return_type: _,
             body: _,
+            exported: _,
         } = stmt
         {
             if self.functions.contains_key(&name.lexeme) {
@@ -65,6 +66,7 @@ impl Analyzer {
                 params: _,
                 return_type,
                 body,
+                exported: _,
             } => {
                 if name.lexeme == "main" && return_type.lexeme != "I64" {
                     return error!(&name.loc, "main must return I64");
