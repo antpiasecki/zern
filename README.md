@@ -17,7 +17,7 @@ func main[] : I64
 
     while true
         io.println("Guess a number: ")
-        let guess: I64 = io.read_stdin() |> str.trim() |> str.parse_i64()
+        let guess: I64 = io.read_line() |> str.trim() |> str.parse_i64()
 
         if guess == answer
             io.println("You win!")

@@ -254,11 +254,14 @@ _builtin_environ:
 
                 self.compile_stmt(env, *body)?;
 
-                // fallback to returning null
-                emit!(&mut self.output, "    mov rax, 0");
-                emit!(&mut self.output, "    mov rsp, rbp");
-                emit!(&mut self.output, "    pop rbp");
-                emit!(&mut self.output, "    ret");
+                // fallback to null
+                // very hacky but works
+                if !self.output.trim_end().ends_with("    ret") {
+                    emit!(&mut self.output, "    mov rax, 0");
+                    emit!(&mut self.output, "    mov rsp, rbp");
+                    emit!(&mut self.output, "    pop rbp");
+                    emit!(&mut self.output, "    ret");
+                }
             }
             Stmt::Return(expr) => {
                 self.compile_expr(env, expr)?;

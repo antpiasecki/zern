@@ -1,0 +1,53 @@
+func part1[lines: Array] : Void
+    let password: I64 = 0
+    let dial: I64 = 50
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+        let dir: U8 = line[0]
+        let n: I64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+
+        if dir == 'L'
+            dial = dial - n
+            while dial < 0
+                dial = 100 + dial
+        else
+            dial = dial + n
+            while dial >= 100
+                dial = dial - 100
+
+        if dial == 0
+            password = password + 1
+    
+    io.println_i64(password)
+
+func part2[lines: Array] : Void
+    let password: I64 = 0
+    let dial: I64 = 50
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+        let dir: U8 = line[0]
+        let n: I64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+
+        if dir == 'L'
+            for i in 0..n
+                dial = dial - 1
+                if dial == 0
+                    password = password + 1
+                if dial == -1
+                    dial = 99
+        else
+            for i in 0..n
+                dial = dial + 1
+                if dial == 100
+                    dial = 0
+                    password = password + 1
+    
+    io.println_i64(password)
+
+func main[] : I64
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+
+    part1(lines)
+    part2(lines)

@@ -65,7 +65,7 @@ func io.read_char[] : U8
     mem.free(s)
     return c
 
-func io.read_stdin[]: String
+func io.read_line[]: String
     let buffer: String = mem.alloc(1025)
     let n: I64 = _builtin_syscall(0, 0, buffer, 1024)
     if n < 0
@@ -74,7 +74,7 @@ func io.read_stdin[]: String
     return buffer
 
 func io.read_file[path: String]: String
-    let fd: I64 = _builtin_syscall(2, path, 0, 0) // open
+    let fd: I64 = _builtin_syscall(257, -100, path, 0, 0) // openat
     if fd <= 0
         dbg.panic("failed to open file")
 
@@ -88,7 +88,7 @@ func io.read_file[path: String]: String
     return buffer
 
 func io.write_file[path: String, content: String] : Void
-    let fd: Ptr = _builtin_syscall(2, path, 0x241, 0o644) // open
+    let fd: Ptr = _builtin_syscall(257, -100, path, 0x241, 0o644) // openat
     if fd < 0
         dbg.panic("failed to open file")
 
@@ -415,7 +415,7 @@ func os.exit[code: I64] : Void
 
 func os.urandom[]: I64
     let buffer: Ptr = mem.alloc(8)
-    let fd: I64 = _builtin_syscall(2, "/dev/urandom", 0, 0) // open
+    let fd: I64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
     _builtin_syscall(0, fd, buffer, 8) // read
     _builtin_syscall(3, fd) // close
     let n: I64 = mem.read64(buffer)
@@ -452,7 +452,7 @@ func os.shell[command: String] : I64
             return -(st & 0x7f)
 
 func os.listdir[path: String] : Array
-    let fd: I64 = _builtin_syscall(2, path, 0, 0) // open
+    let fd: I64 = _builtin_syscall(257, -100, path, 0, 0) // openat
     if fd < 0
         return []
 

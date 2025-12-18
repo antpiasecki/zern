@@ -2,9 +2,12 @@
 extern sqlite3_open
 extern sqlite3_exec
 extern sqlite3_prepare_v2
+extern sqlite3_bind_int
 extern sqlite3_bind_text
 extern sqlite3_step
 extern sqlite3_errmsg
+extern sqlite3_column_int
+extern sqlite3_column_text
 extern sqlite3_finalize
 
 func main[] : I64
@@ -20,13 +23,49 @@ func main[] : I64
     if rc
         dbg.panic(sqlite3_errmsg(mem.read64(db)))
     
-    sqlite3_prepare_v2(mem.read64(db), "INSERT INTO todo(task) VALUES(?);", -1, stmt, 0)
+    while true
+        io.println("1. List tasks")
+        io.println("2. Add task")
+        io.println("3. Delete task")
+        io.println("0. Quit")
+        io.print("\n> ")
 
-    sqlite3_bind_text(mem.read64(stmt), 1, "World domination", -1, 0)
+        let choice: I64 = io.read_line() |> str.parse_i64()
 
-    if sqlite3_step(mem.read64(stmt)) != 101
-        dbg.panic(sqlite3_errmsg(mem.read64(db)))
-    
-    io.println("Task added!")
+        if choice == 0
+            break
+        else if choice == 1
+            io.println("============")
+            sqlite3_prepare_v2(mem.read64(db), "SELECT * FROM todo", -1, stmt, 0)
+
+            while sqlite3_step(mem.read64(stmt)) == 100
+                let id: I64 = sqlite3_column_int(mem.read64(stmt), 0)
+                let task: String = sqlite3_column_text(mem.read64(stmt), 1)
+                
+                io.print_i64(id)
+                io.print(" - ")
+                io.println(task)
+
+            io.println("============")
+        else if choice == 2
+            io.print("\nEnter new task: ")
+            let task: String = io.read_line() |> str.trim()
+
+            sqlite3_prepare_v2(mem.read64(db), "INSERT INTO todo(task) VALUES (?);", -1, stmt, 0)
+            sqlite3_bind_text(mem.read64(stmt), 1, task, -1, 0)
+            if sqlite3_step(mem.read64(stmt)) != 101
+                dbg.panic(sqlite3_errmsg(mem.read64(db)))
+
+            io.println("\nTask added\n")
+        else if choice == 3
+            io.print("\nEnter task id: ")
+            let id: I64 = io.read_line() |> str.parse_i64()
+
+            sqlite3_prepare_v2(mem.read64(db), "DELETE FROM todo WHERE id = ?;", -1, stmt, 0)
+            sqlite3_bind_int(mem.read64(stmt), 1, id, -1, 0)
+            if sqlite3_step(mem.read64(stmt)) != 101
+                dbg.panic(sqlite3_errmsg(mem.read64(db)))
+
+            io.println("\nTask deleted\n")
 
     sqlite3_finalize(mem.read64(stmt))

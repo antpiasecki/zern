@@ -125,7 +125,7 @@ impl Analyzer {
                         );
                     }
                 } else {
-                    // TODO: cant error here since we dont analyze externs/builtins
+                    // TODO: cant error here since we dont analyze externs/builtins YET
                 }
 
                 for arg in args {
