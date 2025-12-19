@@ -1,13 +1,18 @@
+extern malloc
+extern realloc
+extern free
+extern gethostbyname
+
 func dbg.panic[msg: String] : Void
     io.print("PANIC: ")
     io.println(msg)
     os.exit(1)
 
 func mem.alloc[x: I64] : Ptr
-    return c.malloc(x)
+    return malloc(x)
 
 func mem.free[x: Ptr] : Void
-    c.free(x)
+    free(x)
 
 func mem.zero[x: I64, size: I64] : Void
     for i in 0..size
@@ -357,9 +362,11 @@ func array.new[] : Array
     return arr
 
 func array.nth[xs: Array, n: I64] : I64
-    // this probably should be implemented in the codegen
     if n < 0 | n >= array.size(xs)
         dbg.panic("array.nth out of bounds")
+    return array.nth_unchecked(xs, n)
+
+func array.nth_unchecked[xs: Array, n: I64] : I64
     let data: Ptr = mem.read64(xs)
     return mem.read64(data + n * 8)
 
@@ -376,7 +383,7 @@ func array.push[xs: Array, x: I64] : Void
         let new_capacity: I64 = 4
         if capacity != 0
             new_capacity = capacity * 2
-        let new_data: Ptr = c.realloc(data, new_capacity * 8)
+        let new_data: Ptr = realloc(data, new_capacity * 8)
         mem.write64(xs, new_data)
         mem.write64(xs + 8, new_capacity)
         data = new_data
@@ -514,7 +521,7 @@ func net.listen[port: I64] : I64
     return s
 
 func net.connect[host: String, port: I64] : I64
-    let he: Ptr = c.gethostbyname(host)
+    let he: Ptr = gethostbyname(host)
     if he == 0
         return -1
 

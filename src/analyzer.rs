@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct Analyzer {
-    pub functions: HashMap<String, usize>,
+    pub functions: HashMap<String, i32>,
 }
 
 impl Analyzer {
@@ -28,7 +28,8 @@ impl Analyzer {
             if self.functions.contains_key(&name.lexeme) {
                 return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
             }
-            self.functions.insert(name.lexeme.clone(), params.len());
+            self.functions
+                .insert(name.lexeme.clone(), params.len() as i32);
         }
         Ok(())
     }
@@ -89,7 +90,12 @@ impl Analyzer {
             }
             Stmt::Break => {}
             Stmt::Continue => {}
-            Stmt::Extern(_) => {}
+            Stmt::Extern(name) => {
+                if self.functions.contains_key(&name.lexeme) {
+                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
+                }
+                self.functions.insert(name.lexeme.clone(), -1);
+            }
         }
         Ok(())
     }
@@ -120,14 +126,14 @@ impl Analyzer {
                 };
 
                 if let Some(arity) = self.functions.get(&callee) {
-                    if *arity != args.len() {
+                    if *arity >= 0 && *arity != args.len() as i32 {
                         return error!(
                             &paren.loc,
                             format!("expected {} arguments, got {}", arity, args.len())
                         );
                     }
-                } else {
-                    // TODO: cant error here since we dont analyze externs/builtins YET
+                } else if !callee.starts_with("_builtin_") {
+                    return error!(&paren.loc, format!("undefined function: {}", callee));
                 }
 
                 for arg in args {

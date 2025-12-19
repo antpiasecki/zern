@@ -100,18 +100,6 @@ impl CodegenX86_64 {
             "section .note.GNU-stack
     db 0
 
-section .text
-"
-        );
-
-        for name in &["malloc", "realloc", "free", "gethostbyname"] {
-            emit!(&mut self.output, "extern {}", name);
-            emit!(&mut self.output, "c.{} equ {}", name, name);
-        }
-
-        emit!(
-            &mut self.output,
-            "
 section .text._builtin_read8
 _builtin_read8:
     xor rax, rax
