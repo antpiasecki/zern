@@ -212,6 +212,9 @@ impl Tokenizer {
             }
             // TODO: escape sequences
             '\'' => {
+                if self.eof() {
+                    return error!(self.loc, "unterminated char literal");
+                }
                 self.advance();
                 if !self.match_char('\'') {
                     return error!(self.loc, "expected ' after char literal");
