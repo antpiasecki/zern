@@ -71,6 +71,10 @@ pub enum Expr {
         expr: Box<Expr>,
         index: Box<Expr>,
     },
+    AddrOf {
+        op: Token,
+        expr: Box<Expr>,
+    },
 }
 
 // TODO: currently they are all just 8 byte values
@@ -408,6 +412,14 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expr, ZernError> {
+        if self.match_token(&[TokenType::At]) {
+            let op = self.previous().clone();
+            let right = self.unary()?;
+            return Ok(Expr::AddrOf {
+                op,
+                expr: Box::new(right),
+            });
+        }
         if self.match_token(&[TokenType::Bang, TokenType::Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;

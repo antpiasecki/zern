@@ -1,5 +1,5 @@
 func run_test[x: String] : Void
-    if str.equal(x, "raylib.zr") | str.equal(x, "x11.zr") | str.equal(x, "sqlite_todo.zr")
+    if str.equal(x, "puzzles") | str.equal(x, "raylib.zr") | str.equal(x, "x11.zr") | str.equal(x, "sqlite_todo.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
         io.println("...\033[0m")

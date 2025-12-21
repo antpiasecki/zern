@@ -160,6 +160,9 @@ impl Analyzer {
                 self.analyze_expr(expr)?;
                 self.analyze_expr(index)?;
             }
+            Expr::AddrOf { op: _, expr } => {
+                self.analyze_expr(expr)?;
+            }
         }
         Ok(())
     }

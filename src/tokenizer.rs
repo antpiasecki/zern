@@ -18,6 +18,7 @@ pub enum TokenType {
     BitAnd,
     BitOr,
     Pipe,
+    At,
     DoubleDot,
     ShiftLeft,
     ShiftRight,
@@ -154,6 +155,7 @@ impl Tokenizer {
             '%' => self.add_token(TokenType::Mod),
             '^' => self.add_token(TokenType::Xor),
             ':' => self.add_token(TokenType::Colon),
+            '@' => self.add_token(TokenType::At),
             '.' => {
                 if self.match_char('.') {
                     self.add_token(TokenType::DoubleDot)

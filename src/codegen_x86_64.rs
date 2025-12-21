@@ -548,6 +548,31 @@ _builtin_environ:
                 emit!(&mut self.output, "    add rdi, rax");
                 emit!(&mut self.output, "    call _builtin_read8");
             }
+            Expr::AddrOf { op, expr } => match *expr {
+                Expr::Variable(name) => {
+                    if self.analyzer.functions.contains_key(&name.lexeme) {
+                        emit!(&mut self.output, "    mov rax, {}", name.lexeme);
+                    } else {
+                        let var = match env.get_var(&name.lexeme) {
+                            Some(x) => x,
+                            None => {
+                                return error!(
+                                    name.loc,
+                                    format!("undefined variable: {}", &name.lexeme)
+                                );
+                            }
+                        };
+                        emit!(
+                            &mut self.output,
+                            "    lea rax, QWORD [rbp-{}]",
+                            var.stack_offset,
+                        );
+                    }
+                }
+                _ => {
+                    return error!(&op.loc, "can only take address of variables and functions");
+                }
+            },
         }
         Ok(())
     }
