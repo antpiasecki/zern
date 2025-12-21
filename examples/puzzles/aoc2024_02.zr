@@ -1,0 +1,54 @@
+func check[report: Array] : Bool
+    let increasing: Bool = array.nth(report, 0) < array.nth(report, 1)
+
+    for i in 0..array.size(report)-1
+        if array.nth(report, i) > array.nth(report, i + 1) & increasing
+            return false
+        if array.nth(report, i) < array.nth(report, i + 1) & !increasing
+            return false
+
+        let diff: I64 = math.abs(array.nth(report, i) - array.nth(report, i + 1))
+        if diff < 1 | diff > 3
+            return false
+
+    return true
+
+func part1[data: Array] : Void
+    let out: I64 = 0
+
+    for i in 0..array.size(data)
+        if check(array.nth(data, i))
+            out = out + 1
+
+    io.println_i64(out)
+
+func part2[data: Array] : Void
+    let out: I64 = 0
+
+    for i in 0..array.size(data)
+        if check(array.nth(data, i))
+            out = out + 1
+        else
+            for j in 0..array.size(array.nth(data, i))
+                let sliced: Array = array.concat(array.slice(array.nth(data, i), 0, j), array.slice(array.nth(data, i), j + 1, array.size(array.nth(data, i)) - (j + 1)))
+                
+                if check(sliced)
+                    out = out + 1
+                    break
+
+    io.println_i64(out)
+
+func main[] : I64
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+
+    let data: Array = []
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+
+        let report: Array = str.split(line, " ")
+        for i in 0..array.size(report)
+            array.set(report, i, str.parse_i64(array.nth(report, i)))
+        array.push(data, report)
+
+    part1(data)
+    part2(data)

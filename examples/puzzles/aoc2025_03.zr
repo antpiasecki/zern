@@ -1,0 +1,51 @@
+func part1[lines: Array] : Void
+    let sum: I64 = 0
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+
+        let largest: I64 = 0
+        for j in 0..str.len(line)
+            for k in (j+1)..str.len(line)
+                let s: String = mem.alloc(3)
+                str.set(s, 0, line[j])
+                str.set(s, 1, line[k])
+                str.set(s, 2, 0)
+                let n: I64 = str.parse_i64(s)
+                if n > largest
+                    largest = n
+
+        sum = sum + largest
+    io.println_i64(sum)
+
+// had to cheat this one
+func part2_rec[bank: String, start: I64, remaining: I64] : I64
+    let largest: I64 = 0
+    let largest_idx: I64 = start
+    let len: I64 = str.len(bank)
+
+    for i in (start)..(len-remaining+1)
+        let v: I64 = bank[i] - '0'
+        if v > largest
+            largest = v
+            largest_idx = i
+
+    if remaining > 1
+        return largest * math.pow(10, remaining - 1) + part2_rec(bank, largest_idx + 1, remaining - 1)
+    else
+        return largest
+
+func part2[lines: Array] : Void
+    let sum: I64 = 0
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+
+        sum = sum + part2_rec(line, 0, 12)
+    io.println_i64(sum)
+
+func main[] : I64
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+
+    part1(lines)
+    part2(lines)

@@ -6,6 +6,7 @@ extern gethostbyname
 func dbg.panic[msg: String] : Void
     io.print("PANIC: ")
     io.println(msg)
+    0/0 // crashes program which is kinda better since you get a gdb backtrace
     os.exit(1)
 
 func mem.alloc[x: I64] : Ptr
@@ -400,6 +401,23 @@ func array.free[xs: Array] : Void
         mem.free(data)
     mem.free(xs)
 
+func array.slice[xs: Array, start: I64, length: I64] : Array
+    if start < 0 | length < 0 | start + length > array.size(xs)
+        dbg.panic("array.slice out of bounds")
+
+    let new_array: Array = []
+    for i in 0..length
+        array.push(new_array, array.nth(xs, start + i))
+    return new_array
+
+func array.concat[a: Array, b: Array] : Array
+    let new_array: Array = []
+    for i in 0..array.size(a)
+        array.push(new_array, array.nth(a, i))
+    for i in 0..array.size(b)
+        array.push(new_array, array.nth(b, i))
+    return new_array
+
 func alg.quicksort[arr: Array] : Void
     alg._do_quicksort(arr, 0, array.size(arr) - 1)
 
@@ -422,6 +440,14 @@ func alg._partition[arr: Array, low: I64, high: I64] : I64
     array.set(arr, i + 1, array.nth(arr, high))
     array.set(arr, high, temp)
     return i + 1
+
+func alg.count[arr: Array, item: I64] : I64
+    let count: I64 = 0
+    let size: I64 = array.size(arr)
+    for i in 0..size
+        if array.nth(arr, i) == item
+            count = count + 1
+    return count
 
 func os.exit[code: I64] : Void
     _builtin_syscall(60, code)

@@ -1,0 +1,35 @@
+func part1[l1: Array, l2: Array] : Void
+    let out: I64 = 0
+    
+    for i in 0..array.size(l1)
+        out = out + math.abs(array.nth(l1, i) - array.nth(l2, i))
+
+    io.println_i64(out)
+
+func part2[l1: Array, l2: Array] : Void
+    let out: I64 = 0
+
+    for i in 0..array.size(l1)
+        out = out + array.nth(l1, i) * alg.count(l2, array.nth(l1, i))
+
+    io.println_i64(out)
+
+func main[] : I64
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+
+    let l1: Array = []
+    let l2: Array = []
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+        
+        let parts: Array = str.split(line, "   ")
+
+        array.push(l1, str.parse_i64(array.nth(parts, 0)))
+        array.push(l2, str.parse_i64(array.nth(parts, 1)))
+
+    alg.quicksort(l1)
+    alg.quicksort(l2)
+
+    part1(l1, l2)
+    part2(l1, l2)

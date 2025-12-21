@@ -87,11 +87,7 @@ impl CodegenX86_64 {
     }
 
     pub fn get_output(&self) -> String {
-        format!(
-            "section .data
-{}{}",
-            self.data_section, self.output
-        )
+        format!("section .data\n{}{}", self.data_section, self.output)
     }
 
     pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
