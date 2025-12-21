@@ -1,0 +1,77 @@
+func concat[a: I64, b: I64] : I64
+    let a_str: String = str.from_i64(a)
+    let b_str: String = str.from_i64(b)
+    let ab_str: String = str.concat(a_str, b_str)
+    let out: I64 = str.parse_i64(ab_str)
+    // without freeing the program works but leaks 2GB of memory :p
+    mem.free(a_str)
+    mem.free(b_str)
+    mem.free(ab_str)
+    return out
+
+func solve[ops: Array, e: Array] : I64
+    let n: I64 = array.size(array.nth(e, 1)) - 1
+    let indices: Array = []
+    for i in 0..n
+        array.push(indices, 0)
+
+    while true
+        let res: I64 = array.nth(array.nth(e, 1), 0)
+        for i in 0..n
+            let op: String = array.nth(ops, array.nth(indices, i))
+
+            if str.equal(op, "add")
+                res = res + array.nth(array.nth(e, 1), i + 1)
+            else if str.equal(op, "mul")
+                res = res * array.nth(array.nth(e, 1), i + 1)
+            else if str.equal(op, "concat")
+                res = concat(res, array.nth(array.nth(e, 1), i + 1))
+        if res == array.nth(e, 0)
+            return res
+
+        let done: Bool = true
+        let i: I64 = n - 1
+
+        while i >= 0
+            array.set(indices, i, array.nth(indices, i) + 1)
+            if array.nth(indices, i) < array.size(ops)
+                done = false
+                break
+            array.set(indices, i, 0)
+            i = i - 1
+        
+        if done
+            return 0
+
+func part1[equations: Array] : Void
+    let out: I64 = 0
+
+    for i in 0..array.size(equations)
+        out = out + solve(["add", "mul"], array.nth(equations, i))
+
+    io.println_i64(out)
+
+func part2[equations: Array] : Void
+    let out: I64 = 0
+
+    for i in 0..array.size(equations)
+        out = out + solve(["add", "mul", "concat"], array.nth(equations, i))
+
+    io.println_i64(out)
+
+func main[] : I64
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+    let equations: Array = []
+
+    for i in 0..array.size(lines)
+        let line: String = array.nth(lines, i)
+        let parts: Array = str.split(line, ": ")
+
+        let xs: Array = str.split(array.nth(parts, 1), " ")
+        for j in 0..array.size(xs)
+            array.set(xs, j, str.parse_i64(array.nth(xs, j)))
+
+        array.push(equations, [str.parse_i64(array.nth(parts, 0)), xs])
+
+    part1(equations)
+    part2(equations)
