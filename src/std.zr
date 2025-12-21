@@ -72,8 +72,9 @@ func io.read_char[] : U8
     return c
 
 func io.read_line[]: String
-    let buffer: String = mem.alloc(1025)
-    let n: I64 = _builtin_syscall(0, 0, buffer, 1024)
+    let MAX_SIZE: I64 = 60000
+    let buffer: String = mem.alloc(MAX_SIZE + 1)
+    let n: I64 = _builtin_syscall(0, 0, buffer, MAX_SIZE)
     if n < 0
         return ""
     str.set(buffer, n, 0)
@@ -220,7 +221,7 @@ func str.from_i64[n: I64] : String
     let neg: Bool = n < 0
     if neg
         n = -n
-    let buf: String = mem.alloc(21)
+    let buf: String = mem.alloc(21) // enough to fit -MAX_I64
     let i: I64 = 0
     while n > 0
         let d: U8 = n % 10
@@ -275,7 +276,7 @@ func str.hex_encode[s: String] : String
     str.set(out, j, 0)
     return out
 
-func str._from_hex_digit[d: U8] : I64
+func str._hex_digit_to_int[d: U8] : I64
     if d >= 'a' & d <= 'f'
         return d - 'a' + 10
     if d >= 'A' & d <= 'F'
@@ -289,7 +290,7 @@ func str.hex_decode[s: String] : String
     let out: String = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
-        str.set(out, j, str._from_hex_digit(s[i]) * 16 + str._from_hex_digit(s[i + 1]))
+        str.set(out, j, str._hex_digit_to_int(s[i]) * 16 + str._hex_digit_to_int(s[i + 1]))
         i = i + 2
         j = j + 1
 
@@ -329,7 +330,7 @@ func math.lcm[a: I64, b: I64] : I64
 
 func math.isqrt[n: I64] : I64
     if n < 0
-        return -1
+        dbg.panic("negative number passed to math.isqrt")
     if n == 0 | n == 1
         return n
 
@@ -358,6 +359,7 @@ func math.is_prime[n: I64]: Bool
     return true
 
 func array.new[] : Array
+    // [ 8 bytes - ptr to data ] [ 8 bytes - size ] [ 8 bytes - capacity ]
     let arr: Ptr = mem.alloc(24)
     mem.zero(arr, 24)
     return arr
@@ -453,12 +455,10 @@ func os.exit[code: I64] : Void
     _builtin_syscall(60, code)
 
 func os.urandom[]: I64
-    let buffer: Ptr = mem.alloc(8)
+    let n: I64 = 0
     let fd: I64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
-    _builtin_syscall(0, fd, buffer, 8) // read
+    _builtin_syscall(0, fd, @n, 8) // read
     _builtin_syscall(3, fd) // close
-    let n: I64 = mem.read64(buffer)
-    mem.free(buffer)
     return n
 
 func os.time[] : I64
@@ -523,9 +523,14 @@ func os.listdir[path: String] : Array
     _builtin_syscall(3, fd) // close
     return files
 
-func net.listen[port: I64] : I64
+func net.listen[packed_host: I64, port: I64] : I64
     let s: I64 = _builtin_syscall(41, 2, 1, 0) // socket
     if s < 0
+        return -1
+    
+    let optval: I64 = 1
+    if _builtin_syscall(54, s, 1, 2, @optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        _builtin_syscall(3, s) // close
         return -1
 
     let sa: Ptr = mem.alloc(16)
@@ -534,9 +539,14 @@ func net.listen[port: I64] : I64
     mem.write8(sa + 1, 0)
     mem.write8(sa + 2, (port >> 8) & 255)
     mem.write8(sa + 3, port & 255)
+    mem.write8(sa + 4, (packed_host >> 24) & 255)
+    mem.write8(sa + 5, (packed_host >> 16) & 255)
+    mem.write8(sa + 6, (packed_host >> 8) & 255)
+    mem.write8(sa + 7, packed_host & 255)
 
     if _builtin_syscall(49, s, sa, 16) < 0 // bind
         _builtin_syscall(3, s) // close
+        mem.free(sa)
         return -1
     mem.free(sa)
 
@@ -586,3 +596,6 @@ func net.read[s: I64, buffer: Ptr, size: I64] : I64
 
 func net.close[s: I64] : Void
     _builtin_syscall(3, s)
+
+func net.pack_addr[a: I64, b: I64, c: I64, d: I64] : I64
+    return (a << 24) | (b << 16) | (c << 8) | d

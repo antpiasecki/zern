@@ -1,5 +1,6 @@
 func main[] : I64
-    let s: I64 = net.listen(8000)
+    let host: I64 = net.pack_addr(127, 0, 0, 1)
+    let s: I64 = net.listen(host, 8000)
 
     let resp: String = mem.alloc(60000)
     while true
