@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
+    analyzer::Analyzer,
     parser::{Expr, Stmt},
     tokenizer::{TokenType, ZernError, error},
 };
@@ -64,20 +65,22 @@ macro_rules! emit {
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-pub struct CodegenX86_64 {
+pub struct CodegenX86_64<'a> {
     output: String,
     data_section: String,
     label_counter: usize,
     data_counter: usize,
+    pub analyzer: &'a mut Analyzer,
 }
 
-impl CodegenX86_64 {
-    pub fn new() -> CodegenX86_64 {
+impl<'a> CodegenX86_64<'a> {
+    pub fn new(analyzer: &'a mut Analyzer) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
             data_counter: 1,
+            analyzer,
         }
     }
 
@@ -470,14 +473,9 @@ _builtin_environ:
             }
             Expr::Call {
                 callee,
-                paren,
+                paren: _,
                 args,
             } => {
-                let callee = match *callee {
-                    Expr::Variable(name) => name.lexeme,
-                    _ => return error!(&paren.loc, "tried to call a non-constant expression"),
-                };
-
                 for arg in &args {
                     self.compile_expr(env, arg.clone())?;
                     emit!(&mut self.output, "    push rax");
@@ -507,19 +505,22 @@ _builtin_environ:
                     }
                 }
 
-                match env.get_var(&callee) {
-                    Some(var) => {
-                        emit!(
-                            &mut self.output,
-                            "    mov rax, QWORD [rbp-{}]",
-                            var.stack_offset,
-                        );
+                if let Expr::Variable(callee_name) = &*callee {
+                    if callee_name.lexeme.starts_with("_builtin_")
+                        || self.analyzer.functions.contains_key(&callee_name.lexeme)
+                    {
+                        // its a function (defined/builtin/extern)
+                        emit!(&mut self.output, "    call {}", callee_name.lexeme);
+                    } else {
+                        // its a variable containing function address
+                        self.compile_expr(env, *callee)?;
                         emit!(&mut self.output, "    call rax");
                     }
-                    None => {
-                        emit!(&mut self.output, "    call {}", callee);
-                    }
-                };
+                } else {
+                    // its an expression that evalutes to function address
+                    self.compile_expr(env, *callee)?;
+                    emit!(&mut self.output, "    call rax");
+                }
 
                 if arg_count > 6 {
                     let num_stack = arg_count - 6;

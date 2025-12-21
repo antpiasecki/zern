@@ -14,7 +14,6 @@ use tokenizer::ZernError;
 use clap::Parser;
 
 fn compile_file_to(
-    analyzer: &mut analyzer::Analyzer,
     codegen: &mut codegen_x86_64::CodegenX86_64,
     filename: &str,
     source: String,
@@ -26,11 +25,11 @@ fn compile_file_to(
     let statements = parser.parse()?;
 
     for stmt in &statements {
-        analyzer.register_function(stmt)?;
+        codegen.analyzer.register_function(stmt)?;
     }
 
     for stmt in &statements {
-        analyzer.analyze_stmt(stmt)?;
+        codegen.analyzer.analyze_stmt(stmt)?;
     }
 
     for stmt in statements {
@@ -62,15 +61,10 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
     let mut analyzer = analyzer::Analyzer::new();
-    let mut codegen = codegen_x86_64::CodegenX86_64::new();
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&mut analyzer);
     codegen.emit_prologue()?;
-    compile_file_to(
-        &mut analyzer,
-        &mut codegen,
-        "std.zr",
-        include_str!("std.zr").into(),
-    )?;
-    compile_file_to(&mut analyzer, &mut codegen, filename, source)?;
+    compile_file_to(&mut codegen, "std.zr", include_str!("std.zr").into())?;
+    compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
         fs::write(format!("{}.s", args.out), codegen.get_output()).unwrap();

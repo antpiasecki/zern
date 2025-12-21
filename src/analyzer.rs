@@ -120,20 +120,31 @@ impl Analyzer {
                 paren,
                 args,
             } => {
-                let callee = match callee.as_ref() {
-                    Expr::Variable(name) => name.lexeme.clone(),
-                    _ => return error!(&paren.loc, "tried to call a non-constant expression"),
-                };
-
-                if let Some(arity) = self.functions.get(&callee) {
-                    if *arity >= 0 && *arity != args.len() as i32 {
-                        return error!(
-                            &paren.loc,
-                            format!("expected {} arguments, got {}", arity, args.len())
-                        );
+                if let Expr::Variable(callee_name) = *callee.clone() {
+                    if callee_name.lexeme.starts_with("_builtin_")
+                        || self.functions.contains_key(&callee_name.lexeme)
+                    {
+                        // its a function (defined/builtin/extern)
+                        if let Some(arity) = self.functions.get(&callee_name.lexeme) {
+                            if *arity >= 0 && *arity != args.len() as i32 {
+                                return error!(
+                                    &paren.loc,
+                                    format!("expected {} arguments, got {}", arity, args.len())
+                                );
+                            }
+                        } else if !callee_name.lexeme.starts_with("_builtin_") {
+                            return error!(
+                                &paren.loc,
+                                format!("undefined function: {}", callee_name.lexeme)
+                            );
+                        }
+                    } else {
+                        // its a variable containing function address
+                        self.analyze_expr(callee)?;
                     }
-                } else if !callee.starts_with("_builtin_") {
-                    return error!(&paren.loc, format!("undefined function: {}", callee));
+                } else {
+                    // its an expression that evalutes to function address
+                    self.analyze_expr(callee)?;
                 }
 
                 for arg in args {
