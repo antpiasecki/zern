@@ -19,7 +19,7 @@ func run_test[x: str] : void
     io.print_i64(build_end_time - build_start_time)
     io.println("ms")
 
-    if str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr")
+    if str.find(x, "/aoc") != -1 | str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
         io.println("...\033[0m")
@@ -52,3 +52,9 @@ func main[] : i64
         run_test(array.nth(files, i))
     
     array.free(files)
+
+    let puzzle_files: array = os.listdir("examples/puzzles/")
+    for i in 0..array.size(puzzle_files)
+        run_test(str.concat("puzzles/", array.nth(puzzle_files, i)))
+    
+    array.free(puzzle_files)

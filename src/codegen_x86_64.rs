@@ -105,17 +105,6 @@ _builtin_read8:
     mov al, byte [rdi]
     ret
 
-section .text._builtin_read16
-_builtin_read16:
-    xor rax, rax
-    mov ax, word [rdi]
-    ret
-
-section .text._builtin_read32
-_builtin_read32:
-    mov eax, dword [rdi]
-    ret
-
 section .text._builtin_read64
 _builtin_read64:
     mov rax, qword [rdi]

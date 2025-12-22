@@ -23,10 +23,9 @@ func mem.read8[x: ptr] : u8
     return _builtin_read8(x)
 
 func mem.read16[x: ptr] : i64
-    return _builtin_read16(x)
-
-func mem.read32[x: ptr] : i64
-    return _builtin_read32(x)
+    let low: i64 = mem.read8(x)
+    let high: i64 = mem.read8(x + 1)
+    return low | (high << 8)
 
 func mem.read64[x: ptr] : i64
     return _builtin_read64(x)
@@ -37,21 +36,18 @@ func mem.write8[x: ptr, d: u8] : void
 func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
+func io.print_sized[x: str, size: i64] : void
+    _builtin_syscall(1, 1, x, size) // write
+
 func io.print[x: str] : void
-    _builtin_syscall(1, 1, x, str.len(x))
+    io.print_sized(x, str.len(x))
 
 func io.println[x: str] : void
     io.print(x)
     io.print("\n")
 
-func io.print_sized[x: str, size: i64] : void
-    _builtin_syscall(1, 1, x, size)
-
 func io.print_char[x: u8] : void
-    let s: str = mem.alloc(1)
-    str.set(s, 0, x)
-    _builtin_syscall(1, 1, s, 1)
-    mem.free(s)
+    io.print_sized(@x, 1)
 
 func io.print_i64[x: i64] : void
     let s: str = str.from_i64(x)
@@ -64,17 +60,14 @@ func io.println_i64[x: i64] : void
     mem.free(s)
 
 func io.read_char[] : u8
-    let s: str = mem.alloc(1)
-    str.set(s, 0, 0)
-    _builtin_syscall(0, 0, s, 1)
-    let c: u8 = s[0]
-    mem.free(s)
+    let c: u8 = 0
+    _builtin_syscall(0, 0, @c, 1) // read
     return c
 
 func io.read_line[]: str
     let MAX_SIZE: i64 = 60000
     let buffer: str = mem.alloc(MAX_SIZE + 1)
-    let n: i64 = _builtin_syscall(0, 0, buffer, MAX_SIZE)
+    let n: i64 = _builtin_syscall(0, 0, buffer, MAX_SIZE) // read
     if n < 0
         return ""
     str.set(buffer, n, 0)
@@ -140,10 +133,20 @@ func str.concat[a: str, b: str] : str
     str.set(out, a_len + b_len, 0)
     return out
 
-func str.find[s: str, c: u8] : i64
-    let s_len: i64 = str.len(s)
-    for i in 0..s_len
-        if s[i] == c
+func str.find[haystack: str, needle: str] : i64
+    let haystack_len: i64 = str.len(haystack)
+    let needle_len: i64 = str.len(needle)
+
+    if needle_len == 0
+        return 0
+
+    for i in 0..(haystack_len - needle_len + 1)
+        let match: bool = true
+        for j in 0..needle_len
+            if haystack[i + j] != needle[j]
+                match = false
+                break
+        if match
             return i
     return -1
 
@@ -158,8 +161,12 @@ func str.substr[s: str, start: i64, length: i64] : str
     return out
 
 func str.trim[s: str] : str
+    let len: i64 = str.len(s)
+    if len == 0
+        return ""
+
     let start: i64 = 0
-    let end: i64 = str.len(s) - 1
+    let end: i64 = len - 1
 
     while start <= end & str.is_whitespace(s[start])
         start = start + 1
@@ -213,10 +220,7 @@ func str.reverse[s: str] : str
 // not sure this covers all wacky edge cases
 func str.from_i64[n: i64] : str
     if n == 0
-        let s: str = mem.alloc(2)
-        str.set(s, 0, '0')
-        str.set(s, 1, 0)
-        return s
+        return str.copy("0")
 
     let neg: bool = n < 0
     if neg
@@ -367,13 +371,12 @@ func array.new[] : array
 func array.nth[xs: array, n: i64] : i64
     if n < 0 | n >= array.size(xs)
         dbg.panic("array.nth out of bounds")
-    return array.nth_unchecked(xs, n)
-
-func array.nth_unchecked[xs: array, n: i64] : i64
     let data: ptr = mem.read64(xs)
     return mem.read64(data + n * 8)
 
 func array.set[xs: array, n: i64, x: i64] : void
+    if n < 0 | n >= array.size(xs)
+        dbg.panic("array.nth out of bounds")
     let data: ptr = mem.read64(xs)
     mem.write64(data + n * 8, x)
 
@@ -473,17 +476,16 @@ func os.time[] : i64
 func os.shell[command: str] : i64
     let pid: i64 = _builtin_syscall(57) // fork
     if pid == 0
+        // leaky but not sure where can i free it
         let argv: array = ["sh", "-c", command, 0]
         _builtin_syscall(59, "/bin/sh", mem.read64(argv), _builtin_environ()) // execve
         _builtin_syscall(60, 1) // exit
     else
-        let status: ptr = mem.alloc(4)
-        let wp: i64 = _builtin_syscall(61, pid, status, 0, 0) // waitpid
+        let status: i64 = 0
+        let wp: i64 = _builtin_syscall(61, pid, @status, 0, 0) // waitpid
         if wp == -1
-            mem.free(status)
             return -1
-        let st: i64 = mem.read32(status)
-        mem.free(status)
+        let st: i64 = status & 0xffffffff
         
         if (st & 0x7f) == 0
             return (st >> 8) & 0xff
