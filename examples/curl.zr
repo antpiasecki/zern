@@ -1,8 +1,8 @@
-func main[argc: I64, argv: Ptr] : I64
+func main[argc: i64, argv: ptr] : i64
     if argc < 2
         dbg.panic("url missing")
 
-    let url: String = mem.read64(argv + 8)
+    let url: str = mem.read64(argv + 8)
 
     if str.len(url) <= 7
         dbg.panic("missing url scheme")
@@ -10,25 +10,25 @@ func main[argc: I64, argv: Ptr] : I64
     if !str.equal(str.substr(url, 0, 7), "http://")
         dbg.panic("invalid url scheme")
     
-    let url_len: I64 = str.len(url)
-    let host_start: I64 = 7
-    let i: I64 = host_start
+    let url_len: i64 = str.len(url)
+    let host_start: i64 = 7
+    let i: i64 = host_start
     while i < url_len
         if url[i] == '/'
             break
         i = i + 1
 
-    let host: String = str.substr(url, host_start, i - host_start)
-    let path: String = "/"
+    let host: str = str.substr(url, host_start, i - host_start)
+    let path: str = "/"
     if i < url_len
         path = str.substr(url, i, url_len - i)
 
-    let s: I64 = net.connect(host, 80)
+    let s: i64 = net.connect(host, 80)
     if s < 0
         dbg.panic("failed to connect")
 
     // very leaky
-    let req: String = "GET "
+    let req: str = "GET "
     req = str.concat(req, path)
     req = str.concat(req, " HTTP/1.0\r\nHost: ")
     req = str.concat(req, host)
@@ -36,16 +36,16 @@ func main[argc: I64, argv: Ptr] : I64
     net.send(s, req, str.len(req))
     mem.free(req)
 
-    let header_buf: String = mem.alloc(8192)
-    let header_size: I64 = 0
-    let found: Bool = false
-    let end_index: I64 = -1
+    let header_buf: str = mem.alloc(8192)
+    let header_size: i64 = 0
+    let found: bool = false
+    let end_index: i64 = -1
 
     while !found & header_size < 8192
-        let n: I64 = net.read(s, header_buf + header_size, 8192 - header_size)
+        let n: i64 = net.read(s, header_buf + header_size, 8192 - header_size)
         if n <= 0
             break
-        let current_size: I64 = header_size + n
+        let current_size: i64 = header_size + n
         i = 0
         while i <= current_size - 4
             if header_buf[i] == 13 & header_buf[i + 1] == 10 & header_buf[i + 2] == 13 & header_buf[i + 3] == 10
@@ -59,9 +59,9 @@ func main[argc: I64, argv: Ptr] : I64
         io.print_sized(header_buf + end_index, header_size - end_index)
     mem.free(header_buf)
 
-    let buffer: Ptr = mem.alloc(4096)
+    let buffer: ptr = mem.alloc(4096)
     while true
-        let n: I64 = net.read(s, buffer, 4096)
+        let n: i64 = net.read(s, buffer, 4096)
         if n <= 0
             break
         io.print_sized(buffer, n)

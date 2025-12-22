@@ -1,21 +1,21 @@
-func collatz_num[n: I64] : I64
+func collatz_num[n: i64] : i64
     if n % 2 == 0
         return n / 2
     return n * 3 + 1
 
-func collatz_seq[n: I64]: I64
-    let i: I64 = 1
+func collatz_seq[n: i64]: i64
+    let i: i64 = 1
     while n != 1
         n = collatz_num(n)
         i = i + 1
     return i
 
-func main[] : I64
-    let max: I64 = 0
-    let max_index: I64 = 0
+func main[] : i64
+    let max: i64 = 0
+    let max_index: i64 = 0
 
     for i in 1..1000000
-        let seq: I64 = collatz_seq(i)
+        let seq: i64 = collatz_seq(i)
         if seq > max
             max = seq
             max_index = i

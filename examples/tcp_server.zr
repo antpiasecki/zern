@@ -1,13 +1,13 @@
-func main[] : I64
-    let host: I64 = net.pack_addr(127, 0, 0, 1)
-    let s: I64 = net.listen(host, 8000)
+func main[] : i64
+    let host: i64 = net.pack_addr(127, 0, 0, 1)
+    let s: i64 = net.listen(host, 8000)
 
-    let resp: String = mem.alloc(60000)
+    let resp: str = mem.alloc(60000)
     while true
-        let conn: I64 = net.accept(s)
+        let conn: i64 = net.accept(s)
         if conn < 0
             continue
 
-        let n: I64 = net.read(conn, resp, 60000)
+        let n: i64 = net.read(conn, resp, 60000)
         net.send(conn, resp, n)
         net.close(conn)

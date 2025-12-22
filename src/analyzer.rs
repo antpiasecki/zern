@@ -69,8 +69,8 @@ impl Analyzer {
                 body,
                 exported: _,
             } => {
-                if name.lexeme == "main" && return_type.lexeme != "I64" {
-                    return error!(&name.loc, "main must return I64");
+                if name.lexeme == "main" && return_type.lexeme != "i64" {
+                    return error!(&name.loc, "main must return i64");
                 }
 
                 self.analyze_stmt(body)?;

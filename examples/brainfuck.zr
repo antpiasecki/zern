@@ -1,15 +1,15 @@
-func main[] : I64
+func main[] : i64
     // https://brainfuck.org/sierpinski.b
-    let src: String = "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
-    let src_len: I64 = str.len(src)
-    let i: I64 = 0
+    let src: str = "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
+    let src_len: i64 = str.len(src)
+    let i: i64 = 0
 
-    let memory: Ptr = mem.alloc(30000)
+    let memory: ptr = mem.alloc(30000)
     mem.zero(memory, 30000)
-    let p: I64 = 0
+    let p: i64 = 0
 
     while i < src_len
-        let op: U8 = src[i]
+        let op: u8 = src[i]
 
         if op == '>'
             p = p + 1
@@ -26,7 +26,7 @@ func main[] : I64
         else if op == '['
             if !memory[p]
                 i = i + 1
-                let opened: I64 = 0
+                let opened: i64 = 0
                 while i < src_len & !(src[i] == ']' & !opened)
                     if src[i] == '['
                         opened = opened + 1
@@ -36,7 +36,7 @@ func main[] : I64
         else if op == ']'
             if memory[p]
                 i = i - 1
-                let closed: I64 = 0
+                let closed: i64 = 0
                 while i >= 0 & !(src[i] == '[' & !closed)
                     if src[i] == ']'
                         closed = closed + 1

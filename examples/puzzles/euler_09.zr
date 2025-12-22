@@ -1,11 +1,11 @@
-func main[] : I64
-    let out: I64 = 0
+func main[] : i64
+    let out: i64 = 0
 
     for a in 500..1000
         for b in 500..1000
             if a * b > out
-                let s: String = str.from_i64(a * b)
-                let s_rev: String = str.reverse(s)
+                let s: str = str.from_i64(a * b)
+                let s_rev: str = str.reverse(s)
                 if str.equal(s, s_rev)
                     out = a * b
                 mem.free(s)

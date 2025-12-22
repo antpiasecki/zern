@@ -1,17 +1,17 @@
-func part1[lines: Array] : Void
-    let sum: I64 = 0
+func part1[lines: array] : void
+    let sum: i64 = 0
 
     for i in 0..array.size(lines)
-        let line: String = array.nth(lines, i)
+        let line: str = array.nth(lines, i)
 
-        let largest: I64 = 0
+        let largest: i64 = 0
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
-                let s: String = mem.alloc(3)
+                let s: str = mem.alloc(3)
                 str.set(s, 0, line[j])
                 str.set(s, 1, line[k])
                 str.set(s, 2, 0)
-                let n: I64 = str.parse_i64(s)
+                let n: i64 = str.parse_i64(s)
                 if n > largest
                     largest = n
 
@@ -19,13 +19,13 @@ func part1[lines: Array] : Void
     io.println_i64(sum)
 
 // had to cheat this one
-func part2_rec[bank: String, start: I64, remaining: I64] : I64
-    let largest: I64 = 0
-    let largest_idx: I64 = start
-    let len: I64 = str.len(bank)
+func part2_rec[bank: str, start: i64, remaining: i64] : i64
+    let largest: i64 = 0
+    let largest_idx: i64 = start
+    let len: i64 = str.len(bank)
 
     for i in (start)..(len-remaining+1)
-        let v: I64 = bank[i] - '0'
+        let v: i64 = bank[i] - '0'
         if v > largest
             largest = v
             largest_idx = i
@@ -35,17 +35,17 @@ func part2_rec[bank: String, start: I64, remaining: I64] : I64
     else
         return largest
 
-func part2[lines: Array] : Void
-    let sum: I64 = 0
+func part2[lines: array] : void
+    let sum: i64 = 0
 
     for i in 0..array.size(lines)
-        let line: String = array.nth(lines, i)
+        let line: str = array.nth(lines, i)
 
         sum = sum + part2_rec(line, 0, 12)
     io.println_i64(sum)
 
-func main[] : I64
-    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+func main[] : i64
+    let lines: array = io.read_file("input.txt") |> str.split("\n")
 
     part1(lines)
     part2(lines)

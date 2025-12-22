@@ -1,4 +1,4 @@
-func check[lines: Array, x: I64, y: I64, dx: I64, dy: I64] : Bool
+func check[lines: array, x: i64, y: i64, dx: i64, dy: i64] : bool
     if x + dx * 3 < 0 | x + dx * 3 >= array.size(lines) | y + dy * 3 < 0 | y + dy * 3 >= str.len(array.nth(lines, 0))
         return false
     
@@ -13,8 +13,8 @@ func check[lines: Array, x: I64, y: I64, dx: I64, dy: I64] : Bool
     
     return true
 
-func part1[lines: Array] : Void
-    let out: I64 = 0
+func part1[lines: array] : void
+    let out: i64 = 0
 
     for x in 0..array.size(lines)
         for y in 0..str.len(array.nth(lines, x))
@@ -37,13 +37,13 @@ func part1[lines: Array] : Void
 
     io.println_i64(out)
 
-func part2[lines: Array] : Void
-    let out: I64 = 0
+func part2[lines: array] : void
+    let out: i64 = 0
 
     for x in 1..array.size(lines)-1
         for y in 1..str.len(array.nth(lines, x))-1
             if array.nth(lines, x)[y] == 'A'
-                let s: String = mem.alloc(5)
+                let s: str = mem.alloc(5)
                 str.set(s, 0, array.nth(lines, x - 1)[y - 1])
                 str.set(s, 1, array.nth(lines, x + 1)[y - 1])
                 str.set(s, 2, array.nth(lines, x + 1)[y + 1])
@@ -55,8 +55,8 @@ func part2[lines: Array] : Void
 
     io.println_i64(out)
 
-func main[] : I64
-    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+func main[] : i64
+    let lines: array = io.read_file("input.txt") |> str.split("\n")
 
     part1(lines)
     part2(lines)

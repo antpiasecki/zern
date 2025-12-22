@@ -3,136 +3,136 @@ extern realloc
 extern free
 extern gethostbyname
 
-func dbg.panic[msg: String] : Void
+func dbg.panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
     0/0 // crashes program which is kinda better since you get a gdb backtrace
     os.exit(1)
 
-func mem.alloc[x: I64] : Ptr
+func mem.alloc[x: i64] : ptr
     return malloc(x)
 
-func mem.free[x: Ptr] : Void
+func mem.free[x: ptr] : void
     free(x)
 
-func mem.zero[x: I64, size: I64] : Void
+func mem.zero[x: i64, size: i64] : void
     for i in 0..size
         mem.write8(x + i, 0)
 
-func mem.read8[x: Ptr] : U8
+func mem.read8[x: ptr] : u8
     return _builtin_read8(x)
 
-func mem.read16[x: Ptr] : I64
+func mem.read16[x: ptr] : i64
     return _builtin_read16(x)
 
-func mem.read32[x: Ptr] : I64
+func mem.read32[x: ptr] : i64
     return _builtin_read32(x)
 
-func mem.read64[x: Ptr] : I64
+func mem.read64[x: ptr] : i64
     return _builtin_read64(x)
 
-func mem.write8[x: Ptr, d: U8] : Void
+func mem.write8[x: ptr, d: u8] : void
     _builtin_set8(x, d)
 
-func mem.write64[x: Ptr, d: I64] : Void
+func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
-func io.print[x: String] : Void
+func io.print[x: str] : void
     _builtin_syscall(1, 1, x, str.len(x))
 
-func io.println[x: String] : Void
+func io.println[x: str] : void
     io.print(x)
     io.print("\n")
 
-func io.print_sized[x: String, size: I64] : Void
+func io.print_sized[x: str, size: i64] : void
     _builtin_syscall(1, 1, x, size)
 
-func io.print_char[x: U8] : Void
-    let s: String = mem.alloc(1)
+func io.print_char[x: u8] : void
+    let s: str = mem.alloc(1)
     str.set(s, 0, x)
     _builtin_syscall(1, 1, s, 1)
     mem.free(s)
 
-func io.print_i64[x: I64] : Void
-    let s: String = str.from_i64(x)
+func io.print_i64[x: i64] : void
+    let s: str = str.from_i64(x)
     io.print(s)
     mem.free(s)
 
-func io.println_i64[x: I64] : Void
-    let s: String = str.from_i64(x)
+func io.println_i64[x: i64] : void
+    let s: str = str.from_i64(x)
     io.println(s)
     mem.free(s)
 
-func io.read_char[] : U8
-    let s: String = mem.alloc(1)
+func io.read_char[] : u8
+    let s: str = mem.alloc(1)
     str.set(s, 0, 0)
     _builtin_syscall(0, 0, s, 1)
-    let c: U8 = s[0]
+    let c: u8 = s[0]
     mem.free(s)
     return c
 
-func io.read_line[]: String
-    let MAX_SIZE: I64 = 60000
-    let buffer: String = mem.alloc(MAX_SIZE + 1)
-    let n: I64 = _builtin_syscall(0, 0, buffer, MAX_SIZE)
+func io.read_line[]: str
+    let MAX_SIZE: i64 = 60000
+    let buffer: str = mem.alloc(MAX_SIZE + 1)
+    let n: i64 = _builtin_syscall(0, 0, buffer, MAX_SIZE)
     if n < 0
         return ""
     str.set(buffer, n, 0)
     return buffer
 
-func io.read_file[path: String]: String
-    let fd: I64 = _builtin_syscall(257, -100, path, 0, 0) // openat
+func io.read_file[path: str]: str
+    let fd: i64 = _builtin_syscall(257, -100, path, 0, 0) // openat
     if fd <= 0
         dbg.panic("failed to open file")
 
-    let size: I64 = _builtin_syscall(8, fd, 0, 2) // lseek to the end
+    let size: i64 = _builtin_syscall(8, fd, 0, 2) // lseek to the end
     _builtin_syscall(8, fd, 0, 0) // lseek back to start
 
-    let buffer: String = mem.alloc(size + 1)
-    let n: I64 = _builtin_syscall(0, fd, buffer, size) // read
+    let buffer: str = mem.alloc(size + 1)
+    let n: i64 = _builtin_syscall(0, fd, buffer, size) // read
     str.set(buffer, n, 0)
     _builtin_syscall(3, fd) // close
     return buffer
 
-func io.write_file[path: String, content: String] : Void
-    let fd: Ptr = _builtin_syscall(257, -100, path, 0x241, 0o644) // openat
+func io.write_file[path: str, content: str] : void
+    let fd: ptr = _builtin_syscall(257, -100, path, 0x241, 0o644) // openat
     if fd < 0
         dbg.panic("failed to open file")
 
     _builtin_syscall(1, fd, content, str.len(content)) // write
     _builtin_syscall(3, fd) // close
 
-func str.len[s: String] : I64
-    let i: I64 = 0
+func str.len[s: str] : i64
+    let i: i64 = 0
     while mem.read8(s + i)
         i = i + 1
     return i
 
-func str.copy[s: String] : String
-    let size: I64 = str.len(s) + 1
-    let dup: String = mem.alloc(size)
+func str.copy[s: str] : str
+    let size: i64 = str.len(s) + 1
+    let dup: str = mem.alloc(size)
     for i in 0..size
         str.set(dup, i, s[i])
     return dup
 
-func str.set[s: String, n: I64, c: U8] : Void
+func str.set[s: str, n: i64, c: u8] : void
     mem.write8(s + n, c)
 
-func str.equal[a: String, b: String] : Bool
-    let i: I64 = 0
+func str.equal[a: str, b: str] : bool
+    let i: i64 = 0
     while a[i] != 0 & b[i] != 0
         if a[i] != b[i]
             return false
         i = i + 1
     return a[i] == b[i]
 
-func str.is_whitespace[x: U8] : Bool
+func str.is_whitespace[x: u8] : bool
     return x == ' ' | x == 10 | x == 13 | x == 9
 
-func str.concat[a: String, b: String] : String
-    let a_len: I64 = str.len(a)
-    let b_len: I64 = str.len(b)
-    let out: String = mem.alloc(a_len + b_len + 1)
+func str.concat[a: str, b: str] : str
+    let a_len: i64 = str.len(a)
+    let b_len: i64 = str.len(b)
+    let out: str = mem.alloc(a_len + b_len + 1)
     for i in 0..a_len
         str.set(out, i, a[i])
     for i in 0..b_len
@@ -140,26 +140,26 @@ func str.concat[a: String, b: String] : String
     str.set(out, a_len + b_len, 0)
     return out
 
-func str.find[s: String, c: U8] : I64
-    let s_len: I64 = str.len(s)
+func str.find[s: str, c: u8] : i64
+    let s_len: i64 = str.len(s)
     for i in 0..s_len
         if s[i] == c
             return i
     return -1
 
-func str.substr[s: String, start: I64, length: I64] : String
+func str.substr[s: str, start: i64, length: i64] : str
     if start < 0 | length < 0 | start + length > str.len(s)
         dbg.panic("str.substr out of bounds")
 
-    let out: String = mem.alloc(length + 1)
+    let out: str = mem.alloc(length + 1)
     for i in 0..length
         str.set(out, i, s[start + i])
     str.set(out, length, 0)
     return out
 
-func str.trim[s: String] : String
-    let start: I64 = 0
-    let end: I64 = str.len(s) - 1
+func str.trim[s: str] : str
+    let start: i64 = 0
+    let end: i64 = str.len(s) - 1
 
     while start <= end & str.is_whitespace(s[start])
         start = start + 1
@@ -169,10 +169,10 @@ func str.trim[s: String] : String
 
     return str.substr(s, start, end - start + 1)
 
-func str.split[haystack: String, needle: String]: Array
-    let haystack_len: I64 = str.len(haystack)
-    let needle_len: I64 = str.len(needle)
-    let result: Array = []
+func str.split[haystack: str, needle: str]: array
+    let haystack_len: i64 = str.len(haystack)
+    let needle_len: i64 = str.len(needle)
+    let result: array = []
     
     if !needle_len
         if !haystack_len
@@ -182,11 +182,11 @@ func str.split[haystack: String, needle: String]: Array
                 array.push(result, str.substr(haystack, i, 1))
             return result
 
-    let start: I64 = 0
-    let i: I64 = 0
+    let start: i64 = 0
+    let i: i64 = 0
     while i < haystack_len
         if i <= haystack_len - needle_len
-            let match: Bool = true
+            let match: bool = true
             for j in 0..needle_len
                 if haystack[i + j] != needle[j]
                     match = false
@@ -201,9 +201,9 @@ func str.split[haystack: String, needle: String]: Array
     array.push(result, str.substr(haystack, start, haystack_len - start))
     return result
 
-func str.reverse[s: String] : String
-    let len: I64 = str.len(s)
-    let out: String = mem.alloc(len + 1)
+func str.reverse[s: str] : str
+    let len: i64 = str.len(s)
+    let out: str = mem.alloc(len + 1)
 
     for i in 0..len
         str.set(out, i, s[len - i - 1])
@@ -211,20 +211,20 @@ func str.reverse[s: String] : String
     return out
 
 // not sure this covers all wacky edge cases
-func str.from_i64[n: I64] : String
+func str.from_i64[n: i64] : str
     if n == 0
-        let s: String = mem.alloc(2)
+        let s: str = mem.alloc(2)
         str.set(s, 0, '0')
         str.set(s, 1, 0)
         return s
 
-    let neg: Bool = n < 0
+    let neg: bool = n < 0
     if neg
         n = -n
-    let buf: String = mem.alloc(21) // enough to fit -MAX_I64
-    let i: I64 = 0
+    let buf: str = mem.alloc(21) // enough to fit -MAX_I64
+    let i: i64 = 0
     while n > 0
-        let d: U8 = n % 10
+        let d: u8 = n % 10
         str.set(buf, i, '0' + d)
         n = n / 10
         i = i + 1
@@ -232,43 +232,43 @@ func str.from_i64[n: I64] : String
         str.set(buf, i, '-')
         i = i + 1
     str.set(buf, i, 0)
-    let s: String = str.reverse(buf)
+    let s: str = str.reverse(buf)
     mem.free(buf)
     return s
 
-func str.from_char[c: U8] : String
-    let s: String = mem.alloc(2)
+func str.from_char[c: u8] : str
+    let s: str = mem.alloc(2)
     str.set(s, 0, c)
     str.set(s, 1, 0)
     return s
 
-func str.parse_i64[s: String] : I64
-    let len: I64 = str.len(s)
-    let i: I64 = 0
+func str.parse_i64[s: str] : i64
+    let len: i64 = str.len(s)
+    let i: i64 = 0
 
-    let sign: I64 = 1
+    let sign: i64 = 1
     if i < len & s[i] == '-'
         sign = -1
         i = i + 1
 
-    let num: I64 = 0
+    let num: i64 = 0
     while i < len
-        let d: U8 = s[i]
+        let d: u8 = s[i]
         if d < '0' | d > '9'
             break
         num = num * 10 + (d - '0')
         i = i + 1
     return num * sign
 
-func str.hex_encode[s: String] : String
-    let hex_chars: String = "0123456789abcdef"
-    let s_len: I64 = str.len(s)
-    let j: I64 = 0
-    let out: String = mem.alloc(s_len * 2 + 1)
+func str.hex_encode[s: str] : str
+    let hex_chars: str = "0123456789abcdef"
+    let s_len: i64 = str.len(s)
+    let j: i64 = 0
+    let out: str = mem.alloc(s_len * 2 + 1)
 
     for i in 0..s_len
-        let high: U8 = (s[i] >> 4) & 15
-        let low: U8 = s[i] & 15
+        let high: u8 = (s[i] >> 4) & 15
+        let low: u8 = s[i] & 15
         str.set(out, j, hex_chars[high])
         str.set(out, j + 1, hex_chars[low])
         j = j + 2
@@ -276,18 +276,18 @@ func str.hex_encode[s: String] : String
     str.set(out, j, 0)
     return out
 
-func str._hex_digit_to_int[d: U8] : I64
+func str._hex_digit_to_int[d: u8] : i64
     if d >= 'a' & d <= 'f'
         return d - 'a' + 10
     if d >= 'A' & d <= 'F'
         return d - 'A' + 10
     return d - '0'
 
-func str.hex_decode[s: String] : String
-    let s_len: I64 = str.len(s)
-    let i: I64 = 0
-    let j: I64 = 0
-    let out: String = mem.alloc(s_len / 2 + 1)
+func str.hex_decode[s: str] : str
+    let s_len: i64 = str.len(s)
+    let i: i64 = 0
+    let j: i64 = 0
+    let out: str = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
         str.set(out, j, str._hex_digit_to_int(s[i]) * 16 + str._hex_digit_to_int(s[i + 1]))
@@ -297,45 +297,45 @@ func str.hex_decode[s: String] : String
     str.set(out, j, 0)
     return out
 
-func math.gcd[a: I64, b: I64] : I64
+func math.gcd[a: i64, b: i64] : i64
     while b != 0
-        let tmp: I64 = b
+        let tmp: i64 = b
         b = a % b
         a = tmp
     return a
 
-func math.min[a: I64, b: I64] : I64
+func math.min[a: i64, b: i64] : i64
     if a < b
         return a
     return b
 
-func math.max[a: I64, b: I64] : I64
+func math.max[a: i64, b: i64] : i64
     if a > b
         return a
     return b
 
-func math.abs[n: I64] : I64
+func math.abs[n: i64] : i64
     if n < 0
         return -n
     return n
 
-func math.pow[b: I64, e: I64] : I64
-    let out: I64 = 1
+func math.pow[b: i64, e: i64] : i64
+    let out: i64 = 1
     for i in 0..e
         out = out * b
     return out
 
-func math.lcm[a: I64, b: I64] : I64
+func math.lcm[a: i64, b: i64] : i64
     return (a * b) / math.gcd(a, b)
 
-func math.isqrt[n: I64] : I64
+func math.isqrt[n: i64] : i64
     if n < 0
         dbg.panic("negative number passed to math.isqrt")
     if n == 0 | n == 1
         return n
 
-    let guess: I64 = n
-    let next_guess: I64 = (guess + n / guess) / 2
+    let guess: i64 = n
+    let next_guess: i64 = (guess + n / guess) / 2
 
     while next_guess < guess
         guess = next_guess
@@ -343,7 +343,7 @@ func math.isqrt[n: I64] : I64
 
     return guess
 
-func math.is_prime[n: I64]: Bool
+func math.is_prime[n: i64]: bool
     if n <= 1
         return false
     if n == 2 | n == 3
@@ -351,42 +351,42 @@ func math.is_prime[n: I64]: Bool
     if n % 2 == 0 | n % 3 == 0
         return false
 
-    let i: I64 = 5
+    let i: i64 = 5
     while i * i <= n
         if n % i == 0 | n % (i + 2) == 0
             return false
         i = i + 6
     return true
 
-func array.new[] : Array
+func array.new[] : array
     // [ 8 bytes - ptr to data ] [ 8 bytes - size ] [ 8 bytes - capacity ]
-    let arr: Ptr = mem.alloc(24)
+    let arr: ptr = mem.alloc(24)
     mem.zero(arr, 24)
     return arr
 
-func array.nth[xs: Array, n: I64] : I64
+func array.nth[xs: array, n: i64] : i64
     if n < 0 | n >= array.size(xs)
         dbg.panic("array.nth out of bounds")
     return array.nth_unchecked(xs, n)
 
-func array.nth_unchecked[xs: Array, n: I64] : I64
-    let data: Ptr = mem.read64(xs)
+func array.nth_unchecked[xs: array, n: i64] : i64
+    let data: ptr = mem.read64(xs)
     return mem.read64(data + n * 8)
 
-func array.set[xs: Array, n: I64, x: I64] : Void
-    let data: Ptr = mem.read64(xs)
+func array.set[xs: array, n: i64, x: i64] : void
+    let data: ptr = mem.read64(xs)
     mem.write64(data + n * 8, x)
 
-func array.push[xs: Array, x: I64] : Void
-    let data: Ptr = mem.read64(xs)
-    let capacity: I64 = mem.read64(xs + 8)
-    let size: I64 = mem.read64(xs + 16)
+func array.push[xs: array, x: i64] : void
+    let data: ptr = mem.read64(xs)
+    let capacity: i64 = mem.read64(xs + 8)
+    let size: i64 = mem.read64(xs + 16)
 
     if size == capacity
-        let new_capacity: I64 = 4
+        let new_capacity: i64 = 4
         if capacity != 0
             new_capacity = capacity * 2
-        let new_data: Ptr = realloc(data, new_capacity * 8)
+        let new_data: ptr = realloc(data, new_capacity * 8)
         mem.write64(xs, new_data)
         mem.write64(xs + 8, new_capacity)
         data = new_data
@@ -394,95 +394,95 @@ func array.push[xs: Array, x: I64] : Void
     mem.write64(data + size * 8, x)
     mem.write64(xs + 16, size + 1)
 
-func array.size[xs: Array] : I64
+func array.size[xs: array] : i64
     return mem.read64(xs + 16)
 
-func array.free[xs: Array] : Void
-    let data: Ptr = mem.read64(xs)
+func array.free[xs: array] : void
+    let data: ptr = mem.read64(xs)
     if data != 0
         mem.free(data)
     mem.free(xs)
 
-func array.slice[xs: Array, start: I64, length: I64] : Array
+func array.slice[xs: array, start: i64, length: i64] : array
     if start < 0 | length < 0 | start + length > array.size(xs)
         dbg.panic("array.slice out of bounds")
 
-    let new_array: Array = []
+    let new_array: array = []
     for i in 0..length
         array.push(new_array, array.nth(xs, start + i))
     return new_array
 
-func array.concat[a: Array, b: Array] : Array
-    let new_array: Array = []
+func array.concat[a: array, b: array] : array
+    let new_array: array = []
     for i in 0..array.size(a)
         array.push(new_array, array.nth(a, i))
     for i in 0..array.size(b)
         array.push(new_array, array.nth(b, i))
     return new_array
 
-func alg.quicksort[arr: Array] : Void
+func alg.quicksort[arr: array] : void
     alg._do_quicksort(arr, 0, array.size(arr) - 1)
 
-func alg._do_quicksort[arr: Array, low: I64, high: I64] : Void
+func alg._do_quicksort[arr: array, low: i64, high: i64] : void
     if low < high
-        let i: I64 = alg._partition(arr, low, high)
+        let i: i64 = alg._partition(arr, low, high)
         alg._do_quicksort(arr, low, i - 1)
         alg._do_quicksort(arr, i + 1, high)
 
-func alg._partition[arr: Array, low: I64, high: I64] : I64
-    let pivot: I64 = array.nth(arr, high)
-    let i: I64 = low - 1
+func alg._partition[arr: array, low: i64, high: i64] : i64
+    let pivot: i64 = array.nth(arr, high)
+    let i: i64 = low - 1
     for j in (low)..high
         if array.nth(arr, j) <= pivot
             i = i + 1
-            let temp: I64 = array.nth(arr ,i)
+            let temp: i64 = array.nth(arr ,i)
             array.set(arr, i, array.nth(arr, j))
             array.set(arr, j, temp)
-    let temp: I64 = array.nth(arr, i + 1)
+    let temp: i64 = array.nth(arr, i + 1)
     array.set(arr, i + 1, array.nth(arr, high))
     array.set(arr, high, temp)
     return i + 1
 
-func alg.count[arr: Array, item: I64] : I64
-    let count: I64 = 0
-    let size: I64 = array.size(arr)
+func alg.count[arr: array, item: i64] : i64
+    let count: i64 = 0
+    let size: i64 = array.size(arr)
     for i in 0..size
         if array.nth(arr, i) == item
             count = count + 1
     return count
 
-func os.exit[code: I64] : Void
+func os.exit[code: i64] : void
     _builtin_syscall(60, code)
 
-func os.urandom[]: I64
-    let n: I64 = 0
-    let fd: I64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
+func os.urandom[]: i64
+    let n: i64 = 0
+    let fd: i64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
     _builtin_syscall(0, fd, @n, 8) // read
     _builtin_syscall(3, fd) // close
     return n
 
-func os.time[] : I64
-    let tv: Ptr = mem.alloc(16)
+func os.time[] : i64
+    let tv: ptr = mem.alloc(16)
     _builtin_syscall(96, tv, 0) // gettimeofday
-    let seconds: I64 = mem.read64(tv)
-    let microseconds: I64 = mem.read64(tv + 8)
+    let seconds: i64 = mem.read64(tv)
+    let microseconds: i64 = mem.read64(tv + 8)
     mem.free(tv)
     return seconds * 1000 + microseconds / 1000
 
 // voodoo magic
-func os.shell[command: String] : I64
-    let pid: I64 = _builtin_syscall(57) // fork
+func os.shell[command: str] : i64
+    let pid: i64 = _builtin_syscall(57) // fork
     if pid == 0
-        let argv: Array = ["sh", "-c", command, 0]
+        let argv: array = ["sh", "-c", command, 0]
         _builtin_syscall(59, "/bin/sh", mem.read64(argv), _builtin_environ()) // execve
         _builtin_syscall(60, 1) // exit
     else
-        let status: Ptr = mem.alloc(4)
-        let wp: I64 = _builtin_syscall(61, pid, status, 0, 0) // waitpid
+        let status: ptr = mem.alloc(4)
+        let wp: i64 = _builtin_syscall(61, pid, status, 0, 0) // waitpid
         if wp == -1
             mem.free(status)
             return -1
-        let st: I64 = mem.read32(status)
+        let st: i64 = mem.read32(status)
         mem.free(status)
         
         if (st & 0x7f) == 0
@@ -490,24 +490,24 @@ func os.shell[command: String] : I64
         else
             return -(st & 0x7f)
 
-func os.listdir[path: String] : Array
-    let fd: I64 = _builtin_syscall(257, -100, path, 0, 0) // openat
+func os.listdir[path: str] : array
+    let fd: i64 = _builtin_syscall(257, -100, path, 0, 0) // openat
     if fd < 0
         return []
 
-    let files: Array = []
-    let buf: Ptr = mem.alloc(1024)
+    let files: array = []
+    let buf: ptr = mem.alloc(1024)
     while true
-        let n: I64 = _builtin_syscall(217, fd, buf, 1024) // getdents64
+        let n: i64 = _builtin_syscall(217, fd, buf, 1024) // getdents64
         if n <= 0
             break
 
-        let pos: I64 = 0
+        let pos: i64 = 0
         while pos < n
-            let len: I64 = mem.read16(buf + pos + 16)
-            let name: String = buf + pos + 19
+            let len: i64 = mem.read16(buf + pos + 16)
+            let name: str = buf + pos + 19
             if name[0]
-                let skip: Bool = false
+                let skip: bool = false
                 // skip if name is exactly '.' or '..'
                 if name[0] == '.'
                     if name[1] == 0
@@ -523,17 +523,17 @@ func os.listdir[path: String] : Array
     _builtin_syscall(3, fd) // close
     return files
 
-func net.listen[packed_host: I64, port: I64] : I64
-    let s: I64 = _builtin_syscall(41, 2, 1, 0) // socket
+func net.listen[packed_host: i64, port: i64] : i64
+    let s: i64 = _builtin_syscall(41, 2, 1, 0) // socket
     if s < 0
         return -1
     
-    let optval: I64 = 1
+    let optval: i64 = 1
     if _builtin_syscall(54, s, 1, 2, @optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         _builtin_syscall(3, s) // close
         return -1
 
-    let sa: Ptr = mem.alloc(16)
+    let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
     mem.write8(sa + 0, 2)
     mem.write8(sa + 1, 0)
@@ -556,18 +556,18 @@ func net.listen[packed_host: I64, port: I64] : I64
     
     return s
 
-func net.connect[host: String, port: I64] : I64
-    let he: Ptr = gethostbyname(host)
+func net.connect[host: str, port: i64] : i64
+    let he: ptr = gethostbyname(host)
     if he == 0
         return -1
 
-    let ip_ptr: Ptr = mem.read64(mem.read64(he + 24))
+    let ip_ptr: ptr = mem.read64(mem.read64(he + 24))
 
-    let s: I64 = _builtin_syscall(41, 2, 1, 0) // socket
+    let s: i64 = _builtin_syscall(41, 2, 1, 0) // socket
     if s < 0
         return -1
 
-    let sa: Ptr = mem.alloc(16)
+    let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
     mem.write8(sa + 0, 2)
     mem.write8(sa + 2, (port >> 8) & 255)
@@ -585,17 +585,17 @@ func net.connect[host: String, port: I64] : I64
     mem.free(sa)
     return s
 
-func net.accept[s: I64] : I64
+func net.accept[s: i64] : i64
     return _builtin_syscall(43, s, 0, 0)
 
-func net.send[s: I64, data: String, size: I64] : Void
+func net.send[s: i64, data: str, size: i64] : void
     _builtin_syscall(44, s, data, size, 0, 0, 0)
 
-func net.read[s: I64, buffer: Ptr, size: I64] : I64
+func net.read[s: i64, buffer: ptr, size: i64] : i64
     return _builtin_syscall(0, s, buffer, size)
 
-func net.close[s: I64] : Void
+func net.close[s: i64] : void
     _builtin_syscall(3, s)
 
-func net.pack_addr[a: I64, b: I64, c: I64, d: I64] : I64
+func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d

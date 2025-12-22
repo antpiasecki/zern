@@ -1,5 +1,5 @@
-func main[] : I64
-    let out: I64 = 1
+func main[] : i64
+    let out: i64 = 1
 
     for i in 1..21
         out = math.lcm(out, i)

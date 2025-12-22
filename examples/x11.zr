@@ -12,23 +12,23 @@ extern XCreateGC
 extern XDefaultScreen
 extern XDrawString
 
-func main[] : I64
+func main[] : i64
 
-    let dpy: Ptr = XOpenDisplay(0)
-    let screen: Ptr = XDefaultScreen(dpy)
+    let dpy: ptr = XOpenDisplay(0)
+    let screen: ptr = XDefaultScreen(dpy)
 
-    let white: Ptr = XWhitePixel(dpy, screen)
-    let black: Ptr = XBlackPixel(dpy, screen)
+    let white: ptr = XWhitePixel(dpy, screen)
+    let black: ptr = XBlackPixel(dpy, screen)
 
-    let win: Ptr = XCreateSimpleWindow(dpy, XDefaultRootWindow(dpy), 0, 0, 200, 100, 0, black, white)
+    let win: ptr = XCreateSimpleWindow(dpy, XDefaultRootWindow(dpy), 0, 0, 200, 100, 0, black, white)
 
     XSelectInput(dpy, win, 1 << 15)
     XMapWindow(dpy, win)
 
-    let gc: Ptr = XCreateGC(dpy, win, 0, 0)
+    let gc: ptr = XCreateGC(dpy, win, 0, 0)
     XSetForeground(dpy, gc, black)
     
-    let ev: Ptr = mem.alloc(256)
+    let ev: ptr = mem.alloc(256)
     
     while true
         XNextEvent(dpy, ev)

@@ -1,13 +1,13 @@
-func rule110_step[state: Array] : Array
-    let new_state: Array = []
-    let state_len: I64 = array.size(state)
+func rule110_step[state: array] : array
+    let new_state: array = []
+    let state_len: i64 = array.size(state)
 
     for i in 0..state_len
-        let left: Bool = false
+        let left: bool = false
         if i - 1 >= 0
             left = array.nth(state, i - 1)
-        let center: Bool = array.nth(state, i)
-        let right: Bool = false
+        let center: bool = array.nth(state, i)
+        let right: bool = false
         if i + 1 < state_len
             right = array.nth(state, i + 1)
 
@@ -15,7 +15,7 @@ func rule110_step[state: Array] : Array
 
     return new_state
 
-func print_state[state: Array]: Void
+func print_state[state: array]: void
     for i in 0..array.size(state)
         if array.nth(state, i)
             io.print_char('#')
@@ -23,10 +23,10 @@ func print_state[state: Array]: Void
             io.print_char(' ')
     io.println("")
 
-func main[] : I64
-    let SIZE: I64 = 60
+func main[] : i64
+    let SIZE: i64 = 60
 
-    let state: Array = []
+    let state: array = []
     for i in 0..SIZE
         array.push(state, false)
     array.push(state, true)

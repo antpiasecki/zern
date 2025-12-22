@@ -1,20 +1,20 @@
-func part1_is_invalid_id[s: String] : Bool
-    let len: I64 = str.len(s)
+func part1_is_invalid_id[s: str] : bool
+    let len: i64 = str.len(s)
     if len % 2 != 0
         return false
 
-    let first: String = str.substr(s, 0, len / 2)
-    let second: String = str.substr(s, len / 2, len / 2)
+    let first: str = str.substr(s, 0, len / 2)
+    let second: str = str.substr(s, len / 2, len / 2)
 
     return str.equal(first, second)
 
-func part1[ranges: Array] : Void
-    let sum: I64 = 0
+func part1[ranges: array] : void
+    let sum: i64 = 0
 
     for i in 0..array.size(ranges)
-        let parts: Array = array.nth(ranges, i) |> str.split("-")
-        let start: I64 = array.nth(parts, 0) |> str.parse_i64()
-        let end: I64 = array.nth(parts, 1) |> str.parse_i64()
+        let parts: array = array.nth(ranges, i) |> str.split("-")
+        let start: i64 = array.nth(parts, 0) |> str.parse_i64()
+        let end: i64 = array.nth(parts, 1) |> str.parse_i64()
 
         for n in (start)..end+1
             if part1_is_invalid_id(str.from_i64(n))
@@ -23,29 +23,29 @@ func part1[ranges: Array] : Void
     io.println_i64(sum)
 
 // had to cheat this one
-func part2_is_invalid_id[s: String] : Bool
-    let len: I64 = str.len(s)
+func part2_is_invalid_id[s: str] : bool
+    let len: i64 = str.len(s)
     if len < 2
         return false
     for div in 1..(len / 2 + 1)
         if len % div == 0
-            let u: String = str.substr(s, 0, div)
-            let is_repeat: Bool = true
+            let u: str = str.substr(s, 0, div)
+            let is_repeat: bool = true
             for k in 1..(len / div)
-                let segment: String = str.substr(s, k * div, div)
+                let segment: str = str.substr(s, k * div, div)
                 if !str.equal(segment, u)
                     is_repeat = false
             if is_repeat
                 return true
     return false
 
-func part2[ranges: Array] : Void
-    let sum: I64 = 0
+func part2[ranges: array] : void
+    let sum: i64 = 0
 
     for i in 0..array.size(ranges)
-        let parts: Array = array.nth(ranges, i) |> str.split("-")
-        let start: I64 = array.nth(parts, 0) |> str.parse_i64()
-        let end: I64 = array.nth(parts, 1) |> str.parse_i64()
+        let parts: array = array.nth(ranges, i) |> str.split("-")
+        let start: i64 = array.nth(parts, 0) |> str.parse_i64()
+        let end: i64 = array.nth(parts, 1) |> str.parse_i64()
 
         for n in (start)..end+1
             if part2_is_invalid_id(str.from_i64(n))
@@ -53,8 +53,8 @@ func part2[ranges: Array] : Void
     
     io.println_i64(sum)
 
-func main[] : I64
-    let ranges: Array = io.read_file("input.txt") |> str.split(",")
+func main[] : i64
+    let ranges: array = io.read_file("input.txt") |> str.split(",")
 
     part1(ranges)
     part2(ranges)

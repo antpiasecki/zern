@@ -1,69 +1,69 @@
-func rule_exists[rules_left: Array, rules_right: Array, a: I64, b: I64] : Bool
+func rule_exists[rules_left: array, rules_right: array, a: i64, b: i64] : bool
     for k in 0..array.size(rules_left)
         if array.nth(rules_left, k) == a & array.nth(rules_right, k) == b
             return true
     return false
 
-func check[update: Array, rules_left: Array, rules_right: Array] : Bool
+func check[update: array, rules_left: array, rules_right: array] : bool
     for i in 0..array.size(update)
         for j in 0..i
             if rule_exists(rules_left, rules_right, array.nth(update, i), array.nth(update, j))
                 return false
     return true
 
-func sort_by_rules[update: Array, rules_left: Array, rules_right: Array] : Void
-    let swapped: Bool = true
+func sort_by_rules[update: array, rules_left: array, rules_right: array] : void
+    let swapped: bool = true
 
     while swapped
         swapped = false
         for i in 0..array.size(update)-1
-            let a: I64 = array.nth(update, i)
-            let b: I64 = array.nth(update, i+1)
+            let a: i64 = array.nth(update, i)
+            let b: i64 = array.nth(update, i+1)
             if rule_exists(rules_left, rules_right, b, a)
-                let tmp: I64 = a
+                let tmp: i64 = a
                 array.set(update, i, b)
                 array.set(update, i+1, tmp)
                 swapped = true
 
-func part1[updates: Array, rules_left: Array, rules_right: Array] : Void
-    let out: I64 = 0
+func part1[updates: array, rules_left: array, rules_right: array] : void
+    let out: i64 = 0
 
     for i in 0..array.size(updates)
-        let update: Array = array.nth(updates, i)
+        let update: array = array.nth(updates, i)
         if check(update, rules_left, rules_right)
             out = out + array.nth(update, array.size(update) / 2)
 
     io.println_i64(out)
 
-func part2[updates: Array, rules_left: Array, rules_right: Array] : Void
-    let out: I64 = 0
+func part2[updates: array, rules_left: array, rules_right: array] : void
+    let out: i64 = 0
 
     for i in 0..array.size(updates)
-        let update: Array = array.nth(updates, i)
+        let update: array = array.nth(updates, i)
         if !check(update, rules_left, rules_right)
             sort_by_rules(update, rules_left, rules_right)
             out = out + array.nth(update, array.size(update) / 2)
 
     io.println_i64(out)
 
-func main[] : I64
-    let data: Array = io.read_file("input.txt") |> str.split("\n\n")
+func main[] : i64
+    let data: array = io.read_file("input.txt") |> str.split("\n\n")
 
-    let rules_left: Array = []
-    let rules_right: Array = []
-    let rules_lines: Array = str.split(array.nth(data, 0), "\n")
+    let rules_left: array = []
+    let rules_right: array = []
+    let rules_lines: array = str.split(array.nth(data, 0), "\n")
     for i in 0..array.size(rules_lines)
-        let line: String = array.nth(rules_lines, i)
-        let parts: Array = str.split(line, "|")
+        let line: str = array.nth(rules_lines, i)
+        let parts: array = str.split(line, "|")
 
         array.push(rules_left, str.parse_i64(array.nth(parts, 0)))
         array.push(rules_right, str.parse_i64(array.nth(parts, 1)))
 
-    let updates: Array = []
-    let updates_lines: Array = str.split(array.nth(data, 1), "\n")
+    let updates: array = []
+    let updates_lines: array = str.split(array.nth(data, 1), "\n")
     for i in 0..array.size(updates_lines)
-        let line: String = array.nth(updates_lines, i)
-        let xs: Array = str.split(line, ",")
+        let line: str = array.nth(updates_lines, i)
+        let xs: array = str.split(line, ",")
 
         for i in 0..array.size(xs)
             array.set(xs, i, str.parse_i64(array.nth(xs, i)))

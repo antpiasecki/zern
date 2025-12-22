@@ -1,2 +1,2 @@
-func main[] : I64
+func main[] : i64
     io.println("Hello, World!")

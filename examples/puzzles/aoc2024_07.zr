@@ -1,24 +1,24 @@
-func concat[a: I64, b: I64] : I64
-    let a_str: String = str.from_i64(a)
-    let b_str: String = str.from_i64(b)
-    let ab_str: String = str.concat(a_str, b_str)
-    let out: I64 = str.parse_i64(ab_str)
+func concat[a: i64, b: i64] : i64
+    let a_str: str = str.from_i64(a)
+    let b_str: str = str.from_i64(b)
+    let ab_str: str = str.concat(a_str, b_str)
+    let out: i64 = str.parse_i64(ab_str)
     // without freeing the program works but leaks 2GB of memory :p
     mem.free(a_str)
     mem.free(b_str)
     mem.free(ab_str)
     return out
 
-func solve[ops: Array, e: Array] : I64
-    let n: I64 = array.size(array.nth(e, 1)) - 1
-    let indices: Array = []
+func solve[ops: array, e: array] : i64
+    let n: i64 = array.size(array.nth(e, 1)) - 1
+    let indices: array = []
     for i in 0..n
         array.push(indices, 0)
 
     while true
-        let res: I64 = array.nth(array.nth(e, 1), 0)
+        let res: i64 = array.nth(array.nth(e, 1), 0)
         for i in 0..n
-            let op: String = array.nth(ops, array.nth(indices, i))
+            let op: str = array.nth(ops, array.nth(indices, i))
 
             if str.equal(op, "add")
                 res = res + array.nth(array.nth(e, 1), i + 1)
@@ -29,8 +29,8 @@ func solve[ops: Array, e: Array] : I64
         if res == array.nth(e, 0)
             return res
 
-        let done: Bool = true
-        let i: I64 = n - 1
+        let done: bool = true
+        let i: i64 = n - 1
 
         while i >= 0
             array.set(indices, i, array.nth(indices, i) + 1)
@@ -43,31 +43,31 @@ func solve[ops: Array, e: Array] : I64
         if done
             return 0
 
-func part1[equations: Array] : Void
-    let out: I64 = 0
+func part1[equations: array] : void
+    let out: i64 = 0
 
     for i in 0..array.size(equations)
         out = out + solve(["add", "mul"], array.nth(equations, i))
 
     io.println_i64(out)
 
-func part2[equations: Array] : Void
-    let out: I64 = 0
+func part2[equations: array] : void
+    let out: i64 = 0
 
     for i in 0..array.size(equations)
         out = out + solve(["add", "mul", "concat"], array.nth(equations, i))
 
     io.println_i64(out)
 
-func main[] : I64
-    let lines: Array = io.read_file("input.txt") |> str.split("\n")
-    let equations: Array = []
+func main[] : i64
+    let lines: array = io.read_file("input.txt") |> str.split("\n")
+    let equations: array = []
 
     for i in 0..array.size(lines)
-        let line: String = array.nth(lines, i)
-        let parts: Array = str.split(line, ": ")
+        let line: str = array.nth(lines, i)
+        let parts: array = str.split(line, ": ")
 
-        let xs: Array = str.split(array.nth(parts, 1), " ")
+        let xs: array = str.split(array.nth(parts, 1), " ")
         for j in 0..array.size(xs)
             array.set(xs, j, str.parse_i64(array.nth(xs, j)))
 

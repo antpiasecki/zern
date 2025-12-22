@@ -1,7 +1,7 @@
-func num_divisors[n: I64] : I64
-    let end: I64 = math.isqrt(n)
+func num_divisors[n: i64] : i64
+    let end: i64 = math.isqrt(n)
 
-    let out: I64 = 0
+    let out: i64 = 0
     for i in 1..end+1
         if n % i == 0
             out = out + 2
@@ -10,9 +10,9 @@ func num_divisors[n: I64] : I64
         out = out - 1
     return out
 
-func main[] : I64
-    let n: I64 = 0
-    let i: I64 = 1
+func main[] : i64
+    let n: i64 = 0
+    let i: i64 = 1
     while true
         n = n + i
         if num_divisors(n) > 500

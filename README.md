@@ -12,12 +12,12 @@ A very cool language
 
 ## Syntax
 ```rust
-func main[] : I64
-    let answer: I64 = math.abs(os.urandom()) % 100
+func main[] : i64
+    let answer: i64 = math.abs(os.urandom()) % 100
 
     while true
         io.println("Guess a number: ")
-        let guess: I64 = io.read_line() |> str.trim() |> str.parse_i64()
+        let guess: i64 = io.read_line() |> str.trim() |> str.parse_i64()
 
         if guess == answer
             io.println("You win!")

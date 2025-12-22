@@ -1,7 +1,7 @@
-func main[] : I64
+func main[] : i64
     for a in 1..1000
         for b in 1..1000
-            let c: I64 = 1000 - b - a
+            let c: i64 = 1000 - b - a
             if a * a + b * b == c * c
                 io.println_i64(a * b * c)
                 return 0

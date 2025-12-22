@@ -269,7 +269,7 @@ _builtin_environ:
                 env.loop_end_label = self.label();
 
                 env.push_scope();
-                let offset = env.define_var(var.lexeme, "I64".into());
+                let offset = env.define_var(var.lexeme, "i64".into());
 
                 self.compile_expr(env, start)?;
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);

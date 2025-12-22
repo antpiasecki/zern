@@ -10,9 +10,9 @@ extern CloseWindow
 extern DrawRectangle
 extern IsKeyDown
 
-func main[] : I64
-    let x: I64 = 200
-    let y: I64 = 200
+func main[] : i64
+    let x: i64 = 200
+    let y: i64 = 200
 
     InitWindow(800, 600, "Hello, World!")
     SetTargetFPS(60)

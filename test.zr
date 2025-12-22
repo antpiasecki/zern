@@ -1,4 +1,4 @@
-func run_test[x: String] : Void
+func run_test[x: str] : void
     if str.equal(x, "puzzles") | str.equal(x, "raylib.zr") | str.equal(x, "x11.zr") | str.equal(x, "sqlite_todo.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
@@ -8,12 +8,12 @@ func run_test[x: String] : Void
     io.print("\033[93mBuilding ")
     io.print(x)
     io.print("...\033[0m ")
-    let cmd: String = str.concat("./target/release/zern examples/", x)
+    let cmd: str = str.concat("./target/release/zern examples/", x)
 
-    let build_start_time: I64 = os.time()
+    let build_start_time: i64 = os.time()
     if os.shell(cmd) != 0
         os.exit(1)
-    let build_end_time: I64 = os.time()
+    let build_end_time: i64 = os.time()
 
     mem.free(cmd)
     io.print_i64(build_end_time - build_start_time)
@@ -29,14 +29,14 @@ func run_test[x: String] : Void
     io.print(x)
     io.println("...\033[0m")
 
-    let run_start_time: I64 = os.time()
+    let run_start_time: i64 = os.time()
     if str.equal(x, "curl.zr")
         if os.shell("./out http://example.com") != 0
             os.exit(1)
     else
         if os.shell("./out") != 0
             os.exit(1)
-    let run_end_time: I64 = os.time()
+    let run_end_time: i64 = os.time()
 
     io.print("\033[93mRunning ")
     io.print(x)
@@ -44,10 +44,10 @@ func run_test[x: String] : Void
     io.print_i64(run_end_time - run_start_time)
     io.println("ms")
 
-func main[] : I64
+func main[] : i64
     os.shell("cargo build --release")
 
-    let files: Array = os.listdir("examples/")
+    let files: array = os.listdir("examples/")
     for i in 0..array.size(files)
         run_test(array.nth(files, i))
     
