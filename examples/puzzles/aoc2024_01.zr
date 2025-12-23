@@ -1,5 +1,5 @@
 func part1[l1: array, l2: array] : void
-    let out: i64 = 0
+    let out = 0
     
     for i in 0..array.size(l1)
         out = out + math.abs(array.nth(l1, i) - array.nth(l2, i))
@@ -7,7 +7,7 @@ func part1[l1: array, l2: array] : void
     io.println_i64(out)
 
 func part2[l1: array, l2: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(l1)
         out = out + array.nth(l1, i) * alg.count(l2, array.nth(l1, i))

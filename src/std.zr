@@ -65,7 +65,7 @@ func io.read_char[] : u8
     return c
 
 func io.read_line[]: str
-    let MAX_SIZE: i64 = 60000
+    let MAX_SIZE = 60000
     let buffer: str = mem.alloc(MAX_SIZE + 1)
     let n: i64 = _builtin_syscall(0, 0, buffer, MAX_SIZE) // read
     if n < 0
@@ -96,7 +96,7 @@ func io.write_file[path: str, content: str] : void
     _builtin_syscall(3, fd) // close
 
 func str.len[s: str] : i64
-    let i: i64 = 0
+    let i = 0
     while mem.read8(s + i)
         i = i + 1
     return i
@@ -112,7 +112,7 @@ func str.set[s: str, n: i64, c: u8] : void
     mem.write8(s + n, c)
 
 func str.equal[a: str, b: str] : bool
-    let i: i64 = 0
+    let i = 0
     while a[i] != 0 & b[i] != 0
         if a[i] != b[i]
             return false
@@ -165,7 +165,7 @@ func str.trim[s: str] : str
     if len == 0
         return ""
 
-    let start: i64 = 0
+    let start = 0
     let end: i64 = len - 1
 
     while start <= end & str.is_whitespace(s[start])
@@ -189,8 +189,8 @@ func str.split[haystack: str, needle: str]: array
                 array.push(result, str.substr(haystack, i, 1))
             return result
 
-    let start: i64 = 0
-    let i: i64 = 0
+    let start = 0
+    let i = 0
     while i < haystack_len
         if i <= haystack_len - needle_len
             let match: bool = true
@@ -226,7 +226,7 @@ func str.from_i64[n: i64] : str
     if neg
         n = -n
     let buf: str = mem.alloc(21) // enough to fit -MAX_I64
-    let i: i64 = 0
+    let i = 0
     while n > 0
         let d: u8 = n % 10
         str.set(buf, i, '0' + d)
@@ -248,14 +248,14 @@ func str.from_char[c: u8] : str
 
 func str.parse_i64[s: str] : i64
     let len: i64 = str.len(s)
-    let i: i64 = 0
+    let i = 0
 
-    let sign: i64 = 1
+    let sign = 1
     if i < len & s[i] == '-'
         sign = -1
         i = i + 1
 
-    let num: i64 = 0
+    let num = 0
     while i < len
         let d: u8 = s[i]
         if d < '0' | d > '9'
@@ -267,7 +267,7 @@ func str.parse_i64[s: str] : i64
 func str.hex_encode[s: str] : str
     let hex_chars: str = "0123456789abcdef"
     let s_len: i64 = str.len(s)
-    let j: i64 = 0
+    let j = 0
     let out: str = mem.alloc(s_len * 2 + 1)
 
     for i in 0..s_len
@@ -289,8 +289,8 @@ func str._hex_digit_to_int[d: u8] : i64
 
 func str.hex_decode[s: str] : str
     let s_len: i64 = str.len(s)
-    let i: i64 = 0
-    let j: i64 = 0
+    let i = 0
+    let j = 0
     let out: str = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
@@ -324,7 +324,7 @@ func math.abs[n: i64] : i64
     return n
 
 func math.pow[b: i64, e: i64] : i64
-    let out: i64 = 1
+    let out = 1
     for i in 0..e
         out = out * b
     return out
@@ -355,7 +355,7 @@ func math.is_prime[n: i64]: bool
     if n % 2 == 0 | n % 3 == 0
         return false
 
-    let i: i64 = 5
+    let i = 5
     while i * i <= n
         if n % i == 0 | n % (i + 2) == 0
             return false
@@ -386,7 +386,7 @@ func array.push[xs: array, x: i64] : void
     let size: i64 = mem.read64(xs + 16)
 
     if size == capacity
-        let new_capacity: i64 = 4
+        let new_capacity = 4
         if capacity != 0
             new_capacity = capacity * 2
         let new_data: ptr = realloc(data, new_capacity * 8)
@@ -447,7 +447,7 @@ func alg._partition[arr: array, low: i64, high: i64] : i64
     return i + 1
 
 func alg.count[arr: array, item: i64] : i64
-    let count: i64 = 0
+    let count = 0
     let size: i64 = array.size(arr)
     for i in 0..size
         if array.nth(arr, i) == item
@@ -458,7 +458,7 @@ func os.exit[code: i64] : void
     _builtin_syscall(60, code)
 
 func os.urandom[]: i64
-    let n: i64 = 0
+    let n = 0
     let fd: i64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
     _builtin_syscall(0, fd, @n, 8) // read
     _builtin_syscall(3, fd) // close
@@ -481,7 +481,7 @@ func os.shell[command: str] : i64
         _builtin_syscall(59, "/bin/sh", mem.read64(argv), _builtin_environ()) // execve
         _builtin_syscall(60, 1) // exit
     else
-        let status: i64 = 0
+        let status = 0
         let wp: i64 = _builtin_syscall(61, pid, @status, 0, 0) // waitpid
         if wp == -1
             return -1
@@ -504,7 +504,7 @@ func os.listdir[path: str] : array
         if n <= 0
             break
 
-        let pos: i64 = 0
+        let pos = 0
         while pos < n
             let len: i64 = mem.read16(buf + pos + 16)
             let name: str = buf + pos + 19
@@ -530,7 +530,7 @@ func net.listen[packed_host: i64, port: i64] : i64
     if s < 0
         return -1
     
-    let optval: i64 = 1
+    let optval = 1
     if _builtin_syscall(54, s, 1, 2, @optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         _builtin_syscall(3, s) // close
         return -1

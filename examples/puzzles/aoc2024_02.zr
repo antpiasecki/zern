@@ -14,7 +14,7 @@ func check[report: array] : bool
     return true
 
 func part1[data: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(data)
         if check(array.nth(data, i))
@@ -23,7 +23,7 @@ func part1[data: array] : void
     io.println_i64(out)
 
 func part2[data: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(data)
         if check(array.nth(data, i))

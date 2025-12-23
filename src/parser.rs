@@ -11,7 +11,7 @@ pub enum Stmt {
     Expression(Expr),
     Let {
         name: Token,
-        var_type: Token,
+        var_type: Option<Token>,
         initializer: Expr,
     },
     Block(Vec<Stmt>),
@@ -172,12 +172,16 @@ impl Parser {
 
     fn let_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected variable name")?;
-        self.consume(TokenType::Colon, "expected ':' after variable name")?;
 
-        let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
-        if !TYPES.contains(&var_type.lexeme.as_str()) {
-            return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
-        }
+        let var_type = if self.match_token(&[TokenType::Colon]) {
+            let token = self.consume(TokenType::Identifier, "expected variable type")?;
+            if !TYPES.contains(&token.lexeme.as_str()) {
+                return error!(&name.loc, format!("unknown type: {}", token.lexeme));
+            }
+            Some(token)
+        } else {
+            None
+        };
 
         self.consume(TokenType::Equal, "expected '=' after variable type")?;
         let initializer = self.expression()?;

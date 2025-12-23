@@ -24,7 +24,7 @@ func print_state[state: array]: void
     io.println("")
 
 func main[] : i64
-    let SIZE: i64 = 60
+    let SIZE = 60
 
     let state: array = []
     for i in 0..SIZE

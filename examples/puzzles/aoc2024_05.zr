@@ -26,7 +26,7 @@ func sort_by_rules[update: array, rules_left: array, rules_right: array] : void
                 swapped = true
 
 func part1[updates: array, rules_left: array, rules_right: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(updates)
         let update: array = array.nth(updates, i)
@@ -36,7 +36,7 @@ func part1[updates: array, rules_left: array, rules_right: array] : void
     io.println_i64(out)
 
 func part2[updates: array, rules_left: array, rules_right: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(updates)
         let update: array = array.nth(updates, i)

@@ -10,8 +10,8 @@ func days[y: i64, m: i64] : i64
         return 31
 
 func main[] : i64
-    let wday: i64 = 0
-    let sun: i64 = 0
+    let wday = 0
+    let sun = 0
 
     for year in 1901..2001
         for mon in 1..13

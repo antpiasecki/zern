@@ -11,7 +11,7 @@ func main[argc: i64, argv: ptr] : i64
         dbg.panic("invalid url scheme")
     
     let url_len: i64 = str.len(url)
-    let host_start: i64 = 7
+    let host_start = 7
     let i: i64 = host_start
     while i < url_len
         if url[i] == '/'
@@ -37,7 +37,7 @@ func main[argc: i64, argv: ptr] : i64
     mem.free(req)
 
     let header_buf: str = mem.alloc(8192)
-    let header_size: i64 = 0
+    let header_size = 0
     let found: bool = false
     let end_index: i64 = -1
 

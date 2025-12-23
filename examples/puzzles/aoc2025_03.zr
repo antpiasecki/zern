@@ -1,10 +1,10 @@
 func part1[lines: array] : void
-    let sum: i64 = 0
+    let sum = 0
 
     for i in 0..array.size(lines)
         let line: str = array.nth(lines, i)
 
-        let largest: i64 = 0
+        let largest = 0
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
                 let s: str = mem.alloc(3)
@@ -20,7 +20,7 @@ func part1[lines: array] : void
 
 // had to cheat this one
 func part2_rec[bank: str, start: i64, remaining: i64] : i64
-    let largest: i64 = 0
+    let largest = 0
     let largest_idx: i64 = start
     let len: i64 = str.len(bank)
 
@@ -36,7 +36,7 @@ func part2_rec[bank: str, start: i64, remaining: i64] : i64
         return largest
 
 func part2[lines: array] : void
-    let sum: i64 = 0
+    let sum = 0
 
     for i in 0..array.size(lines)
         let line: str = array.nth(lines, i)

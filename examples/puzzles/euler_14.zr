@@ -4,15 +4,15 @@ func collatz_num[n: i64] : i64
     return n * 3 + 1
 
 func collatz_seq[n: i64]: i64
-    let i: i64 = 1
+    let i = 1
     while n != 1
         n = collatz_num(n)
         i = i + 1
     return i
 
 func main[] : i64
-    let max: i64 = 0
-    let max_index: i64 = 0
+    let max = 0
+    let max_index = 0
 
     for i in 1..1000000
         let seq: i64 = collatz_seq(i)

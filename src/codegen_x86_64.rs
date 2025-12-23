@@ -158,8 +158,22 @@ _builtin_environ:
                     );
                 }
 
+                let var_type: String = match var_type {
+                    Some(t) => t.lexeme,
+                    None => match &initializer {
+                        Expr::Literal(token) => {
+                            if token.token_type == TokenType::Number {
+                                "i64".into()
+                            } else {
+                                return error!(&name.loc, "unable to infer variable type");
+                            }
+                        }
+                        _ => return error!(&name.loc, "unable to infer variable type"),
+                    },
+                };
+
                 self.compile_expr(env, initializer)?;
-                let offset = env.define_var(name.lexeme.clone(), var_type.lexeme);
+                let offset = env.define_var(name.lexeme.clone(), var_type);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
             }
             Stmt::Block(statements) => {

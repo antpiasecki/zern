@@ -1,5 +1,5 @@
 func main[] : i64
-    let out: i64 = 0
+    let out = 0
 
     for a in 500..1000
         for b in 500..1000

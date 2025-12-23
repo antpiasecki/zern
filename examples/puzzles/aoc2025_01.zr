@@ -1,6 +1,6 @@
 func part1[lines: array] : void
-    let password: i64 = 0
-    let dial: i64 = 50
+    let password = 0
+    let dial = 50
 
     for i in 0..array.size(lines)
         let line: str = array.nth(lines, i)
@@ -22,8 +22,8 @@ func part1[lines: array] : void
     io.println_i64(password)
 
 func part2[lines: array] : void
-    let password: i64 = 0
-    let dial: i64 = 50
+    let password = 0
+    let dial = 50
 
     for i in 0..array.size(lines)
         let line: str = array.nth(lines, i)

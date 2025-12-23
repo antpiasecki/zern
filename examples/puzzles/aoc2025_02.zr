@@ -9,7 +9,7 @@ func part1_is_invalid_id[s: str] : bool
     return str.equal(first, second)
 
 func part1[ranges: array] : void
-    let sum: i64 = 0
+    let sum = 0
 
     for i in 0..array.size(ranges)
         let parts: array = array.nth(ranges, i) |> str.split("-")
@@ -40,7 +40,7 @@ func part2_is_invalid_id[s: str] : bool
     return false
 
 func part2[ranges: array] : void
-    let sum: i64 = 0
+    let sum = 0
 
     for i in 0..array.size(ranges)
         let parts: array = array.nth(ranges, i) |> str.split("-")

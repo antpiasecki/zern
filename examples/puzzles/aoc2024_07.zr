@@ -44,7 +44,7 @@ func solve[ops: array, e: array] : i64
             return 0
 
 func part1[equations: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(equations)
         out = out + solve(["add", "mul"], array.nth(equations, i))
@@ -52,7 +52,7 @@ func part1[equations: array] : void
     io.println_i64(out)
 
 func part2[equations: array] : void
-    let out: i64 = 0
+    let out = 0
 
     for i in 0..array.size(equations)
         out = out + solve(["add", "mul", "concat"], array.nth(equations, i))

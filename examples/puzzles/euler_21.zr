@@ -1,9 +1,9 @@
 func divisors_sum[n: i64] : i64
     let k: i64 = n
-    let sum: i64 = 1
+    let sum = 1
 
     for i in 2..k+1
-        let p: i64 = 1
+        let p = 1
         while k % i == 0
             p = p * i
             k = k / i
@@ -11,7 +11,7 @@ func divisors_sum[n: i64] : i64
     return sum - n
 
 func main[] : i64
-    let sum: i64 = 0
+    let sum = 0
 
     for i in 2..10000
         let d: i64 = divisors_sum(i)

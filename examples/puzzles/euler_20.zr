@@ -1,5 +1,5 @@
 func multiply[n: array, x: i64] : void
-    let carry: i64 = 0
+    let carry = 0
     for i in 0..array.size(n)
         let prod: i64 = array.nth(n, i) * x + carry
         array.set(n, i, prod % 10)
@@ -14,7 +14,7 @@ func main[] : i64
     for i in 2..101
         multiply(n, i)
 
-    let sum: i64 = 0
+    let sum = 0
     for i in 0..array.size(n)
         sum = sum + array.nth(n, i)
     

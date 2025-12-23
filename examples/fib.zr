@@ -1,6 +1,6 @@
 func main[] : i64
-    let a: i64 = 0
-    let b: i64 = 1
+    let a = 0
+    let b = 1
 
     while a < 100000
         io.println_i64(a)

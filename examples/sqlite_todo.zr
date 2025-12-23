@@ -11,9 +11,9 @@ extern sqlite3_column_text
 extern sqlite3_finalize
 
 func main[] : i64
-    let rc: i64 = 0
-    let db: i64 = 0
-    let stmt: i64 = 0
+    let rc = 0
+    let db = 0
+    let stmt = 0
 
     rc = sqlite3_open("todo.db", @db)
     if rc
