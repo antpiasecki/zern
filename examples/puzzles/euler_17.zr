@@ -1,0 +1,26 @@
+func main[] : i64
+    let s1: array = [0, 3, 3, 5, 4, 4, 3, 5, 5, 4]
+    let s2: array = [3, 6, 6, 8, 8, 7, 7, 9, 8, 8]
+    let s3: array = [0, 0, 6, 6, 5, 5, 5, 7, 6, 6]
+
+    let sum: i64 = 0
+
+    for i in 1..10
+        sum = sum + array.nth(s1, i)
+    for i in 0..10
+        sum = sum + array.nth(s2, i)
+    for i in 20..100
+        sum = sum + array.nth(s3, i / 10) + array.nth(s1, i % 10)
+
+    for i in 1..10
+        sum = sum + array.nth(s1, i) + 7
+        for j in 1..10
+            sum = sum + array.nth(s1, i) + 7 + 3 + array.nth(s1, j)
+        for j in 0..10
+            sum = sum + array.nth(s1, i) + 7 + 3 + array.nth(s2, j)
+        for j in 20..100
+            sum = sum + array.nth(s1, i) + 7 + 3 + array.nth(s3, j / 10) + array.nth(s1, j % 10)
+    
+    sum = sum + array.nth(s1, 1) + 8
+
+    io.println_i64(sum)

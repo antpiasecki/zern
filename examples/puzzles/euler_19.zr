@@ -1,0 +1,22 @@
+func days[y: i64, m: i64] : i64
+    if m == 2
+        if (((y % 4 == 0) & (y % 100 != 0)) | (y % 400 == 0))
+            return 29
+        else
+            return 28
+    else if (m == 4) | (m == 6) | (m == 9) | (m == 11)
+        return 30
+    else
+        return 31
+
+func main[] : i64
+    let wday: i64 = 0
+    let sun: i64 = 0
+
+    for year in 1901..2001
+        for mon in 1..13
+            if wday == 5
+                sun = sun + 1
+            wday = (wday + days(year, mon)) % 7
+    
+    io.println_i64(sun)
