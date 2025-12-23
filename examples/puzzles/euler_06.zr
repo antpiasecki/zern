@@ -1,7 +1,11 @@
 func main[] : i64
-    let sum: i64 = 0
+    let sum_of_squares: i64 = 0
+    for i in 1..101
+        sum_of_squares = sum_of_squares + i * i
 
-    for i in 0..1000
-        if i % 5 == 0 | i % 3 == 0
-            sum = sum + i
-    io.println_i64(sum)
+    let square_of_sum: i64 = 0
+    for i in 1..101
+        square_of_sum = square_of_sum + i
+    square_of_sum = square_of_sum * square_of_sum
+
+    io.println_i64(square_of_sum - sum_of_squares)

@@ -1,9 +1,6 @@
 func main[] : i64
-    let n: i64 = 40
-    let r: i64 = 20
     let out: i64 = 1
 
-    for i in 1..r+1
-        out = out * (n - (r - i)) / i
-
+    for i in 1..21
+        out = math.lcm(out, i)
     io.println_i64(out)

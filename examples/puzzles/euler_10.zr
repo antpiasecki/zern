@@ -1,6 +1,7 @@
 func main[] : i64
-    let out: i64 = 1
+    let sum: i64 = 0
 
-    for i in 1..21
-        out = math.lcm(out, i)
-    io.println_i64(out)
+    for i in 0..2000000
+        if math.is_prime(i)
+            sum = sum + i
+    io.println_i64(sum)

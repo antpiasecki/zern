@@ -1,13 +1,7 @@
 func main[] : i64
-    let out: i64 = 0
-
-    for a in 500..1000
-        for b in 500..1000
-            if a * b > out
-                let s: str = str.from_i64(a * b)
-                let s_rev: str = str.reverse(s)
-                if str.equal(s, s_rev)
-                    out = a * b
-                mem.free(s)
-                mem.free(s_rev)
-    io.println_i64(out)
+    for a in 1..1000
+        for b in 1..1000
+            let c: i64 = 1000 - b - a
+            if a * a + b * b == c * c
+                io.println_i64(a * b * c)
+                return 0

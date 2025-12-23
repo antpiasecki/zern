@@ -1,13 +1,11 @@
 func main[] : i64
-    let sum: i64 = 0
-    let a: i64 = 0
-    let b: i64 = 1
+    let found: i64 = 0
 
-    while a < 4000000
-        if a % 2 == 0
-            sum = sum + a
-        let temp: i64 = b
-        b = a + b
-        a = temp
-
-    io.println_i64(sum)
+    let i: i64 = 1
+    while true
+        if math.is_prime(i)
+            found = found + 1
+            if found == 10001
+                io.println_i64(i)
+                break
+        i = i + 1

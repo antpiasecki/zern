@@ -376,7 +376,7 @@ func array.nth[xs: array, n: i64] : i64
 
 func array.set[xs: array, n: i64, x: i64] : void
     if n < 0 | n >= array.size(xs)
-        dbg.panic("array.nth out of bounds")
+        dbg.panic("array.set out of bounds")
     let data: ptr = mem.read64(xs)
     mem.write64(data + n * 8, x)
 

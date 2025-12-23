@@ -1,0 +1,8 @@
+func main[] : i64
+    let sum: i64 = 0
+
+    for i in 0..266000
+        if i % 2 != 0
+            sum = sum + i * i
+    
+    io.println_i64(sum)
