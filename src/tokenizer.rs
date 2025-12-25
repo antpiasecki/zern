@@ -39,6 +39,7 @@ pub enum TokenType {
     False,
 
     KeywordLet,
+    KeywordConst,
     KeywordIf,
     KeywordElse,
     KeywordWhile,
@@ -336,6 +337,7 @@ impl Tokenizer {
         let lexeme: String = self.source[self.start..self.current].iter().collect();
         self.add_token(match lexeme.as_str() {
             "let" => TokenType::KeywordLet,
+            "const" => TokenType::KeywordConst,
             "if" => TokenType::KeywordIf,
             "else" => TokenType::KeywordElse,
             "while" => TokenType::KeywordWhile,

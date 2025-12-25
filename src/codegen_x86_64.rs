@@ -176,6 +176,9 @@ _builtin_environ:
                 let offset = env.define_var(name.lexeme.clone(), var_type);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
             }
+            Stmt::Const { name: _, value: _ } => {
+                // handled in the analyzer
+            }
             Stmt::Block(statements) => {
                 env.push_scope();
                 for stmt in statements {
@@ -445,18 +448,29 @@ _builtin_environ:
                 }
             }
             Expr::Variable(name) => {
-                // TODO: move to analyzer
-                let var = match env.get_var(&name.lexeme) {
-                    Some(x) => x,
-                    None => {
-                        return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
-                    }
-                };
-                emit!(
-                    &mut self.output,
-                    "    mov rax, QWORD [rbp-{}]",
-                    var.stack_offset,
-                );
+                if self.analyzer.constants.contains_key(&name.lexeme) {
+                    emit!(
+                        &mut self.output,
+                        "    mov rax, {}",
+                        self.analyzer.constants[&name.lexeme]
+                    );
+                } else {
+                    // TODO: move to analyzer
+                    let var = match env.get_var(&name.lexeme) {
+                        Some(x) => x,
+                        None => {
+                            return error!(
+                                name.loc,
+                                format!("undefined variable: {}", &name.lexeme)
+                            );
+                        }
+                    };
+                    emit!(
+                        &mut self.output,
+                        "    mov rax, QWORD [rbp-{}]",
+                        var.stack_offset,
+                    );
+                }
             }
             Expr::Assign { name, value } => {
                 self.compile_expr(env, *value)?;

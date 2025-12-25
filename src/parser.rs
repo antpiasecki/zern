@@ -14,6 +14,10 @@ pub enum Stmt {
         var_type: Option<Token>,
         initializer: Expr,
     },
+    Const {
+        name: Token,
+        value: Token,
+    },
     Block(Vec<Stmt>),
     If {
         condition: Expr,
@@ -115,6 +119,9 @@ impl Parser {
             if self.match_token(&[TokenType::KeywordExtern]) {
                 return self.extern_declaration();
             }
+            if self.match_token(&[TokenType::KeywordConst]) {
+                return self.const_declaration();
+            }
             return error!(
                 self.peek().loc,
                 "statements not allowed outside function body"
@@ -190,6 +197,13 @@ impl Parser {
             var_type,
             initializer,
         })
+    }
+
+    fn const_declaration(&mut self) -> Result<Stmt, ZernError> {
+        let name = self.consume(TokenType::Identifier, "expected const name")?;
+        self.consume(TokenType::Equal, "expected '=' after const name")?;
+        let value = self.consume(TokenType::Number, "expected a number after '='")?;
+        Ok(Stmt::Const { name, value })
     }
 
     fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {

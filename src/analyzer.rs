@@ -7,12 +7,14 @@ use crate::{
 
 pub struct Analyzer {
     pub functions: HashMap<String, i32>,
+    pub constants: HashMap<String, u64>,
 }
 
 impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
             functions: HashMap::new(),
+            constants: HashMap::new(),
         }
     }
 
@@ -43,6 +45,18 @@ impl Analyzer {
                 initializer,
             } => {
                 self.analyze_expr(initializer)?;
+            }
+            Stmt::Const { name, value } => {
+                if self.constants.contains_key(&name.lexeme)
+                    || self.functions.contains_key(&name.lexeme)
+                {
+                    return error!(
+                        name.loc,
+                        format!("tried to redefine constant '{}'", name.lexeme)
+                    );
+                }
+                self.constants
+                    .insert(name.lexeme.clone(), value.lexeme.parse().unwrap());
             }
             Stmt::Block(statements) => {
                 for stmt in statements {
