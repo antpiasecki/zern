@@ -424,6 +424,14 @@ func array.free[xs: array] : void
         mem.free(data)
     mem.free(xs)
 
+func array.pop[xs: array] : i64
+    let size: i64 = array.size(xs)
+    if size == 0
+        dbg.panic("array.pop on empty array")
+    let x: i64 = array.nth(xs, size - 1)
+    mem.write64(xs + 16, size - 1)
+    return x
+
 func array.slice[xs: array, start: i64, length: i64] : array
     if start < 0 | length < 0 | start + length > array.size(xs)
         dbg.panic("array.slice out of bounds")

@@ -314,16 +314,6 @@ impl Tokenizer {
             while self.peek().is_ascii_digit() {
                 self.advance();
             }
-
-            if self.peek() == '.'
-                && self.current + 1 < self.source.len()
-                && self.source[self.current + 1].is_ascii_digit()
-            {
-                self.advance();
-                while self.peek().is_ascii_digit() {
-                    self.advance();
-                }
-            }
         }
 
         self.add_token(TokenType::Number);
