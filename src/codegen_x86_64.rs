@@ -239,11 +239,17 @@ _builtin_environ:
                 for (i, param) in params.iter().enumerate() {
                     let offset = env
                         .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
-                    let reg = match REGISTERS.get(i) {
-                        Some(x) => x,
-                        None => return error!(&name.loc, "only up to 6 params allowed"),
-                    };
-                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                    if let Some(reg) = REGISTERS.get(i) {
+                        emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                    } else {
+                        let stack_offset = 16 + 8 * (i - REGISTERS.len());
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, QWORD [rbp+{}]",
+                            stack_offset
+                        );
+                        emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                    }
                 }
 
                 self.compile_stmt(env, *body)?;
@@ -517,7 +523,11 @@ _builtin_environ:
                     for i in 0..num_stack {
                         let arg_idx = arg_count - 1 - i;
                         let offset = 8 * (arg_count - 1 - arg_idx);
-                        emit!(&mut self.output, "    mov rax, QWORD [rsp + {}]", offset);
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, QWORD [rsp + {}]",
+                            offset + 8 * i
+                        );
                         emit!(&mut self.output, "    push rax");
                     }
                 }
@@ -560,10 +570,11 @@ _builtin_environ:
             }
             Expr::Index { expr, index } => {
                 self.compile_expr(env, *expr)?;
-                emit!(&mut self.output, "    mov rdi, rax");
+                emit!(&mut self.output, "    push rax");
                 self.compile_expr(env, *index)?;
-                emit!(&mut self.output, "    add rdi, rax");
-                emit!(&mut self.output, "    call _builtin_read8");
+                emit!(&mut self.output, "    pop rbx");
+                emit!(&mut self.output, "    add rax, rbx");
+                emit!(&mut self.output, "    movzx rax, BYTE [rax]");
             }
             Expr::AddrOf { op, expr } => match *expr {
                 Expr::Variable(name) => {

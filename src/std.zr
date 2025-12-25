@@ -122,6 +122,24 @@ func str.equal[a: str, b: str] : bool
 func str.is_whitespace[x: u8] : bool
     return x == ' ' | x == 10 | x == 13 | x == 9
 
+func str.is_digit[x: u8] : bool
+    return x >= '0' & x <= '9'
+
+func str.is_hex_digit[x: u8] : bool
+    return (x >= '0' & x <= '9') | (x >= 'a' & x <= 'f') | (x >= 'A' & x <= 'F')
+
+func str.is_lowercase[x: u8] : bool
+    return x >= 'a' & x <= 'z'
+
+func str.is_uppercase[x: u8] : bool
+    return x >= 'A' & x <= 'Z'
+
+func str.is_letter[x: u8] : bool
+    return str.is_uppercase(x) | str.is_lowercase(x)
+
+func str.is_alphanumeric[x: u8] : bool
+    return str.is_letter(x) | str.is_digit(x)
+
 func str.concat[a: str, b: str] : str
     let a_len: i64 = str.len(a)
     let b_len: i64 = str.len(b)
