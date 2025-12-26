@@ -395,6 +395,25 @@ _builtin_environ:
                     _ => unreachable!(),
                 }
             }
+            Expr::Logical { left, op, right } => {
+                let end_label = self.label();
+                match op.token_type {
+                    TokenType::LogicalAnd => {
+                        self.compile_expr(env, *left)?;
+                        emit!(&mut self.output, "    test rax, rax");
+                        emit!(&mut self.output, "    je {}", end_label);
+                        self.compile_expr(env, *right)?;
+                    }
+                    TokenType::LogicalOr => {
+                        self.compile_expr(env, *left)?;
+                        emit!(&mut self.output, "    test rax, rax");
+                        emit!(&mut self.output, "    jne {}", end_label);
+                        self.compile_expr(env, *right)?;
+                    }
+                    _ => unreachable!(),
+                }
+                emit!(&mut self.output, "{}:", end_label);
+            }
             Expr::Grouping(expr) => self.compile_expr(env, *expr)?,
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => {

@@ -50,11 +50,11 @@ func handle_indentation[tokens: array, current: ptr, column: ptr, line: i64, sou
         array.push(indent_stack, new_indent)
         add_token_with_lexeme("Indent", tokens, "", line, mem.read64(column))
     else if new_indent < mem.read64(current_indent)
-        while array.size(indent_stack) > 1 & array.nth(indent_stack, array.size(indent_stack) - 1) > new_indent
+        while array.size(indent_stack) > 1 && array.nth(indent_stack, array.size(indent_stack) - 1) > new_indent
             array.pop(indent_stack)
             add_token_with_lexeme("Dedent", tokens, "", line, mem.read64(column))
 
-        if array.size(indent_stack) == 0 | array.nth(indent_stack, array.size(indent_stack) - 1) != new_indent
+        if array.size(indent_stack) == 0 || array.nth(indent_stack, array.size(indent_stack) - 1) != new_indent
             zern_error(filename, line, mem.read64(column), "invalid indentation")
 
     mem.write64(current_indent, new_indent)
@@ -75,14 +75,14 @@ func scan_number[current: ptr, column: ptr, source: str, source_len: i64] : void
         while str.is_hex_digit(peek(mem.read64(current), source, source_len))
             advance(current, column, source, source_len)
     else if match_char('o', current, column, source, source_len)
-        while peek(mem.read64(current), source, source_len) >= '0' & peek(mem.read64(current), source, source_len) <= '7'
+        while peek(mem.read64(current), source, source_len) >= '0' && peek(mem.read64(current), source, source_len) <= '7'
             advance(current, column, source, source_len)
     else
         while str.is_digit(peek(mem.read64(current), source, source_len))
             advance(current, column, source, source_len)
 
 func scan_identifier[tokens: array, current: ptr, column: ptr, start: i64, line: i64, source: str, source_len: i64] : void
-    while str.is_alphanumeric(peek(mem.read64(current), source, source_len)) | peek(mem.read64(current), source, source_len) == '_' | peek(mem.read64(current), source, source_len) == '.'
+    while str.is_alphanumeric(peek(mem.read64(current), source, source_len)) || peek(mem.read64(current), source, source_len) == '_' || peek(mem.read64(current), source, source_len) == '.'
         advance(current, column, source, source_len)
 
     let len: i64 = mem.read64(current) - start
@@ -216,7 +216,7 @@ func scan_token[tokens: array, current: ptr, line: ptr, column: ptr, source: str
             zern_error(filename, mem.read64(line), mem.read64(column), "unterminated string")
         advance(current, column, source, source_len)
         add_token("String", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
-    else if c == ' ' | c == 13 // \r
+    else if c == ' ' || c == 13 // \r
         return 0
     else if c == 10 // \n
         mem.write64(line, mem.read64(line) + 1)
@@ -225,7 +225,7 @@ func scan_token[tokens: array, current: ptr, line: ptr, column: ptr, source: str
     else if str.is_digit(c)
         scan_number(current, column, source, source_len)
         add_token("Number", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
-    else if str.is_letter(c) | c == '_'
+    else if str.is_letter(c) || c == '_'
         scan_identifier(tokens, current, column, start, mem.read64(line), source, source_len)
     else
         zern_error(filename, mem.read64(line), mem.read64(column), "unexpected character")

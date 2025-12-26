@@ -1,5 +1,5 @@
 func check[lines: array, x: i64, y: i64, dx: i64, dy: i64] : bool
-    if x + dx * 3 < 0 | x + dx * 3 >= array.size(lines) | y + dy * 3 < 0 | y + dy * 3 >= str.len(array.nth(lines, 0))
+    if x + dx * 3 < 0 || x + dx * 3 >= array.size(lines) || y + dy * 3 < 0 || y + dy * 3 >= str.len(array.nth(lines, 0))
         return false
     
     if array.nth(lines, x)[y] != 'X'
@@ -50,7 +50,7 @@ func part2[lines: array] : void
                 str.set(s, 3, array.nth(lines, x - 1)[y + 1])
                 str.set(s, 4, 0)
 
-                if str.equal(s, "MSSM") | str.equal(s, "SMMS") | str.equal(s, "MMSS") | str.equal(s, "SSMM")
+                if str.equal(s, "MSSM") || str.equal(s, "SMMS") || str.equal(s, "MMSS") || str.equal(s, "SSMM")
                     out = out + 1
 
     io.println_i64(out)

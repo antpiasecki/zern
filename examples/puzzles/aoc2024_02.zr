@@ -2,13 +2,13 @@ func check[report: array] : bool
     let increasing: bool = array.nth(report, 0) < array.nth(report, 1)
 
     for i in 0..array.size(report)-1
-        if array.nth(report, i) > array.nth(report, i + 1) & increasing
+        if array.nth(report, i) > array.nth(report, i + 1) && increasing
             return false
-        if array.nth(report, i) < array.nth(report, i + 1) & !increasing
+        if array.nth(report, i) < array.nth(report, i + 1) && !increasing
             return false
 
         let diff: i64 = math.abs(array.nth(report, i) - array.nth(report, i + 1))
-        if diff < 1 | diff > 3
+        if diff < 1 || diff > 3
             return false
 
     return true

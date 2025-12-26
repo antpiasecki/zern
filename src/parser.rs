@@ -54,6 +54,11 @@ pub enum Expr {
         op: Token,
         right: Box<Expr>,
     },
+    Logical {
+        left: Box<Expr>,
+        op: Token,
+        right: Box<Expr>,
+    },
     Grouping(Box<Expr>),
     Literal(Token),
     Unary {
@@ -341,10 +346,10 @@ impl Parser {
     fn or_and(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.equality()?;
 
-        while self.match_token(&[TokenType::BitOr, TokenType::BitAnd]) {
+        while self.match_token(&[TokenType::LogicalOr, TokenType::LogicalAnd]) {
             let op = self.previous().clone();
             let right = self.equality()?;
-            expr = Expr::Binary {
+            expr = Expr::Logical {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
@@ -394,7 +399,13 @@ impl Parser {
     fn term(&mut self) -> Result<Expr, ZernError> {
         let mut expr = self.factor()?;
 
-        while self.match_token(&[TokenType::Plus, TokenType::Minus, TokenType::Xor]) {
+        while self.match_token(&[
+            TokenType::Plus,
+            TokenType::Minus,
+            TokenType::Xor,
+            TokenType::BitAnd,
+            TokenType::BitOr,
+        ]) {
             let op = self.previous().clone();
             let right = self.factor()?;
             expr = Expr::Binary {

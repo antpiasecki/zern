@@ -1,5 +1,5 @@
 func run_test[x: str] : void
-    if str.equal(x, "puzzles") | str.equal(x, "raylib.zr") | str.equal(x, "x11.zr") | str.equal(x, "sqlite_todo.zr")
+    if str.equal(x, "puzzles") || str.equal(x, "raylib.zr") || str.equal(x, "x11.zr") || str.equal(x, "sqlite_todo.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
         io.println("...\033[0m")
@@ -19,7 +19,7 @@ func run_test[x: str] : void
     io.print_i64(build_end_time - build_start_time)
     io.println("ms")
 
-    if str.find(x, "/aoc") != -1 | str.equal(x, "guess_number.zr") | str.equal(x, "tcp_server.zr")
+    if str.find(x, "/aoc") != -1 || str.equal(x, "guess_number.zr") || str.equal(x, "tcp_server.zr")
         io.print("\033[93mSkipping ")
         io.print(x)
         io.println("...\033[0m")
@@ -32,6 +32,9 @@ func run_test[x: str] : void
     let run_start_time: i64 = os.time()
     if str.equal(x, "curl.zr")
         if os.shell("./out http://example.com") != 0
+            os.exit(1)
+    else if str.equal(x, "tokenizer.zr")
+        if os.shell("./out examples/tokenizer.zr") != 0
             os.exit(1)
     else
         if os.shell("./out") != 0

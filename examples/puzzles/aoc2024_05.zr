@@ -1,6 +1,6 @@
 func rule_exists[rules_left: array, rules_right: array, a: i64, b: i64] : bool
     for k in 0..array.size(rules_left)
-        if array.nth(rules_left, k) == a & array.nth(rules_right, k) == b
+        if array.nth(rules_left, k) == a && array.nth(rules_right, k) == b
             return true
     return false
 

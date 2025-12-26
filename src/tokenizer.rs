@@ -17,6 +17,8 @@ pub enum TokenType {
     Colon,
     BitAnd,
     BitOr,
+    LogicalAnd,
+    LogicalOr,
     Pipe,
     At,
     DoubleDot,
@@ -173,10 +175,18 @@ impl Tokenizer {
                     self.add_token(TokenType::Slash)
                 }
             }
-            '&' => self.add_token(TokenType::BitAnd),
+            '&' => {
+                if self.match_char('&') {
+                    self.add_token(TokenType::LogicalAnd)
+                } else {
+                    self.add_token(TokenType::BitAnd)
+                }
+            }
             '|' => {
                 if self.match_char('>') {
                     self.add_token(TokenType::Pipe);
+                } else if self.match_char('|') {
+                    self.add_token(TokenType::LogicalOr);
                 } else {
                     self.add_token(TokenType::BitOr);
                 }

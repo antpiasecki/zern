@@ -120,6 +120,10 @@ impl Analyzer {
                 self.analyze_expr(left)?;
                 self.analyze_expr(right)?;
             }
+            Expr::Logical { left, op: _, right } => {
+                self.analyze_expr(left)?;
+                self.analyze_expr(right)?;
+            }
             Expr::Grouping(expr) => self.analyze_expr(expr)?,
             Expr::Literal(_) => {}
             Expr::Unary { op: _, right } => {

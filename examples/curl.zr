@@ -41,14 +41,14 @@ func main[argc: i64, argv: ptr] : i64
     let found: bool = false
     let end_index: i64 = -1
 
-    while !found & header_size < 8192
+    while !found && header_size < 8192
         let n: i64 = net.read(s, header_buf + header_size, 8192 - header_size)
         if n <= 0
             break
         let current_size: i64 = header_size + n
         i = 0
         while i <= current_size - 4
-            if header_buf[i] == 13 & header_buf[i + 1] == 10 & header_buf[i + 2] == 13 & header_buf[i + 3] == 10
+            if header_buf[i] == 13 && header_buf[i + 1] == 10 && header_buf[i + 2] == 13 && header_buf[i + 3] == 10
                 found = true
                 end_index = i + 4
                 break
