@@ -151,8 +151,6 @@ func scan_token[tokens: array, current: ptr, line: ptr, column: ptr, source: str
         add_token("Xor", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == ':'
         add_token("Colon", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
-    else if c == '@'
-        add_token("At", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == '.'
         if match_char('.', current, column, source, source_len)
             add_token("DoubleDot", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
@@ -241,7 +239,7 @@ func tokenize[source: str, filename: str] : array
     let tokens: array = []
 
     while !eof(current, source_len)
-        scan_token(tokens, @current, @line, @column, source, source_len, filename, indent_stack, @current_indent)
+        scan_token(tokens, ^current, ^line, ^column, source, source_len, filename, indent_stack, ^current_indent)
 
     add_token_with_lexeme("Eof", tokens, "", line, column)
     return tokens

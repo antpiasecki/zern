@@ -47,7 +47,7 @@ func io.println[x: str] : void
     io.print("\n")
 
 func io.print_char[x: u8] : void
-    io.print_sized(@x, 1)
+    io.print_sized(^x, 1)
 
 func io.print_i64[x: i64] : void
     let s: str = str.from_i64(x)
@@ -61,7 +61,7 @@ func io.println_i64[x: i64] : void
 
 func io.read_char[] : u8
     let c: u8 = 0
-    _builtin_syscall(0, 0, @c, 1) // read
+    _builtin_syscall(0, 0, ^c, 1) // read
     return c
 
 func io.read_line[]: str
@@ -341,6 +341,14 @@ func math.abs[n: i64] : i64
         return -n
     return n
 
+func math.sign[n: i64] : i64
+    if n < 0
+        return -1
+    else if n > 0
+        return 1
+    else
+        return 0
+
 func math.pow[b: i64, e: i64] : i64
     let out = 1
     for i in 0..e
@@ -480,13 +488,31 @@ func alg.count[arr: array, item: i64] : i64
             count = count + 1
     return count
 
+func alg.map[arr: array, fn: ptr] : array
+    let out: array = []
+    for i in 0..array.size(arr)
+        array.push(out, fn(array.nth(arr, i)))
+    return out
+
+func alg.filter[arr: array, fn: ptr] : array
+    let out: array = []
+    for i in 0..array.size(arr)
+        if fn(array.nth(arr, i))
+            array.push(out, array.nth(arr, i))
+    return out
+
+func alg.reduce[arr: array, fn: ptr, acc: i64] : i64
+    for i in 0..array.size(arr)
+        acc = fn(acc, array.nth(arr, i))
+    return acc
+
 func os.exit[code: i64] : void
     _builtin_syscall(60, code)
 
 func os.urandom[]: i64
     let n = 0
     let fd: i64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
-    _builtin_syscall(0, fd, @n, 8) // read
+    _builtin_syscall(0, fd, ^n, 8) // read
     _builtin_syscall(3, fd) // close
     return n
 
@@ -508,7 +534,7 @@ func os.shell[command: str] : i64
         _builtin_syscall(60, 1) // exit
     else
         let status = 0
-        let wp: i64 = _builtin_syscall(61, pid, @status, 0, 0) // waitpid
+        let wp: i64 = _builtin_syscall(61, pid, ^status, 0, 0) // waitpid
         if wp == -1
             return -1
         let st: i64 = status & 0xffffffff
@@ -557,7 +583,7 @@ func net.listen[packed_host: i64, port: i64] : i64
         return -1
     
     let optval = 1
-    if _builtin_syscall(54, s, 1, 2, @optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    if _builtin_syscall(54, s, 1, 2, ^optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         _builtin_syscall(3, s) // close
         return -1
 

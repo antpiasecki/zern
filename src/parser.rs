@@ -441,7 +441,7 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expr, ZernError> {
-        if self.match_token(&[TokenType::At]) {
+        if self.match_token(&[TokenType::Xor]) {
             let op = self.previous().clone();
             let right = self.unary()?;
             return Ok(Expr::AddrOf {
