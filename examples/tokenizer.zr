@@ -160,17 +160,20 @@ func scan_token[tokens: array, current: ptr, line: ptr, column: ptr, source: str
             zern_error(filename, mem.read64(line), mem.read64(column), "expected '.' after '.'")
     else if c == '/'
         if match_char('/', current, column, source, source_len)
-            while !eof(mem.read64(current), source_len)
-                if peek(mem.read64(current), source, source_len) == 10 // \n
-                    break
+            while !eof(mem.read64(current), source_len) && peek(mem.read64(current), source, source_len) != 10
                 advance(current, column, source, source_len)
         else
             add_token("Slash", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == '&'
-        add_token("BitAnd", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
+        if match_char('&', current, column, source, source_len)
+            add_token("LogicalAnd", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
+        else
+            add_token("BitAnd", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == '|'
         if match_char('>', current, column, source, source_len)
             add_token("Pipe", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
+        else if match_char('|', current, column, source, source_len)
+            add_token("LogicalOr", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
         else
             add_token("BitOr", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == '!'
@@ -205,9 +208,7 @@ func scan_token[tokens: array, current: ptr, line: ptr, column: ptr, source: str
             zern_error(filename, mem.read64(line), mem.read64(column), "expected ' after char literal")
         add_token("Char", tokens, source, start, mem.read64(current), mem.read64(line), mem.read64(column))
     else if c == 34 // "
-        while !eof(mem.read64(current), source_len)
-            if peek(mem.read64(current), source, source_len) == 34
-                break
+        while !eof(mem.read64(current), source_len) && peek(mem.read64(current), source, source_len) != 34
             if peek(mem.read64(current), source, source_len) == 10 // \n
                 mem.write64(line, mem.read64(line) + 1)
                 mem.write64(column, 1)

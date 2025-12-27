@@ -15,6 +15,7 @@ pub struct Env {
     next_offset: usize,
     loop_begin_label: String,
     loop_end_label: String,
+    loop_continue_label: String,
 }
 
 impl Env {
@@ -24,6 +25,7 @@ impl Env {
             next_offset: 8,
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
+            loop_continue_label: String::new(),
         }
     }
 
@@ -206,8 +208,10 @@ _builtin_environ:
             Stmt::While { condition, body } => {
                 let old_loop_begin_label = env.loop_begin_label.clone();
                 let old_loop_end_label = env.loop_end_label.clone();
+                let old_loop_continue_label = env.loop_continue_label.clone();
                 env.loop_begin_label = self.label();
                 env.loop_end_label = self.label();
+                env.loop_continue_label = env.loop_begin_label.clone();
 
                 emit!(&mut self.output, "{}:", env.loop_begin_label);
                 self.compile_expr(env, condition)?;
@@ -219,6 +223,7 @@ _builtin_environ:
 
                 env.loop_begin_label = old_loop_begin_label;
                 env.loop_end_label = old_loop_end_label;
+                env.loop_continue_label = old_loop_continue_label;
             }
             Stmt::Function {
                 name,
@@ -277,8 +282,10 @@ _builtin_environ:
             } => {
                 let old_loop_begin_label = env.loop_begin_label.clone();
                 let old_loop_end_label = env.loop_end_label.clone();
+                let old_loop_continue_label = env.loop_continue_label.clone();
                 env.loop_begin_label = self.label();
                 env.loop_end_label = self.label();
+                env.loop_continue_label = self.label();
 
                 env.push_scope();
                 let offset = env.define_var(var.lexeme, "i64".into());
@@ -293,6 +300,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    cmp rcx, rax");
                 emit!(&mut self.output, "    jge {}", env.loop_end_label);
                 self.compile_stmt(env, *body)?;
+                emit!(&mut self.output, "{}:", env.loop_continue_label);
                 emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
                 emit!(&mut self.output, "    add rax, 1");
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
@@ -302,13 +310,13 @@ _builtin_environ:
 
                 env.loop_begin_label = old_loop_begin_label;
                 env.loop_end_label = old_loop_end_label;
+                env.loop_continue_label = old_loop_continue_label;
             }
             Stmt::Break => {
                 emit!(&mut self.output, "    jmp {}", env.loop_end_label);
             }
             Stmt::Continue => {
-                // TODO: skips incrementing when used in a for loop
-                emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
+                emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
             }
             Stmt::Extern(name) => {
                 emit!(&mut self.output, "extern {}", name.lexeme);

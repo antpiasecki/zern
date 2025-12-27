@@ -1,63 +1,63 @@
 func run_test[x: str] : void
-    if str.equal(x, "puzzles") || str.equal(x, "raylib.zr") || str.equal(x, "x11.zr") || str.equal(x, "sqlite_todo.zr")
-        io.print("\033[93mSkipping ")
-        io.print(x)
-        io.println("...\033[0m")
-        return 0
+    let build_blacklist: array = ["examples/puzzles", "examples/raylib.zr", "examples/x11.zr", "examples/sqlite_todo.zr"]
+    let run_blacklist: array = ["/aoc", "guess_number.zr", "tcp_server.zr"]
 
-    io.print("\033[93mBuilding ")
+    for i in 0..array.size(build_blacklist)
+        if str.equal(x, array.nth(build_blacklist, i))
+            io.print("\033[93mSkipping ")
+            io.print(x)
+            io.println("...\033[0m")
+            return 0
+
+    io.print("\033[94mBuilding ")
     io.print(x)
     io.print("...\033[0m ")
-    let cmd: str = str.concat("./target/release/zern examples/", x)
 
     let build_start_time: i64 = os.time()
-    if os.shell(cmd) != 0
+    if os.shell(str.concat("./target/release/zern ", x)) != 0
         os.exit(1)
     let build_end_time: i64 = os.time()
 
-    mem.free(cmd)
     io.print_i64(build_end_time - build_start_time)
     io.println("ms")
 
-    if str.find(x, "/aoc") != -1 || str.equal(x, "guess_number.zr") || str.equal(x, "tcp_server.zr")
-        io.print("\033[93mSkipping ")
-        io.print(x)
-        io.println("...\033[0m")
-        return 0
+    for i in 0..array.size(run_blacklist)
+        if str.find(x, array.nth(run_blacklist, i)) != -1
+            io.print("\033[93mSkipping ")
+            io.print(x)
+            io.println("...\033[0m")
+            return 0
 
-    io.print("\033[93mRunning ")
+    io.print("\033[95mRunning ")
     io.print(x)
     io.println("...\033[0m")
 
+    let run_cmd: str = "./out"
+    if str.equal(x, "examples/curl.zr")
+        run_cmd = str.concat(run_cmd, " http://example.com")
+    else if str.equal(x, "examples/tokenizer.zr")
+        run_cmd = str.concat(run_cmd, " test.zr")
+
     let run_start_time: i64 = os.time()
-    if str.equal(x, "curl.zr")
-        if os.shell("./out http://example.com") != 0
-            os.exit(1)
-    else if str.equal(x, "tokenizer.zr")
-        if os.shell("./out examples/tokenizer.zr") != 0
-            os.exit(1)
-    else
-        if os.shell("./out") != 0
-            os.exit(1)
+    if os.shell(run_cmd) != 0
+        os.exit(1)
     let run_end_time: i64 = os.time()
 
-    io.print("\033[93mRunning ")
+    io.print("\033[92mRunning ")
     io.print(x)
     io.print(" took\033[0m ")
     io.print_i64(run_end_time - run_start_time)
     io.println("ms")
 
-func main[] : i64
-    os.shell("cargo build --release")
-
-    let files: array = os.listdir("examples/")
+func run_directory[dir: str] : void
+    let files: array = os.listdir(dir)
     for i in 0..array.size(files)
-        run_test(array.nth(files, i))
+        run_test(str.concat(dir, array.nth(files, i)))
     
     array.free(files)
 
-    let puzzle_files: array = os.listdir("examples/puzzles/")
-    for i in 0..array.size(puzzle_files)
-        run_test(str.concat("puzzles/", array.nth(puzzle_files, i)))
-    
-    array.free(puzzle_files)
+func main[] : i64
+    os.shell("cargo build --release")
+
+    run_directory("examples/")
+    run_directory("examples/puzzles/")

@@ -1,5 +1,4 @@
 // needs to be compiled with -m -C="/usr/local/lib/libraylib.a -lm"
-
 extern InitWindow
 extern SetTargetFPS
 extern WindowShouldClose
