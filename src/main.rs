@@ -34,7 +34,7 @@ fn compile_file_to(
 
     for stmt in statements {
         // top level statements are all function/const/extern declarations so a new env for each
-        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), stmt)?;
+        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
     }
     Ok(())
 }

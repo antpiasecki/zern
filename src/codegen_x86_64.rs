@@ -144,7 +144,7 @@ _builtin_environ:
         Ok(())
     }
 
-    pub fn compile_stmt(&mut self, env: &mut Env, stmt: Stmt) -> Result<(), ZernError> {
+    pub fn compile_stmt(&mut self, env: &mut Env, stmt: &Stmt) -> Result<(), ZernError> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
             Stmt::Let {
@@ -161,7 +161,7 @@ _builtin_environ:
                 }
 
                 let var_type: String = match var_type {
-                    Some(t) => t.lexeme,
+                    Some(t) => t.lexeme.clone(),
                     None => match &initializer {
                         Expr::Literal(token) => {
                             if token.token_type == TokenType::Number {
@@ -199,10 +199,10 @@ _builtin_environ:
                 self.compile_expr(env, condition)?;
                 emit!(&mut self.output, "    test rax, rax");
                 emit!(&mut self.output, "    je {}", else_label);
-                self.compile_stmt(env, *then_branch.clone())?;
+                self.compile_stmt(env, then_branch)?;
                 emit!(&mut self.output, "    jmp {}", end_label);
                 emit!(&mut self.output, "{}:", else_label);
-                self.compile_stmt(env, *else_branch.clone())?;
+                self.compile_stmt(env, else_branch)?;
                 emit!(&mut self.output, "{}:", end_label);
             }
             Stmt::While { condition, body } => {
@@ -217,7 +217,7 @@ _builtin_environ:
                 self.compile_expr(env, condition)?;
                 emit!(&mut self.output, "    test rax, rax");
                 emit!(&mut self.output, "    je {}", env.loop_end_label);
-                self.compile_stmt(env, *body.clone())?;
+                self.compile_stmt(env, body)?;
                 emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
                 emit!(&mut self.output, "{}:", env.loop_end_label);
 
@@ -232,7 +232,7 @@ _builtin_environ:
                 body,
                 exported,
             } => {
-                if exported || name.lexeme == "main" {
+                if *exported || name.lexeme == "main" {
                     emit!(&mut self.output, "global {}", name.lexeme);
                 }
                 emit!(&mut self.output, "section .text.{}", name.lexeme);
@@ -257,7 +257,7 @@ _builtin_environ:
                     }
                 }
 
-                self.compile_stmt(env, *body)?;
+                self.compile_stmt(env, body)?;
 
                 // fallback to null
                 // very hacky but works
@@ -288,7 +288,7 @@ _builtin_environ:
                 env.loop_continue_label = self.label();
 
                 env.push_scope();
-                let offset = env.define_var(var.lexeme, "i64".into());
+                let offset = env.define_var(var.lexeme.clone(), "i64".into());
 
                 self.compile_expr(env, start)?;
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
@@ -299,7 +299,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    pop rcx");
                 emit!(&mut self.output, "    cmp rcx, rax");
                 emit!(&mut self.output, "    jge {}", env.loop_end_label);
-                self.compile_stmt(env, *body)?;
+                self.compile_stmt(env, body)?;
                 emit!(&mut self.output, "{}:", env.loop_continue_label);
                 emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
                 emit!(&mut self.output, "    add rax, 1");
@@ -325,12 +325,12 @@ _builtin_environ:
         Ok(())
     }
 
-    pub fn compile_expr(&mut self, env: &mut Env, expr: Expr) -> Result<(), ZernError> {
+    pub fn compile_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<(), ZernError> {
         match expr {
             Expr::Binary { left, op, right } => {
-                self.compile_expr(env, *left)?;
+                self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    push rax");
-                self.compile_expr(env, *right)?;
+                self.compile_expr(env, right)?;
                 emit!(&mut self.output, "    mov rbx, rax");
                 emit!(&mut self.output, "    pop rax");
 
@@ -407,22 +407,22 @@ _builtin_environ:
                 let end_label = self.label();
                 match op.token_type {
                     TokenType::LogicalAnd => {
-                        self.compile_expr(env, *left)?;
+                        self.compile_expr(env, left)?;
                         emit!(&mut self.output, "    test rax, rax");
                         emit!(&mut self.output, "    je {}", end_label);
-                        self.compile_expr(env, *right)?;
+                        self.compile_expr(env, right)?;
                     }
                     TokenType::LogicalOr => {
-                        self.compile_expr(env, *left)?;
+                        self.compile_expr(env, left)?;
                         emit!(&mut self.output, "    test rax, rax");
                         emit!(&mut self.output, "    jne {}", end_label);
-                        self.compile_expr(env, *right)?;
+                        self.compile_expr(env, right)?;
                     }
                     _ => unreachable!(),
                 }
                 emit!(&mut self.output, "{}:", end_label);
             }
-            Expr::Grouping(expr) => self.compile_expr(env, *expr)?,
+            Expr::Grouping(expr) => self.compile_expr(env, expr)?,
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => {
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
@@ -467,7 +467,7 @@ _builtin_environ:
                 _ => unreachable!(),
             },
             Expr::Unary { op, right } => {
-                self.compile_expr(env, *right)?;
+                self.compile_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
                         emit!(&mut self.output, "    neg rax");
@@ -506,7 +506,7 @@ _builtin_environ:
                 }
             }
             Expr::Assign { name, value } => {
-                self.compile_expr(env, *value)?;
+                self.compile_expr(env, value)?;
 
                 // TODO: move to analyzer
                 let var = match env.get_var(&name.lexeme) {
@@ -526,8 +526,8 @@ _builtin_environ:
                 paren: _,
                 args,
             } => {
-                for arg in &args {
-                    self.compile_expr(env, arg.clone())?;
+                for arg in args {
+                    self.compile_expr(env, arg)?;
                     emit!(&mut self.output, "    push rax");
                 }
 
@@ -559,7 +559,7 @@ _builtin_environ:
                     }
                 }
 
-                if let Expr::Variable(callee_name) = &*callee {
+                if let Expr::Variable(callee_name) = &**callee {
                     if callee_name.lexeme.starts_with("_builtin_")
                         || self.analyzer.functions.contains_key(&callee_name.lexeme)
                     {
@@ -567,12 +567,12 @@ _builtin_environ:
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
                         // its a variable containing function address
-                        self.compile_expr(env, *callee)?;
+                        self.compile_expr(env, callee)?;
                         emit!(&mut self.output, "    call rax");
                     }
                 } else {
                     // its an expression that evalutes to function address
-                    self.compile_expr(env, *callee)?;
+                    self.compile_expr(env, callee)?;
                     emit!(&mut self.output, "    call rax");
                 }
 
@@ -596,14 +596,14 @@ _builtin_environ:
                 emit!(&mut self.output, "    pop rax");
             }
             Expr::Index { expr, index } => {
-                self.compile_expr(env, *expr)?;
+                self.compile_expr(env, expr)?;
                 emit!(&mut self.output, "    push rax");
-                self.compile_expr(env, *index)?;
+                self.compile_expr(env, index)?;
                 emit!(&mut self.output, "    pop rbx");
                 emit!(&mut self.output, "    add rax, rbx");
                 emit!(&mut self.output, "    movzx rax, BYTE [rax]");
             }
-            Expr::AddrOf { op, expr } => match *expr {
+            Expr::AddrOf { op, expr } => match *expr.clone() {
                 Expr::Variable(name) => {
                     if self.analyzer.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    mov rax, {}", name.lexeme);
