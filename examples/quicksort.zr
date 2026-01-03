@@ -1,7 +1,7 @@
 func main[] : i64
     let arr: array = []
     for i in 0..10
-        array.push(arr, math.abs(os.urandom() % 1000))
+        array.push(arr, math.abs(os.urandom_i64()) % 1000)
 
     for i in 0..array.size(arr)
         io.println_i64(array.nth(arr, i))

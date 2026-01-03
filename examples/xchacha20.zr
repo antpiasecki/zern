@@ -1,0 +1,144 @@
+func rotl32[x: i64, r: i64] : i64
+    return ((x << r) | (x >> (32 - r))) & 0xffffffff
+
+func load32_le[p: ptr] : i64
+    return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24)
+
+func store32_le[p: ptr, v: i64] : void
+    mem.write8(p, v & 0xff)
+    mem.write8(p + 1, (v >> 8) & 0xff)
+    mem.write8(p + 2, (v >> 16) & 0xff)
+    mem.write8(p + 3, (v >> 24) & 0xff)
+
+func quarter_round[state: ptr, a: i64, b: i64, c: i64, d: i64] : void
+    let va: i64 = load32_le(state + a * 4)
+    let vb: i64 = load32_le(state + b * 4)
+    let vc: i64 = load32_le(state + c * 4)
+    let vd: i64 = load32_le(state + d * 4)
+    va = (va + vb) & 0xffffffff
+    vd = vd ^ va
+    vd = rotl32(vd, 16)
+    vc = (vc + vd) & 0xffffffff
+    vb = vb ^ vc
+    vb = rotl32(vb, 12)
+    va = (va + vb) & 0xffffffff
+    vd = vd ^ va
+    vd = rotl32(vd, 8)
+    vc = (vc + vd) & 0xffffffff
+    vb = vb ^ vc
+    vb = rotl32(vb, 7)
+    store32_le(state + a * 4, va)
+    store32_le(state + b * 4, vb)
+    store32_le(state + c * 4, vc)
+    store32_le(state + d * 4, vd)
+
+func chacha20_permute[state: ptr] : void
+    for i in 0..10
+        quarter_round(state, 0, 4, 8, 12)
+        quarter_round(state, 1, 5, 9, 13)
+        quarter_round(state, 2, 6, 10, 14)
+        quarter_round(state, 3, 7, 11, 15)
+        quarter_round(state, 0, 5, 10, 15)
+        quarter_round(state, 1, 6, 11, 12)
+        quarter_round(state, 2, 7, 8, 13)
+        quarter_round(state, 3, 4, 9, 14)
+
+func chacha20_block[key: ptr, nonce: ptr, blocknum: i64, out: ptr] : void
+    let sigma: str = "expand 32-byte k"
+    let state: ptr = mem.alloc(16 * 4)
+
+    store32_le(state + 0, load32_le(sigma + 0))
+    store32_le(state + 4, load32_le(sigma + 4))
+    store32_le(state + 8, load32_le(sigma + 8))
+    store32_le(state + 12, load32_le(sigma + 12))
+
+    for i in 0..8
+        store32_le(state + (4 + i) * 4, load32_le(key + i * 4))
+
+    store32_le(state + 12 * 4, blocknum)
+    store32_le(state + 13 * 4, load32_le(nonce + 0))
+    store32_le(state + 14 * 4, load32_le(nonce + 4))
+    store32_le(state + 15 * 4, load32_le(nonce + 8))
+
+    let working: ptr = mem.alloc(16 * 4)
+    for i in 0..16
+        store32_le(working + i * 4, load32_le(state + i * 4))
+
+    chacha20_permute(working)
+
+    for i in 0..16
+        let v: i64 = (load32_le(working + i * 4) + load32_le(state + i * 4)) & 0xffffffff
+        store32_le(out + i * 4, v)
+    mem.free(working)
+    mem.free(state)
+
+func hchacha20[key: ptr, input: ptr, out32: ptr] : void
+    let sigma: str = "expand 32-byte k"
+    let state: ptr = mem.alloc(16 * 4)
+
+    store32_le(state + 0, load32_le(sigma + 0))
+    store32_le(state + 4, load32_le(sigma + 4))
+    store32_le(state + 8, load32_le(sigma + 8))
+    store32_le(state + 12, load32_le(sigma + 12))
+
+    for i in 0..8
+        store32_le(state + (4 + i) * 4, load32_le(key + i * 4))
+
+    for i in 0..4
+        store32_le(state + (12 + i) * 4, load32_le(input + i * 4))
+
+    chacha20_permute(state)
+
+    for i in 0..4
+        store32_le(out32 + i * 4, load32_le(state + i * 4))
+    for i in 0..4
+        store32_le(out32 + 16 + i * 4, load32_le(state + (12 + i) * 4))
+    mem.free(state)
+
+func xchacha20_stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
+    let subkey: ptr = mem.alloc(32)
+    hchacha20(key, nonce, subkey)
+
+    let nonce12: ptr = mem.alloc(12)
+    for i in 0..12
+        mem.write8(nonce12 + i, 0)
+    for i in 0..8
+        mem.write8(nonce12 + 4 + i, nonce[16 + i])
+
+    let blocknum: i64 = 0
+    let remaining: i64 = len
+    let block: ptr = mem.alloc(64)
+
+    while remaining > 0
+        chacha20_block(subkey, nonce12, blocknum, block)
+        let take: i64 = 64
+        if remaining < 64
+            take = remaining
+        for i in 0..take
+            mem.write8(out + (len - remaining) + i, block[i])
+        remaining = remaining - take
+        blocknum = blocknum + 1
+    mem.free(block)
+    mem.free(nonce12)
+    mem.free(subkey)
+
+func xchacha20_xor[key: ptr, nonce: ptr, input: ptr, out: ptr, len: i64] : void
+    if len <= 0
+        return 0
+    let ks: ptr = mem.alloc(len)
+    xchacha20_stream(key, nonce, ks, len)
+    for i in 0..len
+        mem.write8(out + i, input[i] ^ ks[i])
+    mem.free(ks)
+
+func main[] : i64
+    let key: ptr = str.hex_decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+    let nonce: ptr = str.hex_decode("000102030405060708090a0b0c0d0e0f1011121314151617")
+
+    let input: str = "Hello, World!"
+    let input_len: i64 = str.len(input)
+    let out: ptr = mem.alloc(input_len)
+
+    xchacha20_xor(key, nonce, input, out, input_len)
+
+    io.println(str.hex_encode(out, input_len))

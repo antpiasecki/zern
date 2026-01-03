@@ -13,7 +13,7 @@ A very cool language
 ## Syntax
 ```rust
 func main[] : i64
-    let answer: i64 = math.abs(os.urandom()) % 100
+    let answer: i64 = math.abs(os.urandom_i64()) % 100
 
     while true
         io.println("Guess a number: ")

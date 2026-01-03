@@ -72,7 +72,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         run_command(format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out));
 
-        if args.no_musl {
+        if args.use_glibc {
             run_command(format!(
                 "gcc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
                 args.out, args.out, args.cflags
@@ -113,8 +113,8 @@ struct Args {
     #[arg(short = 'r', help = "Run the compiled executable")]
     run_exe: bool,
 
-    #[arg(short = 'm', help = "Don't use musl")]
-    no_musl: bool,
+    #[arg(short = 'm', help = "Use glibc instead of musl")]
+    use_glibc: bool,
 
     #[arg(short = 'C', default_value = "", help = "Extra flags to pass to gcc")]
     cflags: String,

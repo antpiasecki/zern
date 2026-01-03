@@ -282,9 +282,8 @@ func str.parse_i64[s: str] : i64
         i = i + 1
     return num * sign
 
-func str.hex_encode[s: str] : str
+func str.hex_encode[s: str, s_len: i64] : str
     let hex_chars: str = "0123456789abcdef"
-    let s_len: i64 = str.len(s)
     let j = 0
     let out: str = mem.alloc(s_len * 2 + 1)
 
@@ -509,11 +508,17 @@ func alg.reduce[arr: array, fn: ptr, acc: i64] : i64
 func os.exit[code: i64] : void
     _builtin_syscall(60, code)
 
-func os.urandom[]: i64
-    let n = 0
+func os.urandom[n: i64]: ptr
+    let buffer: ptr = mem.alloc(n)
     let fd: i64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
-    _builtin_syscall(0, fd, ^n, 8) // read
+    _builtin_syscall(0, fd, buffer, n) // read
     _builtin_syscall(3, fd) // close
+    return buffer
+
+func os.urandom_i64[]: i64
+    let buffer: ptr = os.urandom(8)
+    let n: i64 = mem.read64(buffer)
+    mem.free(buffer)
     return n
 
 func os.time[] : i64
