@@ -1,0 +1,56 @@
+func main[] : i64
+    // XChaCha20
+    let key: ptr = str.hex_decode("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+    let nonce: ptr = str.hex_decode("000102030405060708090a0b0c0d0e0f1011121314151617")
+
+    let input: str = "Hello, World!"
+    let input_len: i64 = str.len(input)
+    let out: ptr = mem.alloc(input_len)
+
+    crypto.xchacha20.xor(key, nonce, input, out, input_len)
+    io.println(str.hex_encode(out, input_len))
+
+    // X25519
+    let scalar: ptr = str.hex_decode("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4")
+    let point: ptr = str.hex_decode("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c")
+    let expected: ptr = str.hex_decode("c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552")
+
+    let out: ptr = mem.alloc(32)
+    crypto.x25519.scalarmult(out, scalar, point)
+
+    io.print("Computed: ")
+    io.println(str.hex_encode(out, 32))
+    io.print("Expected: ")
+    io.println(str.hex_encode(expected, 32))
+
+    let base_point: ptr = mem.alloc(32)
+    mem.zero(base_point, 32)
+    mem.write8(base_point, 9)
+
+    let alice_private: ptr = str.hex_decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
+    io.print("A_priv: ")
+    io.println(str.hex_encode(alice_private, 32))
+
+    let alice_public: ptr = mem.alloc(32)
+    crypto.x25519.scalarmult(alice_public, alice_private, base_point)
+    io.print("A_pub: ")
+    io.println(str.hex_encode(alice_public, 32))
+
+    let bob_private: ptr = str.hex_decode("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6dbddb79b1732920165")
+    io.print("B_priv: ")
+    io.println(str.hex_encode(bob_private, 32))
+
+    let bob_public: ptr = mem.alloc(32)
+    crypto.x25519.scalarmult(bob_public, bob_private, base_point)
+    io.print("B_pub: ")
+    io.println(str.hex_encode(bob_public, 32))
+
+    let alice_shared: ptr = mem.alloc(32)
+    crypto.x25519.scalarmult(alice_shared, alice_private, bob_public)
+    io.print("A_shared: ")
+    io.println(str.hex_encode(alice_shared, 32))
+
+    let bob_shared: ptr = mem.alloc(32)
+    crypto.x25519.scalarmult(bob_shared, bob_private, alice_public)
+    io.print("B_shared: ")
+    io.println(str.hex_encode(bob_shared, 32))

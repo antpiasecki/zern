@@ -101,12 +101,6 @@ impl<'a> CodegenX86_64<'a> {
             "section .note.GNU-stack
     db 0
 
-section .text._builtin_read8
-_builtin_read8:
-    xor rax, rax
-    mov al, byte [rdi]
-    ret
-
 section .text._builtin_read64
 _builtin_read64:
     mov rax, qword [rdi]
