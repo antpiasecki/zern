@@ -781,14 +781,16 @@ func crypto.xchacha20._stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
     mem.free(nonce12)
     mem.free(subkey)
 
-func crypto.xchacha20.xor[key: ptr, nonce: ptr, input: ptr, out: ptr, len: i64] : void
+func crypto.xchacha20.xor[key: ptr, nonce: ptr, input: ptr, len: i64] : ptr
     if len <= 0
-        return 0
+        return dbg.panic("empty buffer passed to crypto.xchacha20.xor")
+    let out: ptr = mem.alloc(len)
     let ks: ptr = mem.alloc(len)
     crypto.xchacha20._stream(key, nonce, ks, len)
     for i in 0..len
         mem.write8(out + i, input[i] ^ ks[i])
     mem.free(ks)
+    return out
 
 func crypto.x25519.carry[elem: ptr] : void
     for i in 0..16
@@ -877,7 +879,7 @@ func crypto.x25519.pack[out: ptr, input: ptr] : void
     mem.free(t)
     mem.free(m)
 
-func crypto.x25519.scalarmult[out: ptr, scalar: ptr, point: ptr] : void
+func crypto.x25519.scalarmult[scalar: ptr, point: ptr] : ptr
     let clamped: ptr = mem.alloc(32)
     let a: ptr = mem.alloc(16 * 8)
     let b: ptr = mem.alloc(16 * 8)
@@ -939,6 +941,7 @@ func crypto.x25519.scalarmult[out: ptr, scalar: ptr, point: ptr] : void
 
     crypto.x25519.finverse(c, c)
     crypto.x25519.fmul(a, a, c)
+    let out: ptr = mem.alloc(32)
     crypto.x25519.pack(out, a)
 
     mem.free(clamped)
@@ -950,3 +953,4 @@ func crypto.x25519.scalarmult[out: ptr, scalar: ptr, point: ptr] : void
     mem.free(f)
     mem.free(x)
     mem.free(magic)
+    return out

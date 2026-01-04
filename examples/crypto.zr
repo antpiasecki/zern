@@ -5,18 +5,16 @@ func main[] : i64
 
     let input: str = "Hello, World!"
     let input_len: i64 = str.len(input)
-    let out: ptr = mem.alloc(input_len)
 
-    crypto.xchacha20.xor(key, nonce, input, out, input_len)
-    io.println(str.hex_encode(out, input_len))
+    let ciphertext: ptr = crypto.xchacha20.xor(key, nonce, input, input_len)
+    io.println(str.hex_encode(ciphertext, input_len))
 
     // X25519
     let scalar: ptr = str.hex_decode("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4")
     let point: ptr = str.hex_decode("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c")
     let expected: ptr = str.hex_decode("c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552")
 
-    let out: ptr = mem.alloc(32)
-    crypto.x25519.scalarmult(out, scalar, point)
+    let out: ptr = crypto.x25519.scalarmult(scalar, point)
 
     io.print("Computed: ")
     io.println(str.hex_encode(out, 32))
@@ -31,8 +29,7 @@ func main[] : i64
     io.print("A_priv: ")
     io.println(str.hex_encode(alice_private, 32))
 
-    let alice_public: ptr = mem.alloc(32)
-    crypto.x25519.scalarmult(alice_public, alice_private, base_point)
+    let alice_public: ptr = crypto.x25519.scalarmult(alice_private, base_point)
     io.print("A_pub: ")
     io.println(str.hex_encode(alice_public, 32))
 
@@ -40,17 +37,14 @@ func main[] : i64
     io.print("B_priv: ")
     io.println(str.hex_encode(bob_private, 32))
 
-    let bob_public: ptr = mem.alloc(32)
-    crypto.x25519.scalarmult(bob_public, bob_private, base_point)
+    let bob_public: ptr = crypto.x25519.scalarmult(bob_private, base_point)
     io.print("B_pub: ")
     io.println(str.hex_encode(bob_public, 32))
 
-    let alice_shared: ptr = mem.alloc(32)
-    crypto.x25519.scalarmult(alice_shared, alice_private, bob_public)
+    let alice_shared: ptr = crypto.x25519.scalarmult(alice_private, bob_public)
     io.print("A_shared: ")
     io.println(str.hex_encode(alice_shared, 32))
 
-    let bob_shared: ptr = mem.alloc(32)
-    crypto.x25519.scalarmult(bob_shared, bob_private, alice_public)
+    let bob_shared: ptr = crypto.x25519.scalarmult(bob_private, alice_public)
     io.print("B_shared: ")
     io.println(str.hex_encode(bob_shared, 32))
