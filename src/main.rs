@@ -64,7 +64,12 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let mut analyzer = analyzer::Analyzer::new();
     let mut codegen = codegen_x86_64::CodegenX86_64::new(&mut analyzer);
     codegen.emit_prologue()?;
-    compile_file_to(&mut codegen, "std.zr", include_str!("std.zr").into())?;
+    compile_file_to(&mut codegen, "std.zr", include_str!("std/std.zr").into())?;
+    compile_file_to(
+        &mut codegen,
+        "crypto.zr",
+        include_str!("std/crypto.zr").into(),
+    )?;
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
