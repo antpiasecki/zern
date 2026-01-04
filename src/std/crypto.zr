@@ -1,6 +1,117 @@
 func crypto.rotl32[x: i64, r: i64] : i64
     return ((x << r) | (x >> (32 - r))) & 0xffffffff
 
+func crypto.rotr64[x: i64, y: i64] : i64
+    y = y & 63
+    if y == 0
+        return x
+    let lhs_mask: i64 = ((1 << (64 - y)) - 1)
+    let r: i64 = (x >> y) & lhs_mask
+    let l: i64 = (x << (64 - y))
+    return (r | l)
+
+func crypto.blake2b._G[v: ptr, a: i64, b: i64, c: i64, d: i64, x: i64, y: i64] : void
+    mem.write64(v + a * 8, mem.read64(v + a * 8) + mem.read64(v + b * 8) + x)
+    mem.write64(v + d * 8, crypto.rotr64(mem.read64(v + d * 8) ^ mem.read64(v + a * 8), 32))
+    mem.write64(v + c * 8, mem.read64(v + c * 8) + mem.read64(v + d * 8))
+    mem.write64(v + b * 8, crypto.rotr64(mem.read64(v + b * 8) ^ mem.read64(v + c * 8), 24))
+    mem.write64(v + a * 8, mem.read64(v + a * 8) + mem.read64(v + b * 8) + y)
+    mem.write64(v + d * 8, crypto.rotr64(mem.read64(v + d * 8) ^ mem.read64(v + a * 8), 16))
+    mem.write64(v + c * 8, mem.read64(v + c * 8) + mem.read64(v + d * 8))
+    mem.write64(v + b * 8, crypto.rotr64(mem.read64(v + b * 8) ^ mem.read64(v + c * 8), 63))
+
+func crypto.blake2b._compress[h: ptr, block: ptr, t0: i64, t1: i64, last: i64, iv: array] : void
+    let v: ptr = mem.alloc(16 * 8)
+    let m: ptr = mem.alloc(16 * 8)
+    let sigma: array = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4,7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8,9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13,2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9,12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11,13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10,6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5,10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3]
+
+    for j in 0..8
+        mem.write64(v + j * 8, mem.read64(h + j * 8))
+        mem.write64(v + (j + 8) * 8, array.nth(iv, j))
+
+    mem.write64(v + 12 * 8, mem.read64(v + 12 * 8) ^ t0)
+    mem.write64(v + 13 * 8, mem.read64(v + 13 * 8) ^ t1)
+    if last
+        mem.write64(v + 14 * 8, mem.read64(v + 14 * 8) ^ 0xffffffffffffffff)
+
+    for j in 0..16
+        let w: i64 = 0
+        for k in 0..8
+            w = w | ((mem.read8(block + j*8 + k) & 0xff) << (8 * k))
+        mem.write64(m + j * 8, w)
+
+    for r in 0..12
+        let base: i64 = r * 16
+        crypto.blake2b._G(v, 0, 4, 8, 12, mem.read64(m + array.nth(sigma, base + 0) * 8), mem.read64(m + array.nth(sigma, base + 1) * 8))
+        crypto.blake2b._G(v, 1, 5, 9, 13, mem.read64(m + array.nth(sigma, base + 2) * 8), mem.read64(m + array.nth(sigma, base + 3) * 8))
+        crypto.blake2b._G(v, 2, 6, 10, 14, mem.read64(m + array.nth(sigma, base + 4) * 8), mem.read64(m + array.nth(sigma, base + 5) * 8))
+        crypto.blake2b._G(v, 3, 7, 11, 15, mem.read64(m + array.nth(sigma, base + 6) * 8), mem.read64(m + array.nth(sigma, base + 7) * 8))
+        crypto.blake2b._G(v, 0, 5, 10, 15, mem.read64(m + array.nth(sigma, base + 8) * 8), mem.read64(m + array.nth(sigma, base + 9) * 8))
+        crypto.blake2b._G(v, 1, 6, 11, 12, mem.read64(m + array.nth(sigma, base + 10) * 8), mem.read64(m + array.nth(sigma, base + 11) * 8))
+        crypto.blake2b._G(v, 2, 7, 8, 13, mem.read64(m + array.nth(sigma, base + 12) * 8), mem.read64(m + array.nth(sigma, base + 13) * 8))
+        crypto.blake2b._G(v, 3, 4, 9, 14, mem.read64(m + array.nth(sigma, base + 14) * 8), mem.read64(m + array.nth(sigma, base + 15) * 8))
+
+    for j in 0..8
+        mem.write64(h + j * 8, mem.read64(h + j * 8) ^ (mem.read64(v + j * 8) ^ mem.read64(v + (j + 8) * 8)))
+    
+    mem.free(v)
+    mem.free(m)
+    array.free(sigma)
+
+func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputlen: i64] : ptr
+    if outlen == 0 || outlen > 64 || keylen > 64
+        dbg.panic("invalid length passed to crypto.blake2b.hash")
+    let out: ptr = mem.alloc(outlen)
+    
+    let iv: array = [0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
+    
+    let h: ptr = mem.alloc(8 * 8)
+    let t0: i64 = 0
+    let t1: i64 = 0
+    let b: ptr = mem.alloc(128)
+    let c: i64 = 0
+
+    for i in 0..8
+        mem.write64(h + i * 8, array.nth(iv, i))
+
+    mem.write64(h, mem.read64(h) ^ (0x01010000 ^ ((keylen << 8) ^ outlen)))
+
+    if keylen > 0
+        for i in 0..keylen
+            mem.write8(b + i, key[i])
+        for i in (keylen)..128
+            mem.write8(b + i, 0)
+        c = 128
+    else
+        c = 0
+    
+    for i in 0..inputlen
+        if c == 128
+            t0 = t0 + c
+            if t0 < c
+                t1 = t1 + 1
+            crypto.blake2b._compress(h, b, t0, t1, 0, iv)
+            c = 0
+        mem.write8(b + c, input[i])
+        c = c + 1
+    
+    t0 = t0 + c
+    if t0 < c
+        t1 = t1 + 1
+    
+    if c < 128
+        for i in (c)..128
+            mem.write8(b + i, 0)
+    crypto.blake2b._compress(h, b, t0, t1, 1, iv)
+
+    for i in 0..outlen
+        mem.write8(out + i, ((mem.read64(h + (i >> 3) * 8) >> (8 * (i & 7))) & 0xff))
+
+    mem.free(h)
+    mem.free(b)
+    array.free(iv)
+    return out
+
 func crypto.chacha20._quarter_round[state: ptr, a: i64, b: i64, c: i64, d: i64] : void
     let va: i64 = mem.read32(state + a * 4)
     let vb: i64 = mem.read32(state + b * 4)
