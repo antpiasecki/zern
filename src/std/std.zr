@@ -44,7 +44,7 @@ func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
 func io.print_sized[x: str, size: i64] : void
-    _builtin_syscall(1, 1, x, size) // write
+    _builtin_syscall(SYS_write, 1, x, size)
 
 func io.print[x: str] : void
     io.print_sized(x, str.len(x))
@@ -68,39 +68,39 @@ func io.println_i64[x: i64] : void
 
 func io.read_char[] : u8
     let c: u8 = 0
-    _builtin_syscall(0, 0, ^c, 1) // read
+    _builtin_syscall(SYS_read, 0, ^c, 1)
     return c
 
 func io.read_line[]: str
     let MAX_SIZE = 60000
     let buffer: str = mem.alloc(MAX_SIZE + 1)
-    let n: i64 = _builtin_syscall(0, 0, buffer, MAX_SIZE) // read
+    let n: i64 = _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
     if n < 0
         return ""
     str.set(buffer, n, 0)
     return buffer
 
 func io.read_file[path: str]: str
-    let fd: i64 = _builtin_syscall(257, -100, path, 0, 0) // openat
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd <= 0
         dbg.panic("failed to open file")
 
-    let size: i64 = _builtin_syscall(8, fd, 0, 2) // lseek to the end
-    _builtin_syscall(8, fd, 0, 0) // lseek back to start
+    let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
+    _builtin_syscall(SYS_lseek, fd, 0, 0)
 
     let buffer: str = mem.alloc(size + 1)
-    let n: i64 = _builtin_syscall(0, fd, buffer, size) // read
+    let n: i64 = _builtin_syscall(SYS_read, fd, buffer, size)
     str.set(buffer, n, 0)
-    _builtin_syscall(3, fd) // close
+    _builtin_syscall(SYS_close, fd)
     return buffer
 
 func io.write_file[path: str, content: str] : void
-    let fd: ptr = _builtin_syscall(257, -100, path, 0x241, 0o644) // openat
+    let fd: ptr = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
         dbg.panic("failed to open file")
 
-    _builtin_syscall(1, fd, content, str.len(content)) // write
-    _builtin_syscall(3, fd) // close
+    _builtin_syscall(SYS_write, fd, content, str.len(content))
+    _builtin_syscall(SYS_close, fd)
 
 func str.len[s: str] : i64
     let i = 0
@@ -513,13 +513,13 @@ func alg.reduce[arr: array, fn: ptr, acc: i64] : i64
     return acc
 
 func os.exit[code: i64] : void
-    _builtin_syscall(60, code)
+    _builtin_syscall(SYS_exit, code)
 
 func os.urandom[n: i64]: ptr
     let buffer: ptr = mem.alloc(n)
-    let fd: i64 = _builtin_syscall(257, -100, "/dev/urandom", 0, 0) // openat
-    _builtin_syscall(0, fd, buffer, n) // read
-    _builtin_syscall(3, fd) // close
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
+    _builtin_syscall(SYS_read, fd, buffer, n)
+    _builtin_syscall(SYS_close, fd)
     return buffer
 
 func os.urandom_i64[]: i64
@@ -530,7 +530,7 @@ func os.urandom_i64[]: i64
 
 func os.time[] : i64
     let tv: ptr = mem.alloc(16)
-    _builtin_syscall(96, tv, 0) // gettimeofday
+    _builtin_syscall(SYS_gettimeofday, tv, 0)
     let seconds: i64 = mem.read64(tv)
     let microseconds: i64 = mem.read64(tv + 8)
     mem.free(tv)
@@ -538,15 +538,15 @@ func os.time[] : i64
 
 // voodoo magic
 func os.shell[command: str] : i64
-    let pid: i64 = _builtin_syscall(57) // fork
+    let pid: i64 = _builtin_syscall(SYS_fork)
     if pid == 0
         // leaky but not sure where can i free it
         let argv: array = ["sh", "-c", command, 0]
-        _builtin_syscall(59, "/bin/sh", mem.read64(argv), _builtin_environ()) // execve
-        _builtin_syscall(60, 1) // exit
+        _builtin_syscall(SYS_execve, "/bin/sh", mem.read64(argv), _builtin_environ())
+        _builtin_syscall(SYS_exit, 1)
     else
         let status = 0
-        let wp: i64 = _builtin_syscall(61, pid, ^status, 0, 0) // waitpid
+        let wp: i64 = _builtin_syscall(SYS_wait4, pid, ^status, 0, 0)
         if wp == -1
             return -1
         let st: i64 = status & 0xffffffff
@@ -557,14 +557,14 @@ func os.shell[command: str] : i64
             return -(st & 0x7f)
 
 func os.listdir[path: str] : array
-    let fd: i64 = _builtin_syscall(257, -100, path, 0, 0) // openat
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
         return []
 
     let files: array = []
     let buf: ptr = mem.alloc(1024)
     while true
-        let n: i64 = _builtin_syscall(217, fd, buf, 1024) // getdents64
+        let n: i64 = _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n <= 0
             break
 
@@ -586,17 +586,18 @@ func os.listdir[path: str] : array
             pos = pos + len
 
     mem.free(buf)
-    _builtin_syscall(3, fd) // close
+    _builtin_syscall(SYS_close, fd)
     return files
 
 func net.listen[packed_host: i64, port: i64] : i64
-    let s: i64 = _builtin_syscall(41, 2, 1, 0) // socket
+    let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
     if s < 0
         return -1
     
+    // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     let optval = 1
-    if _builtin_syscall(54, s, 1, 2, ^optval, 8) < 0 // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        _builtin_syscall(3, s) // close
+    if _builtin_syscall(SYS_setsockopt, s, 1, 2, ^optval, 8) < 0
+        _builtin_syscall(SYS_close, s)
         return -1
 
     let sa: ptr = mem.alloc(16)
@@ -610,14 +611,14 @@ func net.listen[packed_host: i64, port: i64] : i64
     mem.write8(sa + 6, (packed_host >> 8) & 255)
     mem.write8(sa + 7, packed_host & 255)
 
-    if _builtin_syscall(49, s, sa, 16) < 0 // bind
-        _builtin_syscall(3, s) // close
+    if _builtin_syscall(SYS_bind, s, sa, 16) < 0
+        _builtin_syscall(SYS_close, s)
         mem.free(sa)
         return -1
     mem.free(sa)
 
-    if _builtin_syscall(50, s, 1) < 0 // listen
-        _builtin_syscall(3, s) // close
+    if _builtin_syscall(SYS_listen, s, 1) < 0
+        _builtin_syscall(SYS_close, s)
         return -1
     
     return s
@@ -629,7 +630,7 @@ func net.connect[host: str, port: i64] : i64
 
     let ip_ptr: ptr = mem.read64(mem.read64(he + 24))
 
-    let s: i64 = _builtin_syscall(41, 2, 1, 0) // socket
+    let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
     if s < 0
         return -1
 
@@ -643,25 +644,25 @@ func net.connect[host: str, port: i64] : i64
     mem.write8(sa + 6, ip_ptr[2])
     mem.write8(sa + 7, ip_ptr[3])
 
-    if _builtin_syscall(42, s, sa, 16) < 0 // connect
+    if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         mem.free(sa)
-        _builtin_syscall(3, s) // close
+        _builtin_syscall(SYS_close, s)
         return -1
 
     mem.free(sa)
     return s
 
 func net.accept[s: i64] : i64
-    return _builtin_syscall(43, s, 0, 0)
+    return _builtin_syscall(SYS_accept, s, 0, 0)
 
 func net.send[s: i64, data: str, size: i64] : void
-    _builtin_syscall(44, s, data, size, 0, 0, 0)
+    _builtin_syscall(SYS_sendto, s, data, size, 0, 0, 0)
 
 func net.read[s: i64, buffer: ptr, size: i64] : i64
-    return _builtin_syscall(0, s, buffer, size)
+    return _builtin_syscall(SYS_read, s, buffer, size)
 
 func net.close[s: i64] : void
-    _builtin_syscall(3, s)
+    _builtin_syscall(SYS_close, s)
 
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d

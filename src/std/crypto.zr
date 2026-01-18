@@ -23,6 +23,7 @@ func crypto.blake2b._G[v: ptr, a: i64, b: i64, c: i64, d: i64, x: i64, y: i64] :
 func crypto.blake2b._compress[h: ptr, block: ptr, t0: i64, t1: i64, last: i64, iv: array] : void
     let v: ptr = mem.alloc(16 * 8)
     let m: ptr = mem.alloc(16 * 8)
+    // https://crypto.stackexchange.com/questions/108987/rationale-for-blake2-message-schedule
     let sigma: array = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4,7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8,9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13,2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9,12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11,13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10,6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5,10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3]
 
     for j in 0..8
@@ -35,9 +36,9 @@ func crypto.blake2b._compress[h: ptr, block: ptr, t0: i64, t1: i64, last: i64, i
         mem.write64(v + 14 * 8, mem.read64(v + 14 * 8) ^ 0xffffffffffffffff)
 
     for j in 0..16
-        let w: i64 = 0
+        let w = 0
         for k in 0..8
-            w = w | ((mem.read8(block + j*8 + k) & 0xff) << (8 * k))
+            w = w | ((block[j * 8 + k] & 0xff) << (8 * k))
         mem.write64(m + j * 8, w)
 
     for r in 0..12
@@ -63,13 +64,17 @@ func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputle
         dbg.panic("invalid length passed to crypto.blake2b.hash")
     let out: ptr = mem.alloc(outlen)
     
+    // IV[i] = floor(2**w * frac(sqrt(prime(i+1)))), where prime(i)
+    // is the i:th prime number ( 2, 3, 5, 7, 11, 13, 17, 19 )
+    // and sqrt(x) is the square root of x.
+    // https://www.ietf.org/rfc/rfc7693#section-2.6
     let iv: array = [0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
     
     let h: ptr = mem.alloc(8 * 8)
-    let t0: i64 = 0
-    let t1: i64 = 0
-    let b: ptr = mem.alloc(128)
-    let c: i64 = 0
+    let t0 = 0
+    let t1 = 0
+    let block: ptr = mem.alloc(128)
+    let c = 0
 
     for i in 0..8
         mem.write64(h + i * 8, array.nth(iv, i))
@@ -78,9 +83,9 @@ func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputle
 
     if keylen > 0
         for i in 0..keylen
-            mem.write8(b + i, key[i])
+            mem.write8(block + i, key[i])
         for i in (keylen)..128
-            mem.write8(b + i, 0)
+            mem.write8(block + i, 0)
         c = 128
     else
         c = 0
@@ -90,9 +95,9 @@ func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputle
             t0 = t0 + c
             if t0 < c
                 t1 = t1 + 1
-            crypto.blake2b._compress(h, b, t0, t1, 0, iv)
+            crypto.blake2b._compress(h, block, t0, t1, 0, iv)
             c = 0
-        mem.write8(b + c, input[i])
+        mem.write8(block + c, input[i])
         c = c + 1
     
     t0 = t0 + c
@@ -101,14 +106,14 @@ func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputle
     
     if c < 128
         for i in (c)..128
-            mem.write8(b + i, 0)
-    crypto.blake2b._compress(h, b, t0, t1, 1, iv)
+            mem.write8(block + i, 0)
+    crypto.blake2b._compress(h, block, t0, t1, 1, iv)
 
     for i in 0..outlen
         mem.write8(out + i, ((mem.read64(h + (i >> 3) * 8) >> (8 * (i & 7))) & 0xff))
 
     mem.free(h)
-    mem.free(b)
+    mem.free(block)
     array.free(iv)
     return out
 
@@ -207,13 +212,13 @@ func crypto.xchacha20._stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
     for i in 0..8
         mem.write8(nonce12 + 4 + i, nonce[16 + i])
 
-    let blocknum: i64 = 0
+    let blocknum = 0
     let remaining: i64 = len
     let block: ptr = mem.alloc(64)
 
     while remaining > 0
         crypto.xchacha20._block(subkey, nonce12, blocknum, block)
-        let take: i64 = 64
+        let take = 64
         if remaining < 64
             take = remaining
         for i in 0..take
@@ -226,7 +231,9 @@ func crypto.xchacha20._stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
 
 func crypto.xchacha20.xor[key: ptr, nonce: ptr, input: ptr, len: i64] : ptr
     if len <= 0
-        return dbg.panic("empty buffer passed to crypto.xchacha20.xor")
+        let out: ptr = mem.alloc(1)
+        mem.write8(out, 0)
+        return out
     let out: ptr = mem.alloc(len)
     let ks: ptr = mem.alloc(len)
     crypto.xchacha20._stream(key, nonce, ks, len)
@@ -334,7 +341,7 @@ func crypto.x25519.scalarmult[scalar: ptr, point: ptr] : ptr
 
     let magic: ptr = mem.alloc(16 * 8)
     mem.zero(magic, 16 * 8)
-    mem.write64(magic, 0xdb41) // 121665
+    mem.write64(magic, 0xdb41) // 0xdb41 = 121665 = (486662 + 2)/4
     mem.write64(magic + 8, 1)
 
     // copy and clamp scalar
