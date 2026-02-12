@@ -6,7 +6,7 @@ extern gethostbyname
 func dbg.panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
-    0/0 // crashes program which is kinda better since you get a gdb backtrace
+    (0 / 0) // crashes program which is kinda better since you get a gdb backtrace
     os.exit(1)
 
 func mem.alloc[x: i64] : ptr

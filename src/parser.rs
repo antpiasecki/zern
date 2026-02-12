@@ -86,7 +86,7 @@ pub enum Expr {
     },
 }
 
-// TODO: currently they are all just 8 byte values
+// TODO: currently they are all just 64 bit values
 static TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "array"];
 
 pub struct Parser {

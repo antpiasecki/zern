@@ -9,6 +9,14 @@ extern CloseWindow
 extern DrawRectangle
 extern IsKeyDown
 
+const KEY_W = 87
+const KEY_S = 83
+const KEY_A = 65
+const KEY_D = 68
+
+const WHITE = 0xffffffff
+const RED = 0xff0000ff
+
 func main[] : i64
     let x = 200
     let y = 200
@@ -17,18 +25,18 @@ func main[] : i64
     SetTargetFPS(60)
 
     while !WindowShouldClose()
-        if IsKeyDown(87) & 255 // W
+        if IsKeyDown(KEY_W) & 255
             y = y - 10
-        if IsKeyDown(83) & 255 // S
+        if IsKeyDown(KEY_S) & 255
             y = y + 10
-        if IsKeyDown(65) & 255 // A
+        if IsKeyDown(KEY_A) & 255
             x = x - 10
-        if IsKeyDown(68) & 255 // D
+        if IsKeyDown(KEY_D) & 255
             x = x + 10
 
         BeginDrawing()
-        ClearBackground(0xffffffff)
-        DrawRectangle(x, y, 100, 100, 0xff0000ff)
+        ClearBackground(WHITE)
+        DrawRectangle(x, y, 100, 100, RED)
         EndDrawing()
 
     CloseWindow()
