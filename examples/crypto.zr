@@ -15,7 +15,7 @@ func main[] : i64
     let input: str = "Hello, World!"
     let input_len: i64 = str.len(input)
 
-    let ciphertext: ptr = crypto.xchacha20.xor(key, nonce, input, input_len)
+    let ciphertext: ptr = crypto.xchacha20.xor_no_auth(key, nonce, input, input_len)
     io.println(str.hex_encode(ciphertext, input_len))
 
     // X25519

@@ -55,8 +55,15 @@ impl Analyzer {
                         format!("tried to redefine constant '{}'", name.lexeme)
                     );
                 }
-                self.constants
-                    .insert(name.lexeme.clone(), value.lexeme.parse().unwrap());
+                if value.lexeme.starts_with("0x") {
+                    self.constants.insert(
+                        name.lexeme.clone(),
+                        u64::from_str_radix(&value.lexeme[2..], 16).unwrap(),
+                    );
+                } else {
+                    self.constants
+                        .insert(name.lexeme.clone(), value.lexeme.parse().unwrap());
+                }
             }
             Stmt::Block(statements) => {
                 for stmt in statements {

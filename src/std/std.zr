@@ -15,7 +15,11 @@ func mem.alloc[x: i64] : ptr
 func mem.free[x: ptr] : void
     free(x)
 
-func mem.zero[x: i64, size: i64] : void
+func mem.zero_and_free[x: ptr, size: i64] : void
+    mem.zero(x, size)
+    mem.free(x)
+
+func mem.zero[x: ptr, size: i64] : void
     for i in 0..size
         mem.write8(x + i, 0)
 

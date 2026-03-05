@@ -13,7 +13,6 @@ extern XDefaultScreen
 extern XDrawString
 
 func main[] : i64
-
     let dpy: ptr = XOpenDisplay(0)
     let screen: ptr = XDefaultScreen(dpy)
 
