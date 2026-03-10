@@ -6,8 +6,9 @@ use crate::{
     tokenizer::{TokenType, ZernError, error},
 };
 
-pub struct Var {
+struct Var {
     pub stack_offset: usize,
+    pub var_type: String,
 }
 
 pub struct Env {
@@ -37,19 +38,20 @@ impl Env {
         self.scopes.pop();
     }
 
-    pub fn define_var(&mut self, name: String, _var_type: String) -> usize {
+    pub fn define_var(&mut self, name: String, var_type: String) -> usize {
         let offset = self.next_offset;
         self.next_offset += 8;
         self.scopes.last_mut().unwrap().insert(
             name,
             Var {
                 stack_offset: offset,
+                var_type,
             },
         );
         offset
     }
 
-    pub fn get_var(&self, name: &str) -> Option<&Var> {
+    fn get_var(&self, name: &str) -> Option<&Var> {
         for scope in self.scopes.iter().rev() {
             if let Some(var) = scope.get(name) {
                 return Some(var);
@@ -314,6 +316,9 @@ _builtin_environ:
             }
             Stmt::Extern(name) => {
                 emit!(&mut self.output, "extern {}", name.lexeme);
+            }
+            Stmt::Struct { name: _, fields: _ } => {
+                // handled in the analyzer
             }
         }
         Ok(())
@@ -622,6 +627,7 @@ _builtin_environ:
                     return error!(&op.loc, "can only take address of variables and functions");
                 }
             },
+            Expr::New(_) => todo!(),
         }
         Ok(())
     }

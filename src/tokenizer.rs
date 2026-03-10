@@ -52,6 +52,8 @@ pub enum TokenType {
     KeywordContinue,
     KeywordExtern,
     KeywordExport,
+    KeywordStruct,
+    KeywordNew,
 
     Indent,
     Dedent,
@@ -347,6 +349,8 @@ impl Tokenizer {
             "continue" => TokenType::KeywordContinue,
             "extern" => TokenType::KeywordExtern,
             "export" => TokenType::KeywordExport,
+            "struct" => TokenType::KeywordStruct,
+            "new" => TokenType::KeywordNew,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

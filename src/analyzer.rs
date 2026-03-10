@@ -117,6 +117,7 @@ impl Analyzer {
                 }
                 self.functions.insert(name.lexeme.clone(), -1);
             }
+            Stmt::Struct { name: _, fields: _ } => todo!(),
         }
         Ok(())
     }
@@ -188,6 +189,7 @@ impl Analyzer {
             Expr::AddrOf { op: _, expr } => {
                 self.analyze_expr(expr)?;
             }
+            Expr::New(_) => {}
         }
         Ok(())
     }

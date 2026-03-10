@@ -45,6 +45,10 @@ pub enum Stmt {
     Break,
     Continue,
     Extern(Token),
+    Struct {
+        name: Token,
+        fields: Vec<Param>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +88,7 @@ pub enum Expr {
         op: Token,
         expr: Box<Expr>,
     },
+    New(Token),
 }
 
 // TODO: currently they are all just 64 bit values
@@ -126,6 +131,9 @@ impl Parser {
             }
             if self.match_token(&[TokenType::KeywordConst]) {
                 return self.const_declaration();
+            }
+            if self.match_token(&[TokenType::KeywordStruct]) {
+                return self.struct_declaration();
             }
             return error!(
                 self.peek().loc,
@@ -180,6 +188,29 @@ impl Parser {
             body,
             exported,
         })
+    }
+
+    fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
+        let name = self.consume(TokenType::Identifier, "expected struct name")?;
+
+        self.consume(TokenType::Indent, "expected indent after struct name")?;
+
+        let mut fields = vec![];
+        while !self.eof() && !self.check(&TokenType::Dedent) {
+            let var_name = self.consume(TokenType::Identifier, "expected field name")?;
+            self.consume(TokenType::Colon, "expected ':' after field name")?;
+
+            let var_type = self.consume(TokenType::Identifier, "expected field type")?;
+            if !TYPES.contains(&var_type.lexeme.as_str()) {
+                return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
+            }
+
+            fields.push(Param { var_type, var_name });
+        }
+
+        self.consume(TokenType::Dedent, "expected dedent after the struct fields")?;
+
+        Ok(Stmt::Struct { name, fields })
     }
 
     fn let_declaration(&mut self) -> Result<Stmt, ZernError> {
@@ -524,10 +555,17 @@ impl Parser {
             self.consume(TokenType::RightBracket, "expected ']' after values")?;
 
             Ok(Expr::ArrayLiteral(xs))
+        } else if self.match_token(&[TokenType::KeywordNew]) {
+            let struct_name =
+                self.consume(TokenType::Identifier, "expected struct name after 'new'")?;
+            Ok(Expr::New(struct_name))
         } else if self.match_token(&[TokenType::Identifier]) {
             Ok(Expr::Variable(self.previous().clone()))
         } else {
-            error!(self.peek().loc, "expected expression")
+            error!(
+                self.peek().loc,
+                format!("expected expression, got '{}'", self.peek().lexeme)
+            )
         }
     }
 
