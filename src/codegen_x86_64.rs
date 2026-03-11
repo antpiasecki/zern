@@ -111,11 +111,6 @@ _builtin_read64:
     mov rax, qword [rdi]
     ret
 
-section .text._builtin_set8
-_builtin_set8:
-    mov [rdi], sil
-    ret
-
 section .text._builtin_set64
 _builtin_set64:
     mov [rdi], rsi
@@ -671,8 +666,14 @@ _builtin_environ:
             Expr::New(struct_name) => {
                 let struct_fields = &self.analyzer.structs[&struct_name.lexeme];
 
-                emit!(&mut self.output, "    mov rdi, {}", struct_fields.len() * 8);
+                let memory_size = struct_fields.len() * 8;
+                emit!(&mut self.output, "    mov rdi, {}", memory_size);
                 emit!(&mut self.output, "    call mem.alloc");
+                emit!(&mut self.output, "    push rax");
+                emit!(&mut self.output, "    mov rdi, rax");
+                emit!(&mut self.output, "    mov rsi, {}", memory_size);
+                emit!(&mut self.output, "    call mem.zero");
+                emit!(&mut self.output, "    pop rax");
             }
             Expr::MemberAccess { left, field } => {
                 let offset = self.get_field_offset(env, left, field)?;

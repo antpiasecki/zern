@@ -1,0 +1,96 @@
+// needs to be compiled with -m -C="-lraylib"
+extern InitWindow
+extern SetTargetFPS
+extern WindowShouldClose
+extern BeginDrawing
+extern ClearBackground
+extern DrawRectangle
+extern EndDrawing
+
+struct CHIP8
+    memory: ptr
+    pc: i64
+    stack: array
+    sp: i64
+    reg: array
+    I: i64
+    delay_timer: i64
+    sound_timer: i64
+    keyboard: array
+    display: ptr
+
+func chip8_create[] : CHIP8
+    let fonts: array = [0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0, 0x10, 0xf0, 0x10, 0xf0, 0x90, 0x90, 0xf0, 0x10, 0x10, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80, 0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0, 0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80, 0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80]
+
+    let c: CHIP8 = new CHIP8
+    c->memory = mem.alloc(4096)
+    mem.zero(c->memory, 4096)
+    c->display = mem.alloc(64*32)
+    mem.zero(c->display, 64*32)
+
+    c->stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    c->reg = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    c->keyboard = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    for i in 0..80
+        c->memory[i] = array.nth(fonts, i)
+    mem.free(fonts)
+
+    c->pc = 0x200
+    return c
+
+func chip8_disassemble[c: CHIP8, ins_count: i64] : void
+    return 0
+
+func chip8_step[c: CHIP8] : void
+    return 0
+
+func main[argc: i64, argv: ptr] : i64
+    let path: str = 0
+    let disassemble: bool = 0
+
+    for i in 1..argc
+        let arg: str = mem.read64(argv + i * 8)
+        if str.equal(arg, "-d")
+            disassemble = 1
+        else
+            path = arg
+    
+    if path == 0
+        io.println("Usage: chip8 -d <path>")
+        return 1
+    
+    let c: CHIP8 = chip8_create()
+
+    let bytes_size: ptr = 0
+    let bytes: ptr = io.read_binary_file(path, ^bytes_size)
+
+    for i in 0..bytes_size
+        c->memory[0x200 + i] = bytes[i]
+
+    if disassemble
+        chip8_disassemble(c, bytes_size / 2)
+        return 0
+    
+    InitWindow(640, 320, "CHIP-8")
+    SetTargetFPS(60)
+
+    while !WindowShouldClose()
+        if c->delay_timer > 0
+            c->delay_timer = c->delay_timer - 1
+        if c->sound_timer > 0
+            c->sound_timer = c->sound_timer - 1
+            // TODO: buzzer
+        
+        for i in 0..25
+            chip8_step(c)
+        
+        BeginDrawing()
+
+        ClearBackground(0xffffffff)
+        for y in 0..32
+            for x in 0..64
+                if c->display[x + y * 64] == 1
+                    DrawRectangle(x * 10, y * 10, 10, 10, 0x000000ff)
+
+        EndDrawing()

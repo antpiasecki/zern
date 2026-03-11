@@ -77,11 +77,12 @@ func io.read_line[]: str
     let buffer: str = mem.alloc(MAX_SIZE + 1)
     let n: i64 = _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
     if n < 0
+        mem.free(buffer)
         return ""
     buffer[n] = 0
     return buffer
 
-func io.read_file[path: str]: str
+func io.read_file[path: str] : str
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd <= 0
         dbg.panic("failed to open file")
@@ -91,8 +92,22 @@ func io.read_file[path: str]: str
 
     let buffer: str = mem.alloc(size + 1)
     let n: i64 = _builtin_syscall(SYS_read, fd, buffer, size)
-    buffer[n] = 0
     _builtin_syscall(SYS_close, fd)
+    buffer[n] = 0
+    return buffer
+
+func io.read_binary_file[path: str, len_ptr: ptr] : ptr
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
+    if fd < 0
+        dbg.panic("failed to open file")
+    
+    let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
+    _builtin_syscall(SYS_lseek, fd, 0, 0)
+
+    let buffer: ptr = mem.alloc(size)
+    _builtin_syscall(SYS_read, fd, buffer, size)
+    _builtin_syscall(SYS_close, fd)
+    mem.write64(len_ptr, size)
     return buffer
 
 func io.write_file[path: str, content: str] : void
