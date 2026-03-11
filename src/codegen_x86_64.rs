@@ -69,6 +69,9 @@ macro_rules! emit {
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
+// TODO: currently they are all just 64 bit values
+static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "array"];
+
 pub struct CodegenX86_64<'a> {
     output: String,
     data_section: String,
@@ -169,6 +172,10 @@ _builtin_environ:
                         _ => return error!(&name.loc, "unable to infer variable type"),
                     },
                 };
+
+                if !self.is_valid_type_name(&var_type) {
+                    return error!(&name.loc, "unrecognized type: ".to_owned() + &var_type);
+                }
 
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type);
@@ -627,8 +634,25 @@ _builtin_environ:
                     return error!(&op.loc, "can only take address of variables and functions");
                 }
             },
-            Expr::New(_) => todo!(),
+            Expr::New(struct_name) => {
+                let struct_fields = &self.analyzer.structs[&struct_name.lexeme];
+
+                let memory_size = struct_fields.len() * 8;
+
+                emit!(&mut self.output, "    mov rdi, {}", memory_size);
+                emit!(&mut self.output, "    call malloc");
+            }
         }
         Ok(())
+    }
+
+    fn is_valid_type_name(&self, name: &str) -> bool {
+        if BUILTIN_TYPES.contains(&name) {
+            return true;
+        }
+        if self.analyzer.structs.contains_key(name) {
+            return true;
+        }
+        false
     }
 }

@@ -91,9 +91,6 @@ pub enum Expr {
     New(Token),
 }
 
-// TODO: currently they are all just 64 bit values
-static TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "array"];
-
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -159,9 +156,6 @@ impl Parser {
                 self.consume(TokenType::Colon, "expected ':' after parameter name")?;
 
                 let var_type = self.consume(TokenType::Identifier, "expected parameter type")?;
-                if !TYPES.contains(&var_type.lexeme.as_str()) {
-                    return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
-                }
 
                 params.push(Param { var_type, var_name });
                 if !self.match_token(&[TokenType::Comma]) {
@@ -173,9 +167,6 @@ impl Parser {
         self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
         self.consume(TokenType::Colon, "expected ':' after '['")?;
         let return_type = self.consume(TokenType::Identifier, "expected return type")?;
-        if !TYPES.contains(&return_type.lexeme.as_str()) {
-            return error!(&name.loc, format!("unknown type: {}", return_type.lexeme));
-        }
 
         self.is_inside_function = true;
         let body = Box::new(self.block()?);
@@ -201,9 +192,6 @@ impl Parser {
             self.consume(TokenType::Colon, "expected ':' after field name")?;
 
             let var_type = self.consume(TokenType::Identifier, "expected field type")?;
-            if !TYPES.contains(&var_type.lexeme.as_str()) {
-                return error!(&name.loc, format!("unknown type: {}", var_type.lexeme));
-            }
 
             fields.push(Param { var_type, var_name });
         }
@@ -218,9 +206,6 @@ impl Parser {
 
         let var_type = if self.match_token(&[TokenType::Colon]) {
             let token = self.consume(TokenType::Identifier, "expected variable type")?;
-            if !TYPES.contains(&token.lexeme.as_str()) {
-                return error!(&name.loc, format!("unknown type: {}", token.lexeme));
-            }
             Some(token)
         } else {
             None

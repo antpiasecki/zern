@@ -8,6 +8,7 @@ use crate::{
 pub struct Analyzer {
     pub functions: HashMap<String, i32>,
     pub constants: HashMap<String, u64>,
+    pub structs: HashMap<String, HashMap<String, usize>>,
 }
 
 impl Analyzer {
@@ -15,6 +16,7 @@ impl Analyzer {
         Analyzer {
             functions: HashMap::new(),
             constants: HashMap::new(),
+            structs: HashMap::new(),
         }
     }
 
@@ -117,7 +119,17 @@ impl Analyzer {
                 }
                 self.functions.insert(name.lexeme.clone(), -1);
             }
-            Stmt::Struct { name: _, fields: _ } => todo!(),
+            Stmt::Struct { name, fields } => {
+                let mut fields_map: HashMap<String, usize> = HashMap::new();
+
+                let mut offset: usize = 0;
+                for field in fields {
+                    fields_map.insert(field.var_name.lexeme.clone(), offset);
+                    offset += 8;
+                }
+
+                self.structs.insert(name.lexeme.clone(), fields_map);
+            }
         }
         Ok(())
     }
