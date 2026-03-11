@@ -62,6 +62,11 @@ func io.print_i64[x: i64] : void
     io.print(s)
     mem.free(s)
 
+func io.print_i64_hex[x: i64] : void
+    let s: str = str.hex_from_i64(x)
+    io.print(s)
+    mem.free(s)
+
 func io.println_i64[x: i64] : void
     let s: str = str.from_i64(x)
     io.println(s)
@@ -277,6 +282,32 @@ func str.from_i64[n: i64] : str
     let s: str = str.reverse(buf)
     mem.free(buf)
     return s
+
+func str.hex_from_i64[n: i64] : str
+    let hex_chars: str = "0123456789abcdef"
+
+    if n == 0
+        let out: str = mem.alloc(2)
+        out[0] = '0'
+        out[1] = 0
+        return out
+
+    let buf: str = mem.alloc(17)
+    let len = 0
+
+    while n > 0
+        buf[len] = hex_chars[n & 15]
+        n = n >> 4
+        len = len + 1
+
+    let out: str = mem.alloc(len + 1)
+    let j = 0
+    while j < len
+        out[j] = buf[len - 1 - j]
+        j = j + 1
+
+    out[len] = 0
+    return out
 
 func str.from_char[c: u8] : str
     let s: str = mem.alloc(2)
