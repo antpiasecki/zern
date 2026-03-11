@@ -149,26 +149,26 @@ impl Tokenizer {
 
     fn scan_token(&mut self) -> Result<(), ZernError> {
         match self.advance() {
-            '(' => self.add_token(TokenType::LeftParen),
-            ')' => self.add_token(TokenType::RightParen),
-            '[' => self.add_token(TokenType::LeftBracket),
-            ']' => self.add_token(TokenType::RightBracket),
-            '+' => self.add_token(TokenType::Plus),
-            '*' => self.add_token(TokenType::Star),
-            ',' => self.add_token(TokenType::Comma),
-            '%' => self.add_token(TokenType::Mod),
-            '^' => self.add_token(TokenType::Xor),
-            ':' => self.add_token(TokenType::Colon),
+            '(' => self.add_token(TokenType::LeftParen)?,
+            ')' => self.add_token(TokenType::RightParen)?,
+            '[' => self.add_token(TokenType::LeftBracket)?,
+            ']' => self.add_token(TokenType::RightBracket)?,
+            '+' => self.add_token(TokenType::Plus)?,
+            '*' => self.add_token(TokenType::Star)?,
+            ',' => self.add_token(TokenType::Comma)?,
+            '%' => self.add_token(TokenType::Mod)?,
+            '^' => self.add_token(TokenType::Xor)?,
+            ':' => self.add_token(TokenType::Colon)?,
             '-' => {
                 if self.match_char('>') {
-                    self.add_token(TokenType::Arrow)
+                    self.add_token(TokenType::Arrow)?
                 } else {
-                    self.add_token(TokenType::Minus)
+                    self.add_token(TokenType::Minus)?
                 }
             }
             '.' => {
                 if self.match_char('.') {
-                    self.add_token(TokenType::DoubleDot)
+                    self.add_token(TokenType::DoubleDot)?
                 } else {
                     return error!(self.loc, "expected '.' after '.'");
                 }
@@ -179,67 +179,67 @@ impl Tokenizer {
                         self.advance();
                     }
                 } else {
-                    self.add_token(TokenType::Slash)
+                    self.add_token(TokenType::Slash)?
                 }
             }
             '&' => {
                 if self.match_char('&') {
-                    self.add_token(TokenType::LogicalAnd)
+                    self.add_token(TokenType::LogicalAnd)?
                 } else {
-                    self.add_token(TokenType::BitAnd)
+                    self.add_token(TokenType::BitAnd)?
                 }
             }
             '|' => {
                 if self.match_char('>') {
-                    self.add_token(TokenType::Pipe);
+                    self.add_token(TokenType::Pipe)?
                 } else if self.match_char('|') {
-                    self.add_token(TokenType::LogicalOr);
+                    self.add_token(TokenType::LogicalOr)?
                 } else {
-                    self.add_token(TokenType::BitOr);
+                    self.add_token(TokenType::BitOr)?
                 }
             }
             '!' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::NotEqual)
+                    self.add_token(TokenType::NotEqual)?
                 } else {
-                    self.add_token(TokenType::Bang)
+                    self.add_token(TokenType::Bang)?
                 }
             }
             '=' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::DoubleEqual)
+                    self.add_token(TokenType::DoubleEqual)?
                 } else {
-                    self.add_token(TokenType::Equal)
+                    self.add_token(TokenType::Equal)?
                 }
             }
             '>' => {
                 if self.match_char('>') {
-                    self.add_token(TokenType::ShiftRight);
+                    self.add_token(TokenType::ShiftRight)?
                 } else if self.match_char('=') {
-                    self.add_token(TokenType::GreaterEqual)
+                    self.add_token(TokenType::GreaterEqual)?
                 } else {
-                    self.add_token(TokenType::Greater)
+                    self.add_token(TokenType::Greater)?
                 }
             }
             '<' => {
                 if self.match_char('<') {
-                    self.add_token(TokenType::ShiftLeft);
+                    self.add_token(TokenType::ShiftLeft)?
                 } else if self.match_char('=') {
-                    self.add_token(TokenType::LessEqual)
+                    self.add_token(TokenType::LessEqual)?
                 } else {
-                    self.add_token(TokenType::Less)
+                    self.add_token(TokenType::Less)?
                 }
             }
-            // TODO: escape sequences
             '\'' => {
                 if self.eof() {
                     return error!(self.loc, "unterminated char literal");
                 }
+                _ = self.match_char('\\'); // if its an escape sequence skip \ and read one more
                 self.advance();
                 if !self.match_char('\'') {
                     return error!(self.loc, "expected ' after char literal");
                 }
-                self.add_token(TokenType::Char);
+                self.add_token(TokenType::Char)?
             }
             '"' => {
                 while !self.eof() && self.peek() != '"' {
@@ -255,7 +255,7 @@ impl Tokenizer {
                 }
 
                 self.advance();
-                self.add_token(TokenType::String);
+                self.add_token(TokenType::String)?
             }
             ' ' | '\r' => {}
             '\n' => {
@@ -263,8 +263,8 @@ impl Tokenizer {
                 self.loc.column = 1;
                 self.handle_indentation()?;
             }
-            '0'..='9' => self.scan_number(),
-            'A'..='Z' | 'a'..='z' | '_' => self.scan_identifier(),
+            '0'..='9' => self.scan_number()?,
+            'A'..='Z' | 'a'..='z' | '_' => self.scan_identifier()?,
             _ => return error!(self.loc, "unexpected character"),
         }
         Ok(())
@@ -318,7 +318,7 @@ impl Tokenizer {
         count
     }
 
-    fn scan_number(&mut self) {
+    fn scan_number(&mut self) -> Result<(), ZernError> {
         if self.match_char('x') {
             while self.peek().is_ascii_hexdigit() {
                 self.advance();
@@ -333,10 +333,10 @@ impl Tokenizer {
             }
         }
 
-        self.add_token(TokenType::Number);
+        self.add_token(TokenType::Number)
     }
 
-    fn scan_identifier(&mut self) {
+    fn scan_identifier(&mut self) -> Result<(), ZernError> {
         while self.peek().is_alphanumeric() || self.peek() == '_' || self.peek() == '.' {
             self.advance();
         }
@@ -374,13 +374,47 @@ impl Tokenizer {
         }
     }
 
-    fn add_token(&mut self, token_type: TokenType) {
-        let lexeme: String = self.source[self.start..self.current].iter().collect();
+    fn add_token(&mut self, token_type: TokenType) -> Result<(), ZernError> {
+        let mut lexeme: String = self.source[self.start..self.current].iter().collect();
+
+        if token_type == TokenType::Char || token_type == TokenType::String {
+            lexeme = self.unescape(&lexeme)?;
+        }
+
         self.tokens.push(Token {
             token_type,
             lexeme,
             loc: self.loc.clone(),
         });
+        Ok(())
+    }
+
+    fn unescape(&self, s: &str) -> Result<String, ZernError> {
+        let mut result = String::with_capacity(s.len());
+        let mut chars = s.chars();
+
+        while let Some(c) = chars.next() {
+            if c != '\\' {
+                result.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('r') => result.push('\r'),
+                Some('t') => result.push('\t'),
+                Some('\\') => result.push('\\'),
+                Some('\'') => result.push('\''),
+                Some('"') => result.push('"'),
+                Some(c) => {
+                    return error!(
+                        self.loc.clone(),
+                        format!("unknown escape sequence: \\{}", c)
+                    );
+                }
+                None => return error!(self.loc.clone(), "unexpected end of escape sequence"),
+            }
+        }
+        Ok(result)
     }
 
     fn advance(&mut self) -> char {

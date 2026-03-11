@@ -444,12 +444,7 @@ _builtin_environ:
                 }
                 TokenType::String => {
                     // TODO: actual string parsing in the tokenizer
-                    let value = &token.lexeme[1..token.lexeme.len() - 1]
-                        .replace("\\n", "\n")
-                        .replace("\\r", "\r")
-                        .replace("\\t", "\t")
-                        .replace("\\033", "\x1b")
-                        .replace("\\0", "\0");
+                    let value = &token.lexeme[1..token.lexeme.len() - 1];
 
                     let label = format!("str_{:03}", self.data_counter);
 
@@ -461,7 +456,7 @@ _builtin_environ:
                             .map(|x| (x as u8).to_string())
                             .collect::<Vec<String>>()
                             .join(",");
-                        emit!(&mut self.data_section, "    {} db {},0", label, charcodes,);
+                        emit!(&mut self.data_section, "    {} db {},0", label, charcodes);
                     }
                     emit!(&mut self.output, "    mov rax, {}", label);
                     self.data_counter += 1;
