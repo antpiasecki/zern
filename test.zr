@@ -1,17 +1,17 @@
 func run_test[x: str] : void
-    let build_blacklist: array = ["examples/puzzles", "examples/raylib.zr", "examples/x11.zr", "examples/sqlite_todo.zr"]
-    let run_blacklist: array = ["/aoc", "guess_number.zr", "tcp_server.zr"]
+    let build_blacklist: Array = ["examples/puzzles", "examples/raylib.zr", "examples/chip8.zr", "examples/sqlite_todo.zr"]
+    let run_blacklist: Array = ["/aoc", "guess_number.zr", "tcp_server.zr"]
 
-    for i in 0..array.size(build_blacklist)
+    for i in 0..build_blacklist->size
         if str.equal(x, array.nth(build_blacklist, i))
-            io.print("\033[93mSkipping ")
+            io.print("Skipping ")
             io.print(x)
-            io.println("...\033[0m")
+            io.println("...")
             return 0
 
-    io.print("\033[94mBuilding ")
+    io.print("Building ")
     io.print(x)
-    io.print("...\033[0m ")
+    io.print("... ")
 
     let build_start_time: i64 = os.time()
     if os.shell(str.concat("./target/release/zern ", x)) != 0
@@ -21,16 +21,16 @@ func run_test[x: str] : void
     io.print_i64(build_end_time - build_start_time)
     io.println("ms")
 
-    for i in 0..array.size(run_blacklist)
+    for i in 0..run_blacklist->size
         if str.find(x, array.nth(run_blacklist, i)) != -1
-            io.print("\033[93mSkipping ")
+            io.print("Skipping ")
             io.print(x)
-            io.println("...\033[0m")
+            io.println("...")
             return 0
 
-    io.print("\033[95mRunning ")
+    io.print("Running ")
     io.print(x)
-    io.println("...\033[0m")
+    io.println("...")
 
     let run_cmd: str = "./out"
     if str.equal(x, "examples/curl.zr")
@@ -43,15 +43,15 @@ func run_test[x: str] : void
         os.exit(1)
     let run_end_time: i64 = os.time()
 
-    io.print("\033[92mRunning ")
+    io.print("Running ")
     io.print(x)
-    io.print(" took\033[0m ")
+    io.print(" took ")
     io.print_i64(run_end_time - run_start_time)
     io.println("ms")
 
 func run_directory[dir: str] : void
-    let files: array = os.listdir(dir)
-    for i in 0..array.size(files)
+    let files: Array = os.listdir(dir)
+    for i in 0..files->size
         run_test(str.concat(dir, array.nth(files, i)))
     
     array.free(files)

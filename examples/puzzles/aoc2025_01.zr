@@ -1,8 +1,8 @@
-func part1[lines: array] : void
+func part1[lines: Array] : void
     let password = 0
     let dial = 50
 
-    for i in 0..array.size(lines)
+    for i in 0..lines->size
         let line: str = array.nth(lines, i)
         let dir: u8 = line[0]
         let n: i64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
@@ -21,11 +21,11 @@ func part1[lines: array] : void
     
     io.println_i64(password)
 
-func part2[lines: array] : void
+func part2[lines: Array] : void
     let password = 0
     let dial = 50
 
-    for i in 0..array.size(lines)
+    for i in 0..lines->size
         let line: str = array.nth(lines, i)
         let dir: u8 = line[0]
         let n: i64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
@@ -47,7 +47,7 @@ func part2[lines: array] : void
     io.println_i64(password)
 
 func main[] : i64
-    let lines: array = io.read_file("input.txt") |> str.split("\n")
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
 
     part1(lines)
     part2(lines)

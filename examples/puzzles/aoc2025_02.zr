@@ -8,11 +8,11 @@ func part1_is_invalid_id[s: str] : bool
 
     return str.equal(first, second)
 
-func part1[ranges: array] : void
+func part1[ranges: Array] : void
     let sum = 0
 
-    for i in 0..array.size(ranges)
-        let parts: array = array.nth(ranges, i) |> str.split("-")
+    for i in 0..ranges->size
+        let parts: Array = array.nth(ranges, i) |> str.split("-")
         let start: i64 = array.nth(parts, 0) |> str.parse_i64()
         let end: i64 = array.nth(parts, 1) |> str.parse_i64()
 
@@ -39,11 +39,11 @@ func part2_is_invalid_id[s: str] : bool
                 return true
     return false
 
-func part2[ranges: array] : void
+func part2[ranges: Array] : void
     let sum = 0
 
-    for i in 0..array.size(ranges)
-        let parts: array = array.nth(ranges, i) |> str.split("-")
+    for i in 0..ranges->size
+        let parts: Array = array.nth(ranges, i) |> str.split("-")
         let start: i64 = array.nth(parts, 0) |> str.parse_i64()
         let end: i64 = array.nth(parts, 1) |> str.parse_i64()
 
@@ -54,7 +54,7 @@ func part2[ranges: array] : void
     io.println_i64(sum)
 
 func main[] : i64
-    let ranges: array = io.read_file("input.txt") |> str.split(",")
+    let ranges: Array = io.read_file("input.txt") |> str.split(",")
 
     part1(ranges)
     part2(ranges)

@@ -3,7 +3,7 @@ extern realloc
 extern free
 extern gethostbyname
 
-func dbg.panic[msg: str] : void
+func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
     (0 / 0) // crashes program which is kinda better since you get a gdb backtrace
@@ -90,7 +90,7 @@ func io.read_line[]: str
 func io.read_file[path: str] : str
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd <= 0
-        dbg.panic("failed to open file")
+        panic("failed to open file")
 
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
@@ -104,7 +104,7 @@ func io.read_file[path: str] : str
 func io.read_binary_file[path: str, len_ptr: ptr] : ptr
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        dbg.panic("failed to open file")
+        panic("failed to open file")
     
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
@@ -118,7 +118,7 @@ func io.read_binary_file[path: str, len_ptr: ptr] : ptr
 func io.write_file[path: str, content: str] : void
     let fd: ptr = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
-        dbg.panic("failed to open file")
+        panic("failed to open file")
 
     _builtin_syscall(SYS_write, fd, content, str.len(content))
     _builtin_syscall(SYS_close, fd)
@@ -195,7 +195,7 @@ func str.find[haystack: str, needle: str] : i64
 
 func str.substr[s: str, start: i64, length: i64] : str
     if start < 0 || length < 0 || start + length > str.len(s)
-        dbg.panic("str.substr out of bounds")
+        panic("str.substr out of bounds")
 
     let out: str = mem.alloc(length + 1)
     for i in 0..length
@@ -219,10 +219,10 @@ func str.trim[s: str] : str
 
     return str.substr(s, start, end - start + 1)
 
-func str.split[haystack: str, needle: str]: array
+func str.split[haystack: str, needle: str]: Array
     let haystack_len: i64 = str.len(haystack)
     let needle_len: i64 = str.len(needle)
-    let result: array = []
+    let result: Array = []
     
     if !needle_len
         if !haystack_len
@@ -410,7 +410,7 @@ func math.lcm[a: i64, b: i64] : i64
 
 func math.isqrt[n: i64] : i64
     if n < 0
-        dbg.panic("negative number passed to math.isqrt")
+        panic("negative number passed to math.isqrt")
     if n == 0 || n == 1
         return n
 
@@ -438,85 +438,74 @@ func math.is_prime[n: i64]: bool
         i = i + 6
     return true
 
-func array.new[] : array
-    // [ 8 bytes - ptr to data ] [ 8 bytes - size ] [ 8 bytes - capacity ]
-    let arr: ptr = mem.alloc(24)
-    mem.zero(arr, 24)
-    return arr
+struct Array
+    data: ptr
+    size: i64
+    capacity: i64
 
-func array.nth[xs: array, n: i64] : i64
-    if n < 0 || n >= array.size(xs)
-        dbg.panic("array.nth out of bounds")
-    let data: ptr = mem.read64(xs)
-    return mem.read64(data + n * 8)
+func array.new[] : Array
+    return new Array
 
-func array.set[xs: array, n: i64, x: i64] : void
-    if n < 0 || n >= array.size(xs)
-        dbg.panic("array.set out of bounds")
-    let data: ptr = mem.read64(xs)
-    mem.write64(data + n * 8, x)
+func array.nth[xs: Array, n: i64] : i64
+    if n < 0 || n >= xs->size
+        panic("array.nth out of bounds")
+    return mem.read64(xs->data + n * 8)
 
-func array.push[xs: array, x: i64] : void
-    let data: ptr = mem.read64(xs)
-    let capacity: i64 = mem.read64(xs + 8)
-    let size: i64 = mem.read64(xs + 16)
+func array.set[xs: Array, n: i64, x: i64] : void
+    if n < 0 || n >= xs->size
+        panic("array.set out of bounds")
+    mem.write64(xs->data + n * 8, x)
 
-    if size == capacity
+func array.push[xs: Array, x: i64] : void
+    if xs->size == xs->capacity
         let new_capacity = 4
-        if capacity != 0
-            new_capacity = capacity * 2
-        let new_data: ptr = realloc(data, new_capacity * 8)
-        mem.write64(xs, new_data)
-        mem.write64(xs + 8, new_capacity)
-        data = new_data
+        if xs->capacity != 0
+            new_capacity = xs->capacity * 2
+        xs->data = realloc(xs->data, new_capacity * 8)
+        xs->capacity = new_capacity
 
-    mem.write64(data + size * 8, x)
-    mem.write64(xs + 16, size + 1)
+    mem.write64(xs->data + xs->size * 8, x)
+    xs->size = xs->size + 1
 
-func array.size[xs: array] : i64
-    return mem.read64(xs + 16)
-
-func array.free[xs: array] : void
-    let data: ptr = mem.read64(xs)
-    if data != 0
-        mem.free(data)
+func array.free[xs: Array] : void
+    if xs->data != 0
+        mem.free(xs->data)
     mem.free(xs)
 
-func array.pop[xs: array] : i64
-    let size: i64 = array.size(xs)
-    if size == 0
-        dbg.panic("array.pop on empty array")
-    let x: i64 = array.nth(xs, size - 1)
-    mem.write64(xs + 16, size - 1)
+func array.pop[xs: Array] : i64
+    if xs->size == 0
+        panic("array.pop on empty array")
+    let x: i64 = array.nth(xs, xs->size - 1)
+    xs->size = xs->size - 1
     return x
 
-func array.slice[xs: array, start: i64, length: i64] : array
-    if start < 0 || length < 0 || start + length > array.size(xs)
-        dbg.panic("array.slice out of bounds")
+func array.slice[xs: Array, start: i64, length: i64] : Array
+    if start < 0 || length < 0 || start + length > xs->size
+        panic("array.slice out of bounds")
 
-    let new_array: array = []
+    let new_array: Array = []
     for i in 0..length
         array.push(new_array, array.nth(xs, start + i))
     return new_array
 
-func array.concat[a: array, b: array] : array
-    let new_array: array = []
-    for i in 0..array.size(a)
+func array.concat[a: Array, b: Array] : Array
+    let new_array: Array = []
+    for i in 0..a->size
         array.push(new_array, array.nth(a, i))
-    for i in 0..array.size(b)
+    for i in 0..b->size
         array.push(new_array, array.nth(b, i))
     return new_array
 
-func alg.quicksort[arr: array] : void
-    alg._do_quicksort(arr, 0, array.size(arr) - 1)
+func alg.quicksort[arr: Array] : void
+    alg._do_quicksort(arr, 0, arr->size - 1)
 
-func alg._do_quicksort[arr: array, low: i64, high: i64] : void
+func alg._do_quicksort[arr: Array, low: i64, high: i64] : void
     if low < high
         let i: i64 = alg._partition(arr, low, high)
         alg._do_quicksort(arr, low, i - 1)
         alg._do_quicksort(arr, i + 1, high)
 
-func alg._partition[arr: array, low: i64, high: i64] : i64
+func alg._partition[arr: Array, low: i64, high: i64] : i64
     let pivot: i64 = array.nth(arr, high)
     let i: i64 = low - 1
     for j in (low)..high
@@ -530,29 +519,28 @@ func alg._partition[arr: array, low: i64, high: i64] : i64
     array.set(arr, high, temp)
     return i + 1
 
-func alg.count[arr: array, item: i64] : i64
+func alg.count[arr: Array, item: i64] : i64
     let count = 0
-    let size: i64 = array.size(arr)
-    for i in 0..size
+    for i in 0..arr->size
         if array.nth(arr, i) == item
             count = count + 1
     return count
 
-func alg.map[arr: array, fn: ptr] : array
-    let out: array = []
-    for i in 0..array.size(arr)
+func alg.map[arr: Array, fn: ptr] : Array
+    let out: Array = []
+    for i in 0..arr->size
         array.push(out, fn(array.nth(arr, i)))
     return out
 
-func alg.filter[arr: array, fn: ptr] : array
-    let out: array = []
-    for i in 0..array.size(arr)
+func alg.filter[arr: Array, fn: ptr] : Array
+    let out: Array = []
+    for i in 0..arr->size
         if fn(array.nth(arr, i))
             array.push(out, array.nth(arr, i))
     return out
 
-func alg.reduce[arr: array, fn: ptr, acc: i64] : i64
-    for i in 0..array.size(arr)
+func alg.reduce[arr: Array, fn: ptr, acc: i64] : i64
+    for i in 0..arr->size
         acc = fn(acc, array.nth(arr, i))
     return acc
 
@@ -585,7 +573,7 @@ func os.shell[command: str] : i64
     let pid: i64 = _builtin_syscall(SYS_fork)
     if pid == 0
         // leaky but not sure where can i free it
-        let argv: array = ["sh", "-c", command, 0]
+        let argv: Array = ["sh", "-c", command, 0]
         _builtin_syscall(SYS_execve, "/bin/sh", mem.read64(argv), _builtin_environ())
         _builtin_syscall(SYS_exit, 1)
     else
@@ -600,12 +588,12 @@ func os.shell[command: str] : i64
         else
             return -(st & 0x7f)
 
-func os.listdir[path: str] : array
+func os.listdir[path: str] : Array
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
         return []
 
-    let files: array = []
+    let files: Array = []
     let buf: ptr = mem.alloc(1024)
     while true
         let n: i64 = _builtin_syscall(SYS_getdents64, fd, buf, 1024)

@@ -1,4 +1,4 @@
-func findmax[triangle: array, row: i64, col: i64] : i64
+func findmax[triangle: Array, row: i64, col: i64] : i64
     if row == 14
         return array.nth(array.nth(triangle, row), col)
 
@@ -8,7 +8,7 @@ func findmax[triangle: array, row: i64, col: i64] : i64
     return array.nth(array.nth(triangle, row), col) + math.max(left, right)
 
 func main[] : i64
-    let triangle: array = []
+    let triangle: Array = []
     array.push(triangle, [75])
     array.push(triangle, [95, 64])
     array.push(triangle, [17, 47, 82])

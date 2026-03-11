@@ -1,6 +1,6 @@
-func multiply[n: array, x: i64] : void
+func multiply[n: Array, x: i64] : void
     let carry = 0
-    for i in 0..array.size(n)
+    for i in 0..n->size
         let prod: i64 = array.nth(n, i) * x + carry
         array.set(n, i, prod % 10)
         carry = prod / 10
@@ -9,13 +9,13 @@ func multiply[n: array, x: i64] : void
         carry = carry / 10
 
 func main[] : i64
-    let n: array = [1]
+    let n: Array = [1]
 
     for i in 2..101
         multiply(n, i)
 
     let sum = 0
-    for i in 0..array.size(n)
+    for i in 0..n->size
         sum = sum + array.nth(n, i)
     
     io.println_i64(sum)

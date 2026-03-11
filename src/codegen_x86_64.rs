@@ -70,7 +70,7 @@ macro_rules! emit {
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 // TODO: currently they are all just 64 bit values
-static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "array"];
+static BUILTIN_TYPES: [&str; 6] = ["void", "u8", "i64", "str", "bool", "ptr"];
 
 pub struct CodegenX86_64<'a> {
     output: String,
@@ -226,7 +226,7 @@ _builtin_environ:
             Stmt::Function {
                 name,
                 params,
-                return_type: _,
+                return_type,
                 body,
                 exported,
             } => {
@@ -239,10 +239,17 @@ _builtin_environ:
                 emit!(&mut self.output, "    mov rbp, rsp");
                 emit!(&mut self.output, "    sub rsp, 256"); // TODO
 
+                if !self.is_valid_type_name(&return_type.lexeme) {
+                    return error!(
+                        &return_type.loc,
+                        "unrecognized type: ".to_owned() + &return_type.lexeme
+                    );
+                }
+
                 for (i, param) in params.iter().enumerate() {
                     if !self.is_valid_type_name(&param.var_type.lexeme) {
                         return error!(
-                            &name.loc,
+                            &param.var_name.loc,
                             "unrecognized type: ".to_owned() + &param.var_type.lexeme
                         );
                     }

@@ -1,7 +1,7 @@
-func part1[lines: array] : void
+func part1[lines: Array] : void
     let sum = 0
 
-    for i in 0..array.size(lines)
+    for i in 0..lines->size
         let line: str = array.nth(lines, i)
 
         let largest = 0
@@ -35,17 +35,17 @@ func part2_rec[bank: str, start: i64, remaining: i64] : i64
     else
         return largest
 
-func part2[lines: array] : void
+func part2[lines: Array] : void
     let sum = 0
 
-    for i in 0..array.size(lines)
+    for i in 0..lines->size
         let line: str = array.nth(lines, i)
 
         sum = sum + part2_rec(line, 0, 12)
     io.println_i64(sum)
 
 func main[] : i64
-    let lines: array = io.read_file("input.txt") |> str.split("\n")
+    let lines: Array = io.read_file("input.txt") |> str.split("\n")
 
     part1(lines)
     part2(lines)
