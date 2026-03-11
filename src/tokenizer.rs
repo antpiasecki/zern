@@ -242,8 +242,14 @@ impl Tokenizer {
                 self.add_token(TokenType::Char)?
             }
             '"' => {
-                while !self.eof() && self.peek() != '"' {
-                    if self.peek() == '\n' {
+                let start_loc = self.loc.clone();
+
+                while !self.eof() {
+                    if self.peek() == '\\' {
+                        self.advance();
+                    } else if self.peek() == '"' {
+                        break;
+                    } else if self.peek() == '\n' {
                         self.loc.line += 1;
                         self.loc.column = 1;
                     }
@@ -251,7 +257,10 @@ impl Tokenizer {
                 }
 
                 if self.eof() {
-                    return error!(self.loc, "unterminated string");
+                    return error!(
+                        self.loc,
+                        format!("unterminated string, started at {}", start_loc)
+                    );
                 }
 
                 self.advance();
@@ -402,6 +411,7 @@ impl Tokenizer {
                 Some('n') => result.push('\n'),
                 Some('r') => result.push('\r'),
                 Some('t') => result.push('\t'),
+                Some('0') => result.push('\0'),
                 Some('\\') => result.push('\\'),
                 Some('\'') => result.push('\''),
                 Some('"') => result.push('"'),
