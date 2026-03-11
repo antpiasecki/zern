@@ -23,6 +23,7 @@ pub enum TokenType {
     DoubleDot,
     ShiftLeft,
     ShiftRight,
+    Arrow,
 
     Equal,
     DoubleEqual,
@@ -155,10 +156,16 @@ impl Tokenizer {
             '+' => self.add_token(TokenType::Plus),
             '*' => self.add_token(TokenType::Star),
             ',' => self.add_token(TokenType::Comma),
-            '-' => self.add_token(TokenType::Minus),
             '%' => self.add_token(TokenType::Mod),
             '^' => self.add_token(TokenType::Xor),
             ':' => self.add_token(TokenType::Colon),
+            '-' => {
+                if self.match_char('>') {
+                    self.add_token(TokenType::Arrow)
+                } else {
+                    self.add_token(TokenType::Minus)
+                }
+            }
             '.' => {
                 if self.match_char('.') {
                     self.add_token(TokenType::DoubleDot)

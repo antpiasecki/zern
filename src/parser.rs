@@ -71,7 +71,8 @@ pub enum Expr {
     },
     Variable(Token),
     Assign {
-        name: Token,
+        left: Box<Expr>,
+        op: Token,
         value: Box<Expr>,
     },
     Call {
@@ -89,6 +90,10 @@ pub enum Expr {
         expr: Box<Expr>,
     },
     New(Token),
+    MemberAccess {
+        left: Box<Expr>,
+        field: Token,
+    },
 }
 
 pub struct Parser {
@@ -317,13 +322,11 @@ impl Parser {
             let equals = self.previous().clone();
             let value = self.assignment()?;
 
-            return match expr {
-                Expr::Variable(name) => Ok(Expr::Assign {
-                    name,
-                    value: Box::new(value),
-                }),
-                _ => return error!(equals.loc, "invalid assignment target"),
-            };
+            return Ok(Expr::Assign {
+                left: Box::new(expr),
+                op: equals,
+                value: Box::new(value),
+            });
         }
 
         Ok(expr)
@@ -506,6 +509,13 @@ impl Parser {
                     expr: Box::new(expr),
                     index: Box::new(index),
                 }
+            } else if self.match_token(&[TokenType::Arrow]) {
+                let field =
+                    self.consume(TokenType::Identifier, "expected field name after '->'")?;
+                expr = Expr::MemberAccess {
+                    left: Box::new(expr),
+                    field,
+                };
             } else {
                 break;
             }

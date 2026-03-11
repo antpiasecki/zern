@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Write};
 use crate::{
     analyzer::Analyzer,
     parser::{Expr, Stmt},
-    tokenizer::{TokenType, ZernError, error},
+    tokenizer::{Token, TokenType, ZernError, error},
 };
 
 struct Var {
@@ -245,6 +245,13 @@ _builtin_environ:
                 emit!(&mut self.output, "    sub rsp, 256"); // TODO
 
                 for (i, param) in params.iter().enumerate() {
+                    if !self.is_valid_type_name(&param.var_type.lexeme) {
+                        return error!(
+                            &name.loc,
+                            "unrecognized type: ".to_owned() + &param.var_type.lexeme
+                        );
+                    }
+
                     let offset = env
                         .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
                     if let Some(reg) = REGISTERS.get(i) {
@@ -511,21 +518,48 @@ _builtin_environ:
                     );
                 }
             }
-            Expr::Assign { name, value } => {
+            Expr::Assign { left, op, value } => {
                 self.compile_expr(env, value)?;
 
-                // TODO: move to analyzer
-                let var = match env.get_var(&name.lexeme) {
-                    Some(x) => x,
-                    None => {
-                        return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
+                match left.as_ref() {
+                    Expr::Variable(name) => {
+                        // TODO: move to analyzer
+                        let var = match env.get_var(&name.lexeme) {
+                            Some(x) => x,
+                            None => {
+                                return error!(
+                                    name.loc,
+                                    format!("undefined variable: {}", &name.lexeme)
+                                );
+                            }
+                        };
+                        emit!(
+                            &mut self.output,
+                            "    mov QWORD [rbp-{}], rax",
+                            var.stack_offset,
+                        );
                     }
+                    Expr::Index { expr, index } => {
+                        emit!(&mut self.output, "    push rax");
+                        self.compile_expr(env, expr)?;
+                        emit!(&mut self.output, "    push rax");
+                        self.compile_expr(env, index)?;
+                        emit!(&mut self.output, "    pop rbx");
+                        emit!(&mut self.output, "    add rbx, rax");
+                        emit!(&mut self.output, "    pop rax");
+                        emit!(&mut self.output, "    mov BYTE [rbx], al");
+                    }
+                    Expr::MemberAccess { left, field } => {
+                        emit!(&mut self.output, "    push rax");
+
+                        let offset = self.get_field_offset(env, left, field)?;
+
+                        self.compile_expr(env, left)?;
+                        emit!(&mut self.output, "    pop rbx");
+                        emit!(&mut self.output, "    mov QWORD [rax+{}], rbx", offset);
+                    }
+                    _ => return error!(&op.loc, "invalid assignment target"),
                 };
-                emit!(
-                    &mut self.output,
-                    "    mov QWORD [rbp-{}], rax",
-                    var.stack_offset,
-                );
             }
             Expr::Call {
                 callee,
@@ -637,10 +671,13 @@ _builtin_environ:
             Expr::New(struct_name) => {
                 let struct_fields = &self.analyzer.structs[&struct_name.lexeme];
 
-                let memory_size = struct_fields.len() * 8;
-
-                emit!(&mut self.output, "    mov rdi, {}", memory_size);
-                emit!(&mut self.output, "    call malloc");
+                emit!(&mut self.output, "    mov rdi, {}", struct_fields.len() * 8);
+                emit!(&mut self.output, "    call mem.alloc");
+            }
+            Expr::MemberAccess { left, field } => {
+                let offset = self.get_field_offset(env, left, field)?;
+                self.compile_expr(env, left)?;
+                emit!(&mut self.output, "    mov rax, QWORD [rax+{}]", offset);
             }
         }
         Ok(())
@@ -654,5 +691,41 @@ _builtin_environ:
             return true;
         }
         false
+    }
+
+    fn get_field_offset(
+        &self,
+        env: &mut Env,
+        left: &Expr,
+        field: &Token,
+    ) -> Result<usize, ZernError> {
+        let struct_name = match left {
+            Expr::Variable(name) => match env.get_var(&name.lexeme) {
+                Some(v) => v.var_type.clone(),
+                None => {
+                    return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
+                }
+            },
+            _ => {
+                return error!(
+                    &field.loc,
+                    "cannot determine struct type for member assignment"
+                );
+            }
+        };
+
+        let fields = match self.analyzer.structs.get(&struct_name) {
+            Some(f) => f,
+            None => {
+                return error!(&field.loc, format!("unknown struct type: {}", struct_name));
+            }
+        };
+
+        let offset = match fields.get(&field.lexeme) {
+            Some(o) => *o,
+            None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
+        };
+
+        Ok(offset)
     }
 }

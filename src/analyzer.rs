@@ -150,7 +150,8 @@ impl Analyzer {
                 self.analyze_expr(right)?;
             }
             Expr::Variable(_) => {}
-            Expr::Assign { name: _, value } => {
+            Expr::Assign { left, op: _, value } => {
+                self.analyze_expr(left)?;
                 self.analyze_expr(value)?;
             }
             Expr::Call {
@@ -202,6 +203,9 @@ impl Analyzer {
                 self.analyze_expr(expr)?;
             }
             Expr::New(_) => {}
+            Expr::MemberAccess { left, field: _ } => {
+                self.analyze_expr(left)?;
+            }
         }
         Ok(())
     }
