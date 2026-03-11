@@ -44,11 +44,11 @@ func part2[lines: array] : void
         for y in 1..str.len(array.nth(lines, x))-1
             if array.nth(lines, x)[y] == 'A'
                 let s: str = mem.alloc(5)
-                str.set(s, 0, array.nth(lines, x - 1)[y - 1])
-                str.set(s, 1, array.nth(lines, x + 1)[y - 1])
-                str.set(s, 2, array.nth(lines, x + 1)[y + 1])
-                str.set(s, 3, array.nth(lines, x - 1)[y + 1])
-                str.set(s, 4, 0)
+                s[0] = array.nth(lines, x - 1)[y - 1]
+                s[1] = array.nth(lines, x + 1)[y - 1]
+                s[2] = array.nth(lines, x + 1)[y + 1]
+                s[3] = array.nth(lines, x - 1)[y + 1]
+                s[4] = 0
 
                 if str.equal(s, "MSSM") || str.equal(s, "SMMS") || str.equal(s, "MMSS") || str.equal(s, "SSMM")
                     out = out + 1

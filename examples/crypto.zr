@@ -32,7 +32,7 @@ func main[] : i64
 
     let base_point: ptr = mem.alloc(32)
     mem.zero(base_point, 32)
-    mem.write8(base_point, 9)
+    base_point[0] = 9
 
     let alice_private: ptr = str.hex_decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
     io.print("A_priv: ")

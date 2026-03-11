@@ -21,7 +21,7 @@ func mem.zero_and_free[x: ptr, size: i64] : void
 
 func mem.zero[x: ptr, size: i64] : void
     for i in 0..size
-        mem.write8(x + i, 0)
+        x[i] = 0
 
 func mem.read8[x: ptr] : u8
     return x[0]
@@ -35,14 +35,11 @@ func mem.read32[x: ptr] : i64
 func mem.read64[x: ptr] : i64
     return _builtin_read64(x)
 
-func mem.write8[x: ptr, d: u8] : void
-    _builtin_set8(x, d)
-
 func mem.write32[x: ptr, d: i64] : void
-    mem.write8(x, d & 0xff)
-    mem.write8(x + 1, (d >> 8) & 0xff)
-    mem.write8(x + 2, (d >> 16) & 0xff)
-    mem.write8(x + 3, (d >> 24) & 0xff)
+    x[0] = d & 0xff
+    x[1] = (d >> 8) & 0xff
+    x[2] = (d >> 16) & 0xff
+    x[3] = (d >> 24) & 0xff
 
 func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
@@ -81,7 +78,7 @@ func io.read_line[]: str
     let n: i64 = _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
     if n < 0
         return ""
-    str.set(buffer, n, 0)
+    buffer[n] = 0
     return buffer
 
 func io.read_file[path: str]: str
@@ -94,7 +91,7 @@ func io.read_file[path: str]: str
 
     let buffer: str = mem.alloc(size + 1)
     let n: i64 = _builtin_syscall(SYS_read, fd, buffer, size)
-    str.set(buffer, n, 0)
+    buffer[n] = 0
     _builtin_syscall(SYS_close, fd)
     return buffer
 
@@ -116,11 +113,8 @@ func str.copy[s: str] : str
     let size: i64 = str.len(s) + 1
     let dup: str = mem.alloc(size)
     for i in 0..size
-        str.set(dup, i, s[i])
+        dup[i] = s[i]
     return dup
-
-func str.set[s: str, n: i64, c: u8] : void
-    mem.write8(s + n, c)
 
 func str.equal[a: str, b: str] : bool
     let i = 0
@@ -156,10 +150,10 @@ func str.concat[a: str, b: str] : str
     let b_len: i64 = str.len(b)
     let out: str = mem.alloc(a_len + b_len + 1)
     for i in 0..a_len
-        str.set(out, i, a[i])
+        out[i] = a[i]
     for i in 0..b_len
-        str.set(out, a_len + i, b[i])
-    str.set(out, a_len + b_len, 0)
+        out[a_len + i] = b[i]
+    out[a_len + b_len] = 0
     return out
 
 func str.find[haystack: str, needle: str] : i64
@@ -185,8 +179,8 @@ func str.substr[s: str, start: i64, length: i64] : str
 
     let out: str = mem.alloc(length + 1)
     for i in 0..length
-        str.set(out, i, s[start + i])
-    str.set(out, length, 0)
+        out[i] = s[start + i]
+    out[length] = 0
     return out
 
 func str.trim[s: str] : str
@@ -242,8 +236,8 @@ func str.reverse[s: str] : str
     let out: str = mem.alloc(len + 1)
 
     for i in 0..len
-        str.set(out, i, s[len - i - 1])
-    str.set(out, len, 0)
+        out[i] = s[len - i - 1]
+    out[len] = 0
     return out
 
 // not sure this covers all wacky edge cases
@@ -258,21 +252,21 @@ func str.from_i64[n: i64] : str
     let i = 0
     while n > 0
         let d: u8 = n % 10
-        str.set(buf, i, '0' + d)
+        buf[i] = '0' + d
         n = n / 10
         i = i + 1
     if neg
-        str.set(buf, i, '-')
+        buf[i] = '-'
         i = i + 1
-    str.set(buf, i, 0)
+    buf[i] = 0
     let s: str = str.reverse(buf)
     mem.free(buf)
     return s
 
 func str.from_char[c: u8] : str
     let s: str = mem.alloc(2)
-    str.set(s, 0, c)
-    str.set(s, 1, 0)
+    s[0] = c
+    s[1] = 0
     return s
 
 func str.parse_i64[s: str] : i64
@@ -301,11 +295,11 @@ func str.hex_encode[s: str, s_len: i64] : str
     for i in 0..s_len
         let high: u8 = (s[i] >> 4) & 15
         let low: u8 = s[i] & 15
-        str.set(out, j, hex_chars[high])
-        str.set(out, j + 1, hex_chars[low])
+        out[j] = hex_chars[high]
+        out[j + 1] = hex_chars[low]
         j = j + 2
 
-    str.set(out, j, 0)
+    out[j] = 0
     return out
 
 func str._hex_digit_to_int[d: u8] : i64
@@ -322,11 +316,11 @@ func str.hex_decode[s: str] : str
     let out: str = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
-        str.set(out, j, str._hex_digit_to_int(s[i]) * 16 + str._hex_digit_to_int(s[i + 1]))
+        out[j] = str._hex_digit_to_int(s[i]) * 16 + str._hex_digit_to_int(s[i + 1])
         i = i + 2
         j = j + 1
 
-    str.set(out, j, 0)
+    out[j] = 0
     return out
 
 func math.gcd[a: i64, b: i64] : i64
@@ -606,14 +600,14 @@ func net.listen[packed_host: i64, port: i64] : i64
 
     let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
-    mem.write8(sa + 0, 2)
-    mem.write8(sa + 1, 0)
-    mem.write8(sa + 2, (port >> 8) & 255)
-    mem.write8(sa + 3, port & 255)
-    mem.write8(sa + 4, (packed_host >> 24) & 255)
-    mem.write8(sa + 5, (packed_host >> 16) & 255)
-    mem.write8(sa + 6, (packed_host >> 8) & 255)
-    mem.write8(sa + 7, packed_host & 255)
+    sa[0] = 2
+    sa[1] = 0
+    sa[2] = (port >> 8) & 255
+    sa[3] = port & 255
+    sa[4] = (packed_host >> 24) & 255
+    sa[5] = (packed_host >> 16) & 255
+    sa[6] = (packed_host >> 8) & 255
+    sa[7] = packed_host & 255
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         _builtin_syscall(SYS_close, s)
@@ -640,13 +634,13 @@ func net.connect[host: str, port: i64] : i64
 
     let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
-    mem.write8(sa + 0, 2)
-    mem.write8(sa + 2, (port >> 8) & 255)
-    mem.write8(sa + 3, port & 255)
-    mem.write8(sa + 4, ip_ptr[0])
-    mem.write8(sa + 5, ip_ptr[1])
-    mem.write8(sa + 6, ip_ptr[2])
-    mem.write8(sa + 7, ip_ptr[3])
+    sa[0] = 2
+    sa[2] = (port >> 8) & 255
+    sa[3] = port & 255
+    sa[4] = ip_ptr[0]
+    sa[5] = ip_ptr[1]
+    sa[6] = ip_ptr[2]
+    sa[7] = ip_ptr[3]
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         mem.free(sa)

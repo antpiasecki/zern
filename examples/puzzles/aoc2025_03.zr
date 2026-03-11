@@ -8,9 +8,9 @@ func part1[lines: array] : void
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
                 let s: str = mem.alloc(3)
-                str.set(s, 0, line[j])
-                str.set(s, 1, line[k])
-                str.set(s, 2, 0)
+                s[0] = line[j]
+                s[1] = line[k]
+                s[2] = 0
                 let n: i64 = str.parse_i64(s)
                 if n > largest
                     largest = n

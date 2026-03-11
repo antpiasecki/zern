@@ -16,13 +16,13 @@ func main[] : i64
         else if op == '<'
             p = p - 1
         else if op == '+'
-            str.set(memory, p, memory[p] + 1)
+            memory[p] = memory[p] + 1
         else if op == '-'
-            str.set(memory, p, memory[p] - 1)
+            memory[p] = memory[p] - 1
         else if op == '.'
             io.print_char(memory[p])
         else if op == ','
-            str.set(memory, p, io.read_char())
+            memory[p] = io.read_char()
         else if op == '['
             if !memory[p]
                 i = i + 1
