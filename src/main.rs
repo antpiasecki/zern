@@ -70,11 +70,6 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         include_str!("std/syscalls.zr").into(),
     )?;
     compile_file_to(&mut codegen, "std.zr", include_str!("std/std.zr").into())?;
-    compile_file_to(
-        &mut codegen,
-        "crypto.zr",
-        include_str!("std/crypto.zr").into(),
-    )?;
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
@@ -132,6 +127,11 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    if !args.use_gcc && !args.cflags.is_empty() {
+        eprintln!("You can't set CFLAGS if you're not using gcc. Add the -m flag.");
+        process::exit(1);
+    }
 
     if let Err(err) = compile_file(args) {
         eprintln!("{}", err);
