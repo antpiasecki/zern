@@ -75,8 +75,9 @@ func mem._coalesce[] : void
                 if !cur->next
                     mem.write64(_builtin_heap_tail(), 0)
             
-            _builtin_syscall(SYS_munmap, cur, block_total)
-            cur = cur->next
+            let saved_next: mem.Block = cur->next
+            _builtin_syscall(11, cur, block_total)
+            cur = saved_next
             continue
             
         prev = cur
