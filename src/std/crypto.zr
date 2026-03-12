@@ -84,10 +84,8 @@ func crypto.blake2b.hash[outlen: i64, key: ptr, keylen: i64, input: ptr, inputle
     mem.write64(h, mem.read64(h) ^ (0x01010000 ^ ((keylen << 8) ^ outlen)))
 
     if keylen > 0
-        for i in 0..keylen
-            block[i] = key[i]
-        for i in (keylen)..128
-            block[i] = 0
+        mem.zero(block, 128)
+        mem.copy(key, block, keylen)
         c = 128
     else
         c = 0
@@ -211,8 +209,7 @@ func crypto.xchacha20._stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
 
     let nonce12: ptr = mem.alloc(12)
     mem.zero(nonce12, 12)
-    for i in 0..8
-        nonce12[i + 4] = nonce[16 + i]
+    mem.copy(nonce + 16, nonce12 + 4, 8)
 
     let blocknum = 0
     let remaining: i64 = len
@@ -223,8 +220,7 @@ func crypto.xchacha20._stream[key: ptr, nonce: ptr, out: ptr, len: i64] : void
         let take = 64
         if remaining < 64
             take = remaining
-        for i in 0..take
-            out[len - remaining + i] = block[i]
+        mem.copy(block, out + len - remaining, take)
         remaining = remaining - take
         blocknum = blocknum + 1
     mem.zero_and_free(block, 64)
@@ -351,8 +347,7 @@ func crypto.x25519.scalarmult[scalar: ptr, point: ptr] : ptr
     mem.write64(magic + 8, 1)
 
     // copy and clamp scalar
-    for i in 0..32
-        clamped[i] = scalar[i]
+    mem.copy(scalar, clamped, 32)
     clamped[0] = clamped[0] & 0xf8
     clamped[31] = (clamped[31] & 0x7f) | 0x40
 
