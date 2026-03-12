@@ -1,19 +1,128 @@
-extern malloc
-extern realloc
-extern free
-extern gethostbyname
-
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
     (0 / 0) // crashes program which is kinda better since you get a gdb backtrace
     os.exit(1)
 
-func mem.alloc[x: i64] : ptr
-    return malloc(x)
+const MEM_BLOCK_SIZE = 24
+
+struct mem.Block
+    size: i64
+    free: bool
+    next: mem.Block
+
+func mem._align[x: i64] : i64
+    return (x + 7) & -8
+
+func mem._split_block[blk: mem.Block, needed: i64] : void
+    if blk->size >= needed + MEM_BLOCK_SIZE + 8
+        let new_blk: mem.Block = blk + MEM_BLOCK_SIZE + needed
+        new_blk->size = blk->size - needed - MEM_BLOCK_SIZE
+        new_blk->free = true
+        new_blk->next = blk->next
+
+        blk->size = needed
+        blk->next = new_blk
+
+        if mem.read64(_builtin_heap_tail()) == blk
+            mem.write64(_builtin_heap_tail(), new_blk)
+
+func mem._request_space[size: i64] : mem.Block
+    let blk: mem.Block = _builtin_syscall(SYS_brk, 0)
+    let new_brk: ptr = blk + MEM_BLOCK_SIZE + size
+    let result: ptr = _builtin_syscall(SYS_brk, new_brk)
+    if result != new_brk
+        return 0
+
+    blk->size = size
+    blk->free = false
+    blk->next = 0
+
+    let tail: mem.Block = mem.read64(_builtin_heap_tail())
+    if tail
+        tail->next = blk
+
+    mem.write64(_builtin_heap_tail(), blk)
+    return blk
+
+func mem._coalesce[] : void
+    let cur: mem.Block = mem.read64(_builtin_heap_head())
+    while cur && cur->next
+        let next: mem.Block = cur->next
+        if cur->free && next->free
+            cur->size = cur->size + MEM_BLOCK_SIZE + next->size
+            cur->next = next->next
+            if !cur->next
+                mem.write64(_builtin_heap_tail(), cur)
+        else
+            cur = cur->next
+
+func mem.alloc[size: i64] : ptr
+    if size == 0
+        return 0
+
+    size = mem._align(size)
+
+    let cur: mem.Block = mem.read64(_builtin_heap_head())
+    while cur
+        if cur->free && cur->size >= size
+            mem._split_block(cur, size)
+            cur->free = false
+            return cur + MEM_BLOCK_SIZE
+        cur = cur->next
+    
+    let blk: mem.Block = mem._request_space(size)
+    if !blk
+        return 0
+    
+    if !mem.read64(_builtin_heap_head())
+        mem.write64(_builtin_heap_head(), blk)
+    
+    return blk + MEM_BLOCK_SIZE
 
 func mem.free[x: ptr] : void
-    free(x)
+    if !x
+        return 0
+    
+    let blk: mem.Block = x - MEM_BLOCK_SIZE
+    blk->free = true
+    mem._coalesce()
+
+func mem.realloc[x: ptr, new_size: i64] : ptr
+    if !x
+        return mem.alloc(new_size)
+
+    if new_size == 0
+        mem.free(x)
+        return 0
+
+    new_size = mem._align(new_size)
+
+    let blk: mem.Block = x - MEM_BLOCK_SIZE
+    if blk->size >= new_size
+        mem._split_block(blk, new_size)
+        return x
+
+    let next: mem.Block = blk->next
+    if next && next->free
+        let combined: i64 = blk->size + MEM_BLOCK_SIZE + next->size
+        if combined >= new_size
+            blk->size = combined
+            blk->next = next->next
+            if !blk->next
+                mem.write64(_builtin_heap_tail(), blk)
+            mem._split_block(blk, new_size)
+            return x
+
+    let new_ptr: ptr = mem.alloc(new_size)
+    if !new_ptr
+        return 0
+
+    for i in 0..blk->size
+        new_ptr[i] = x[i]
+
+    mem.free(x)
+    return new_ptr
 
 func mem.zero_and_free[x: ptr, size: i64] : void
     mem.zero(x, size)
@@ -465,7 +574,7 @@ func array.push[xs: Array, x: i64] : void
         let new_capacity = 4
         if xs->capacity != 0
             new_capacity = xs->capacity * 2
-        xs->data = realloc(xs->data, new_capacity * 8)
+        xs->data = mem.realloc(xs->data, new_capacity * 8)
         xs->capacity = new_capacity
 
     mem.write64(xs->data + xs->size * 8, x)
@@ -661,13 +770,7 @@ func net.listen[packed_host: i64, port: i64] : i64
     
     return s
 
-func net.connect[host: str, port: i64] : i64
-    let he: ptr = gethostbyname(host)
-    if he == 0
-        return -1
-
-    let ip_ptr: ptr = mem.read64(mem.read64(he + 24))
-
+func net.connect[packed_host: i64, port: i64] : i64
     let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
     if s < 0
         return -1
@@ -675,12 +778,13 @@ func net.connect[host: str, port: i64] : i64
     let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
     sa[0] = 2
+    sa[1] = 0
     sa[2] = (port >> 8) & 255
     sa[3] = port & 255
-    sa[4] = ip_ptr[0]
-    sa[5] = ip_ptr[1]
-    sa[6] = ip_ptr[2]
-    sa[7] = ip_ptr[3]
+    sa[4] = (packed_host >> 24) & 255
+    sa[5] = (packed_host >> 16) & 255
+    sa[6] = (packed_host >> 8) & 255
+    sa[7] = packed_host & 255
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         mem.free(sa)

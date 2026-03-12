@@ -106,6 +106,20 @@ impl<'a> CodegenX86_64<'a> {
             "section .note.GNU-stack
     db 0
 
+section .bss
+    _heap_head: resq 1
+    _heap_tail: resq 1
+
+section .text._builtin_heap_head
+_builtin_heap_head:
+    lea     rax, [rel _heap_head]
+    ret
+
+section .text._builtin_heap_tail
+_builtin_heap_tail:
+    lea     rax, [rel _heap_tail]
+    ret
+
 section .text._builtin_read64
 _builtin_read64:
     mov rax, qword [rdi]

@@ -7,7 +7,7 @@ A very cool language
 * Compiles to x86_64 Assembly
 * Growing [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
 * Produces tiny static executables (~30KB with musl)
-* ~~No libc required~~ (SOON; still used for memory allocation and DNS resolution)
+* No libc required!
 * Sometimes works
 * Has the pipe operator
 
