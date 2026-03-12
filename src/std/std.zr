@@ -148,7 +148,7 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
     if !new_ptr
         return 0
 
-    mem.copy(x, new_ptr, blk->size)
+    mem.copy(x, new_ptr, math.min(blk->size, new_size))
 
     mem.free(x)
     return new_ptr
@@ -236,11 +236,7 @@ func io.read_line[]: str
     return buffer
 
 func io.file_exists[path: str] : bool
-    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
-    if fd >= 0
-        _builtin_syscall(SYS_close, fd)
-        return true
-    return false
+    return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
 func io.read_file[path: str] : str
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
@@ -275,7 +271,7 @@ func io.read_binary_file[path: str] : io.Buffer
     return buffer
 
 func io.write_file[path: str, content: str] : void
-    let fd: ptr = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
         panic("failed to open file") // TODO
 
@@ -283,7 +279,7 @@ func io.write_file[path: str, content: str] : void
     _builtin_syscall(SYS_close, fd)
 
 func io.write_binary_file[path: str, content: ptr, size: i64] : void
-    let fd: ptr = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
+    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
         panic("failed to open file") // TODO
 
@@ -296,7 +292,7 @@ func str.len[s: str] : i64
         i = i + 1
     return i
 
-func str.copy[s: str] : str
+func str.make_copy[s: str] : str
     let size: i64 = str.len(s) + 1
     let dup: str = mem.alloc(size)
     mem.copy(s, dup, size)
@@ -429,7 +425,10 @@ func str.reverse[s: str] : str
 // not sure this covers all the wacky edge cases
 func str.from_i64[n: i64] : str
     if n == 0
-        return str.copy("0")
+        let out: str = mem.alloc(2)
+        out[0] = '0'
+        out[1] = 0
+        return out
 
     let neg: bool = n < 0
     if neg
@@ -717,9 +716,12 @@ func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
 
 func os.sleep[ms: i64] : void
+    if ms < 0
+        panic("negative time passed to os.sleep")
     // TODO: we really shouldnt need a heap allocation to sleep
     let req: os.Timeval = new os.Timeval
     req->tv_sec = ms / 1000
+    // yes, we should have a os.Timespec with tv_nsec but this works for now
     req->tv_usec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
     mem.free(req)
@@ -750,7 +752,7 @@ func os.time[] : i64
     return out
 
 // voodoo magic
-func os.shell[command: str] : i64
+func os.run_shell_command[command: str] : i64
     let pid: i64 = _builtin_syscall(SYS_fork)
     if pid == 0
         let argv: Array = ["sh", "-c", command, 0] // gets freed after child process exits
@@ -768,7 +770,7 @@ func os.shell[command: str] : i64
         else
             return -(st & 0x7f)
 
-func os.listdir[path: str] : Array
+func os.list_directory[path: str] : Array
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
         return []
@@ -794,21 +796,26 @@ func os.listdir[path: str] : Array
                         if name[2] == 0
                             skip = true
                 if !skip
-                    array.push(files, str.copy(name))
+                    array.push(files, str.make_copy(name))
             pos = pos + len
 
     mem.free(buf)
     _builtin_syscall(SYS_close, fd)
     return files
 
+const AF_INET = 2
+const SOCK_STREAM = 1
+const SOCK_DGRAM = 2
+const SOL_SOCKET = 1
+const SO_REUSEADDR = 4
+
 func net.listen[packed_host: i64, port: i64] : i64
-    let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
+    let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
         return -1
     
-    // setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     let optval = 1
-    if _builtin_syscall(SYS_setsockopt, s, 1, 2, ^optval, 8) < 0
+    if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
         _builtin_syscall(SYS_close, s)
         return -1
 
@@ -837,13 +844,13 @@ func net.listen[packed_host: i64, port: i64] : i64
 
 // TODO: resolve DNS
 func net.connect[packed_host: i64, port: i64] : i64
-    let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
+    let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
         return -1
 
     let sa: ptr = mem.alloc(16)
     mem.zero(sa, 16)
-    sa[0] = 2
+    sa[0] = AF_INET
     sa[1] = 0
     sa[2] = (port >> 8) & 255
     sa[3] = port & 255
@@ -863,7 +870,7 @@ func net.connect[packed_host: i64, port: i64] : i64
 func net.accept[s: i64] : i64
     return _builtin_syscall(SYS_accept, s, 0, 0)
 
-func net.send[s: i64, data: str, size: i64] : void
+func net.send[s: i64, data: ptr, size: i64] : void
     _builtin_syscall(SYS_sendto, s, data, size, 0, 0, 0)
 
 func net.read[s: i64, buffer: ptr, size: i64] : i64
@@ -874,3 +881,56 @@ func net.close[s: i64] : void
 
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
+
+struct net.UDPSocket
+    fd: i64
+    addr: ptr
+
+struct net.UDPPacket
+    buffer: ptr
+    source_addr: ptr
+    size: i64
+
+func net.create_udp_socket[packed_host: i64, port: i64] : net.UDPSocket
+    let s: net.UDPSocket = new net.UDPSocket
+
+    s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
+    if s->fd < 0
+        mem.free(s)
+        return 0
+
+    s->addr = mem.alloc(16)
+    mem.zero(s->addr, 16)
+    s->addr[0] = AF_INET
+    s->addr[1] = 0
+    s->addr[2] = (port >> 8) & 255
+    s->addr[3] = port & 255
+    s->addr[4] = (packed_host >> 24) & 255
+    s->addr[5] = (packed_host >> 16) & 255
+    s->addr[6] = (packed_host >> 8) & 255
+    s->addr[7] = packed_host & 255
+    return s
+
+func net.udp_send[s: net.UDPSocket, data: ptr, size: i64] : void
+    _builtin_syscall(SYS_sendto, s->fd, data, size, 0, s->addr, 16)
+
+func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
+    let pkt: net.UDPPacket = new net.UDPPacket
+    pkt->buffer = mem.alloc(size)
+    pkt->size = size
+    pkt->source_addr = mem.alloc(16)
+    mem.zero(pkt->source_addr, 16)
+
+    let addrlen: i64 = 16
+    _builtin_syscall(SYS_recvfrom, s->fd, pkt->buffer, size, 0, pkt->source_addr, ^addrlen)
+    return pkt
+
+func net.udp_close_and_free[s: net.UDPSocket] : void
+    _builtin_syscall(SYS_close, s->fd)
+    mem.free(s->addr)
+    mem.free(s)
+
+func net.udp_free_packet[pkt: net.UDPPacket] : void
+    mem.free(pkt->buffer)
+    mem.free(pkt->source_addr)
+    mem.free(pkt)
