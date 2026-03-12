@@ -228,7 +228,7 @@ func io.read_line[]: str
 func io.read_file[path: str] : str
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd <= 0
-        panic("failed to open file")
+        panic("failed to open file") // TODO
 
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
@@ -246,7 +246,7 @@ struct io.Buffer
 func io.read_binary_file[path: str] : io.Buffer
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        panic("failed to open file")
+        panic("failed to open file") // TODO
     
     let buffer: io.Buffer = new io.Buffer
     buffer->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
@@ -260,7 +260,7 @@ func io.read_binary_file[path: str] : io.Buffer
 func io.write_file[path: str, content: str] : void
     let fd: ptr = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
-        panic("failed to open file")
+        panic("failed to open file") // TODO
 
     _builtin_syscall(SYS_write, fd, content, str.len(content))
     _builtin_syscall(SYS_close, fd)
@@ -402,7 +402,7 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-// not sure this covers all wacky edge cases
+// not sure this covers all the wacky edge cases
 func str.from_i64[n: i64] : str
     if n == 0
         return str.copy("0")
@@ -588,17 +588,17 @@ struct Array
 func array.new[] : Array
     return new Array
 
-func array.nth[xs: Array, n: i64] : i64
+func array.nth[xs: Array, n: i64] : any
     if n < 0 || n >= xs->size
         panic("array.nth out of bounds")
     return mem.read64(xs->data + n * 8)
 
-func array.set[xs: Array, n: i64, x: i64] : void
+func array.set[xs: Array, n: i64, x: any] : void
     if n < 0 || n >= xs->size
         panic("array.set out of bounds")
     mem.write64(xs->data + n * 8, x)
 
-func array.push[xs: Array, x: i64] : void
+func array.push[xs: Array, x: any] : void
     if xs->size == xs->capacity
         let new_capacity = 4
         if xs->capacity != 0
@@ -614,10 +614,10 @@ func array.free[xs: Array] : void
         mem.free(xs->data)
     mem.free(xs)
 
-func array.pop[xs: Array] : i64
+func array.pop[xs: Array] : any
     if xs->size == 0
         panic("array.pop on empty array")
-    let x: i64 = array.nth(xs, xs->size - 1)
+    let x: any = array.nth(xs, xs->size - 1)
     xs->size = xs->size - 1
     return x
 
@@ -661,7 +661,7 @@ func alg._partition[arr: Array, low: i64, high: i64] : i64
     array.set(arr, high, temp)
     return i + 1
 
-func alg.count[arr: Array, item: i64] : i64
+func alg.count[arr: Array, item: any] : i64
     let count = 0
     for i in 0..arr->size
         if array.nth(arr, i) == item
@@ -681,7 +681,7 @@ func alg.filter[arr: Array, fn: ptr] : Array
             array.push(out, array.nth(arr, i))
     return out
 
-func alg.reduce[arr: Array, fn: ptr, acc: i64] : i64
+func alg.reduce[arr: Array, fn: ptr, acc: any] : any
     for i in 0..arr->size
         acc = fn(acc, array.nth(arr, i))
     return acc
@@ -709,15 +709,15 @@ struct os.Timeval
 func os.time[] : i64
     let tv: os.Timeval = new os.Timeval
     _builtin_syscall(SYS_gettimeofday, tv, 0)
+    let out: i64 = tv->tv_sec * 1000 + tv->tv_usec / 1000
     mem.free(tv)
-    return tv->tv_sec * 1000 + tv->tv_usec / 1000
+    return out
 
 // voodoo magic
 func os.shell[command: str] : i64
     let pid: i64 = _builtin_syscall(SYS_fork)
     if pid == 0
-        // leaky but not sure where can i free it
-        let argv: Array = ["sh", "-c", command, 0]
+        let argv: Array = ["sh", "-c", command, 0] // gets freed after child process exits
         _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
         _builtin_syscall(SYS_exit, 1)
     else
@@ -799,6 +799,7 @@ func net.listen[packed_host: i64, port: i64] : i64
     
     return s
 
+// TODO: resolve DNS
 func net.connect[packed_host: i64, port: i64] : i64
     let s: i64 = _builtin_syscall(SYS_socket, 2, 1, 0)
     if s < 0

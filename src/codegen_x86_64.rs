@@ -70,7 +70,7 @@ macro_rules! emit {
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 // TODO: currently they are all just 64 bit values
-static BUILTIN_TYPES: [&str; 6] = ["void", "u8", "i64", "str", "bool", "ptr"];
+static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "any"];
 
 pub struct CodegenX86_64<'a> {
     output: String,
@@ -100,7 +100,7 @@ impl<'a> CodegenX86_64<'a> {
         format!("section .data\n{}{}", self.data_section, self.output)
     }
 
-    pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
+    pub fn emit_prologue(&mut self, emit_start: bool) -> Result<(), ZernError> {
         emit!(
             &mut self.output,
             "section .note.GNU-stack
@@ -109,6 +109,7 @@ impl<'a> CodegenX86_64<'a> {
 section .bss
     _heap_head: resq 1
     _heap_tail: resq 1
+    _environ: resq 1
 
 section .text._builtin_heap_head
 _builtin_heap_head:
@@ -141,14 +142,52 @@ _builtin_syscall:
     mov r9,  [rsp+8]
     syscall
     ret
+"
+        );
 
+        if emit_start {
+            emit!(
+                &mut self.output,
+                "
+section .text._builtin_environ
+_builtin_environ:
+    lea     rax, [rel _environ]
+    mov     rax, [rax]
+    ret
+
+global _start
+section .text
+_start:
+    xor     rbp, rbp
+    ; setup args
+    pop     rdi
+    mov     rsi, rsp
+    ; save environ
+    lea     rdx, [rsi + rdi*8 + 8]
+    lea     rax, [rel _environ]
+    mov     [rax], rdx
+    ; align stack
+    and     rsp, -16
+    ; main()
+    call    main
+    ; exit
+    mov     rdi, rax
+    mov     rax, 60
+    syscall
+"
+            );
+        } else {
+            emit!(
+                &mut self.output,
+                "
 section .text._builtin_environ
 _builtin_environ:
     extern environ
     mov rax, [rel environ]
     ret
 "
-        );
+            );
+        }
         Ok(())
     }
 

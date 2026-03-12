@@ -63,7 +63,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let mut analyzer = analyzer::Analyzer::new();
     let mut codegen = codegen_x86_64::CodegenX86_64::new(&mut analyzer);
-    codegen.emit_prologue()?;
+    codegen.emit_prologue(!args.use_gcc)?;
     compile_file_to(
         &mut codegen,
         "syscalls.zr",
@@ -82,15 +82,15 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         run_command(format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out));
 
-        if args.use_glibc {
+        if args.use_gcc {
             run_command(format!(
                 "gcc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
                 args.out, args.out, args.cflags
             ));
         } else {
             run_command(format!(
-                "musl-gcc -static -o {} {}.o -flto -Wl,--gc-sections {}",
-                args.out, args.out, args.cflags
+                "ld -static -o {} {}.o --gc-sections -e _start",
+                args.out, args.out
             ));
         }
 
@@ -123,8 +123,8 @@ struct Args {
     #[arg(short = 'r', help = "Run the compiled executable")]
     run_exe: bool,
 
-    #[arg(short = 'm', help = "Use glibc instead of musl")]
-    use_glibc: bool,
+    #[arg(short = 'm', help = "Use gcc")]
+    use_gcc: bool,
 
     #[arg(short = 'C', default_value = "", help = "Extra flags to pass to gcc")]
     cflags: String,

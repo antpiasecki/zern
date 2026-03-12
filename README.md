@@ -6,9 +6,8 @@ A very cool language
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
 * Growing [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
-* Produces tiny static executables (~30KB with musl)
+* Produces tiny static executables (11KB for `hello.zr`)
 * No libc required!
-* Sometimes works
 * Has the pipe operator
 
 ## Syntax
