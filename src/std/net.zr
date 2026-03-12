@@ -1,0 +1,141 @@
+const AF_INET = 2
+const SOCK_STREAM = 1
+const SOCK_DGRAM = 2
+const SOL_SOCKET = 1
+const SO_REUSEADDR = 2
+
+func net.listen[packed_host: i64, port: i64] : i64
+    let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
+    if s < 0
+        return -1
+    
+    let optval = 1
+    if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
+        _builtin_syscall(SYS_close, s)
+        return -1
+
+    let sa: ptr = mem.alloc(16)
+    mem.zero(sa, 16)
+    sa[0] = 2
+    sa[1] = 0
+    sa[2] = (port >> 8) & 255
+    sa[3] = port & 255
+    sa[4] = (packed_host >> 24) & 255
+    sa[5] = (packed_host >> 16) & 255
+    sa[6] = (packed_host >> 8) & 255
+    sa[7] = packed_host & 255
+
+    if _builtin_syscall(SYS_bind, s, sa, 16) < 0
+        _builtin_syscall(SYS_close, s)
+        mem.free(sa)
+        return -1
+    mem.free(sa)
+
+    if _builtin_syscall(SYS_listen, s, 128) < 0
+        _builtin_syscall(SYS_close, s)
+        return -1
+    
+    return s
+
+// TODO: resolve DNS
+func net.connect[packed_host: i64, port: i64] : i64
+    let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
+    if s < 0
+        return -1
+
+    let sa: ptr = mem.alloc(16)
+    mem.zero(sa, 16)
+    sa[0] = AF_INET
+    sa[1] = 0
+    sa[2] = (port >> 8) & 255
+    sa[3] = port & 255
+    sa[4] = (packed_host >> 24) & 255
+    sa[5] = (packed_host >> 16) & 255
+    sa[6] = (packed_host >> 8) & 255
+    sa[7] = packed_host & 255
+
+    if _builtin_syscall(SYS_connect, s, sa, 16) < 0
+        mem.free(sa)
+        _builtin_syscall(SYS_close, s)
+        return -1
+
+    mem.free(sa)
+    return s
+
+func net.accept[s: i64] : i64
+    return _builtin_syscall(SYS_accept, s, 0, 0)
+
+func net.send[s: i64, data: ptr, size: i64] : void
+    _builtin_syscall(SYS_sendto, s, data, size, 0, 0, 0)
+
+func net.read[s: i64, buffer: ptr, size: i64] : i64
+    return _builtin_syscall(SYS_read, s, buffer, size)
+
+func net.close[s: i64] : void
+    _builtin_syscall(SYS_close, s)
+
+func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
+    return (a << 24) | (b << 16) | (c << 8) | d
+
+struct net.UDPSocket
+    fd: i64
+    addr: ptr
+
+struct net.UDPPacket
+    buffer: ptr
+    source_addr: ptr
+    size: i64
+
+func net.create_udp_client[packed_host: i64, port: i64] : net.UDPSocket
+    let s: net.UDPSocket = new net.UDPSocket
+
+    s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
+    if s->fd < 0
+        mem.free(s)
+        return 0
+
+    s->addr = mem.alloc(16)
+    mem.zero(s->addr, 16)
+    s->addr[0] = AF_INET
+    s->addr[1] = 0
+    s->addr[2] = (port >> 8) & 255
+    s->addr[3] = port & 255
+    s->addr[4] = (packed_host >> 24) & 255
+    s->addr[5] = (packed_host >> 16) & 255
+    s->addr[6] = (packed_host >> 8) & 255
+    s->addr[7] = packed_host & 255
+    return s
+
+func net.udp_listen[packed_host: i64, port: i64] : net.UDPSocket
+    let s: net.UDPSocket = net.create_udp_client(packed_host, port)
+    if !s
+        return 0
+
+    if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
+        net.udp_close_and_free(s)
+        return 0
+
+    return s
+
+func net.udp_send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : void
+    _builtin_syscall(SYS_sendto, s->fd, data, size, 0, addr, 16)
+
+func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
+    let pkt: net.UDPPacket = new net.UDPPacket
+    pkt->buffer = mem.alloc(size)
+    pkt->source_addr = mem.alloc(16)
+    mem.zero(pkt->source_addr, 16)
+
+    let addrlen: i64 = 16
+    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->buffer, size, 0, pkt->source_addr, ^addrlen)
+    return pkt
+
+func net.udp_close_and_free[s: net.UDPSocket] : void
+    _builtin_syscall(SYS_close, s->fd)
+    mem.free(s->addr)
+    mem.free(s)
+
+func net.udp_free_packet[pkt: net.UDPPacket] : void
+    mem.free(pkt->buffer)
+    mem.free(pkt->source_addr)
+    mem.free(pkt)

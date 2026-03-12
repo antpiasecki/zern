@@ -1,0 +1,14 @@
+func main[] : i64
+    let s: i64 = net.udp_listen(net.pack_addr(127, 0, 0, 1), 8000)
+    if !s
+        panic("failed to bind a socket")
+
+    io.println("Listening on port 8000...")
+    while true
+        let pkt: net.UDPPacket = net.udp_receive(s, 60000)
+        if pkt->size <= 0
+            net.udp_free_packet(pkt)
+            continue
+
+        net.udp_send_to(s, pkt->source_addr, pkt->buffer, pkt->size)
+        net.udp_free_packet(pkt)

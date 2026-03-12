@@ -70,6 +70,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         include_str!("std/syscalls.zr").into(),
     )?;
     compile_file_to(&mut codegen, "std.zr", include_str!("std/std.zr").into())?;
+    compile_file_to(&mut codegen, "net.zr", include_str!("std/net.zr").into())?;
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
