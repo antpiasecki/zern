@@ -101,18 +101,22 @@ func io.read_file[path: str] : str
     buffer[n] = 0
     return buffer
 
-func io.read_binary_file[path: str, len_ptr: ptr] : ptr
+struct io.Buffer
+    data: ptr
+    size: i64
+
+func io.read_binary_file[path: str] : io.Buffer
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
         panic("failed to open file")
     
-    let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
+    let buffer: io.Buffer = new io.Buffer
+    buffer->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
-    let buffer: ptr = mem.alloc(size)
-    _builtin_syscall(SYS_read, fd, buffer, size)
+    buffer->data = mem.alloc(buffer->size)
+    _builtin_syscall(SYS_read, fd, buffer->data, buffer->size)
     _builtin_syscall(SYS_close, fd)
-    mem.write64(len_ptr, size)
     return buffer
 
 func io.write_file[path: str, content: str] : void
@@ -560,13 +564,15 @@ func os.urandom_i64[]: i64
     mem.free(buffer)
     return n
 
+struct os.Timeval
+    tv_sec: i64
+    tv_usec: i64
+
 func os.time[] : i64
-    let tv: ptr = mem.alloc(16)
+    let tv: os.Timeval = new os.Timeval
     _builtin_syscall(SYS_gettimeofday, tv, 0)
-    let seconds: i64 = mem.read64(tv)
-    let microseconds: i64 = mem.read64(tv + 8)
     mem.free(tv)
-    return seconds * 1000 + microseconds / 1000
+    return tv->tv_sec * 1000 + tv->tv_usec / 1000
 
 // voodoo magic
 func os.shell[command: str] : i64
@@ -574,7 +580,7 @@ func os.shell[command: str] : i64
     if pid == 0
         // leaky but not sure where can i free it
         let argv: Array = ["sh", "-c", command, 0]
-        _builtin_syscall(SYS_execve, "/bin/sh", mem.read64(argv), _builtin_environ())
+        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
         _builtin_syscall(SYS_exit, 1)
     else
         let status = 0

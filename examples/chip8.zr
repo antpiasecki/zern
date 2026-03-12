@@ -389,14 +389,13 @@ func main[argc: i64, argv: ptr] : i64
     
     let c: CHIP8 = chip8_create()
 
-    let bytes_size: ptr = 0
-    let bytes: ptr = io.read_binary_file(path, ^bytes_size)
+    let buffer: io.Buffer = io.read_binary_file(path)
 
-    for i in 0..bytes_size
-        c->memory[0x200 + i] = bytes[i]
+    for i in 0..buffer->size
+        c->memory[0x200 + i] = buffer->data[i]
 
     if disassemble
-        chip8_disassemble(c, bytes_size / 2)
+        chip8_disassemble(c, buffer->size / 2)
         return 0
     
     InitWindow(640, 320, "CHIP-8")

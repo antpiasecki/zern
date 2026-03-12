@@ -5,7 +5,7 @@ A very cool language
 ## Features
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
-* Pretty big [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
+* Growing [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
 * Produces tiny static executables (~30KB with musl)
 * ~~No libc required~~ (SOON; still used for memory allocation and DNS resolution)
 * Sometimes works
