@@ -28,13 +28,17 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
             mem.write64(_builtin_heap_tail(), new_blk)
 
 func mem._request_space[size: i64] : mem.Block
-    let blk: mem.Block = _builtin_syscall(SYS_brk, 0)
-    let new_brk: ptr = blk + MEM_BLOCK_SIZE + size
-    let result: ptr = _builtin_syscall(SYS_brk, new_brk)
-    if result != new_brk
+    let needed: i64 = size + MEM_BLOCK_SIZE
+    let alloc_size: i64 = (needed + 4095) & -4096
+
+    // PROT_READ | PROT_WRITE = 3
+    // MAP_PRIVATE | MAP_ANONYMOUS = 34
+    // fd = -1, offset = 0
+    let blk: mem.Block = _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0)
+    if blk == -1
         return 0
 
-    blk->size = size
+    blk->size = alloc_size - MEM_BLOCK_SIZE
     blk->free = false
     blk->next = 0
 
@@ -47,15 +51,36 @@ func mem._request_space[size: i64] : mem.Block
 
 func mem._coalesce[] : void
     let cur: mem.Block = mem.read64(_builtin_heap_head())
-    while cur && cur->next
+    let prev: mem.Block = 0
+    
+    while cur
         let next: mem.Block = cur->next
-        if cur->free && next->free
+        let expected_next: mem.Block = cur + MEM_BLOCK_SIZE + cur->size
+        
+        if cur->free && next && next->free && expected_next == next
             cur->size = cur->size + MEM_BLOCK_SIZE + next->size
             cur->next = next->next
             if !cur->next
                 mem.write64(_builtin_heap_tail(), cur)
-        else
+            continue
+            
+        let block_total: i64 = cur->size + MEM_BLOCK_SIZE
+        if cur->free && (cur & 4095) == 0 && (block_total & 4095) == 0
+            if prev
+                prev->next = cur->next
+                if !cur->next
+                    mem.write64(_builtin_heap_tail(), prev)
+            else
+                mem.write64(_builtin_heap_head(), cur->next)
+                if !cur->next
+                    mem.write64(_builtin_heap_tail(), 0)
+            
+            _builtin_syscall(SYS_munmap, cur, block_total)
             cur = cur->next
+            continue
+            
+        prev = cur
+        cur = cur->next
 
 func mem.alloc[size: i64] : ptr
     if size == 0
@@ -77,6 +102,8 @@ func mem.alloc[size: i64] : ptr
     
     if !mem.read64(_builtin_heap_head())
         mem.write64(_builtin_heap_head(), blk)
+    
+    mem._split_block(blk, size)
     
     return blk + MEM_BLOCK_SIZE
 
@@ -104,7 +131,9 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
         return x
 
     let next: mem.Block = blk->next
-    if next && next->free
+    let expected_next: mem.Block = blk + MEM_BLOCK_SIZE + blk->size
+    
+    if next && next->free && expected_next == next
         let combined: i64 = blk->size + MEM_BLOCK_SIZE + next->size
         if combined >= new_size
             blk->size = combined
