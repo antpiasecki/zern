@@ -1,0 +1,79 @@
+func main[argc: i64, argv: ptr] : i64
+    if argc < 2
+        io.println("ERROR: url is missing")
+        return 1
+
+    let url: str = mem.read64(argv + 8)
+
+    if str.len(url) <= 7
+        io.println("ERROR: invalid url (Did you forget \"http://\"?)")
+        return 1
+
+    if !str.equal(str.substr(url, 0, 7), "http://")
+        io.println("ERROR: only http scheme is supported")
+        return 1
+    
+    let url_len: i64 = str.len(url)
+    let host_start = 7
+    let i: i64 = host_start
+    while i < url_len
+        if url[i] == '/'
+            break
+        i = i + 1
+
+    let host: str = str.substr(url, host_start, i - host_start)
+    let path: str = "/"
+    if i < url_len
+        path = str.substr(url, i, url_len - i)
+    
+    let addr: i64 = net.resolve(host)
+    if addr <= 0
+        io.println("ERROR: domain resolution failed")
+        return 1
+
+    let s: i64 = net.connect(addr, 80)
+    if s < 0
+        io.println("ERROR: connection failed")
+        return 1
+
+    // TODO: add string builder to std
+    let req: str = "GET "
+    req = str.concat(req, path)
+    req = str.concat(req, " HTTP/1.0\r\nHost: ")
+    req = str.concat(req, host)
+    req = str.concat(req, "\r\nConnection: close\r\n\r\n")
+    net.send(s, req, str.len(req))
+    mem.free(req)
+
+    let header_buf: str = mem.alloc(8192)
+    let header_size = 0
+    let found: bool = false
+    let end_index: i64 = -1
+
+    while !found && header_size < 8192
+        let n: i64 = net.read(s, header_buf + header_size, 8192 - header_size)
+        if n <= 0
+            break
+        let current_size: i64 = header_size + n
+        i = 0
+        while i <= current_size - 4
+            if header_buf[i] == '\r' && header_buf[i + 1] == '\n' && header_buf[i + 2] == '\r' && header_buf[i + 3] == '\n'
+                found = true
+                end_index = i + 4
+                break
+            i = i + 1
+        header_size = current_size
+
+    if end_index < header_size
+        io.print_sized(header_buf + end_index, header_size - end_index)
+    mem.free(header_buf)
+
+    let buffer: ptr = mem.alloc(4096)
+    while true
+        let n: i64 = net.read(s, buffer, 4096)
+        if n <= 0
+            break
+        io.print_sized(buffer, n)
+    mem.free(buffer)
+
+    net.close(s)
