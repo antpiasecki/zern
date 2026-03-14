@@ -14,7 +14,15 @@ pub struct Analyzer {
 impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
-            functions: HashMap::new(),
+            functions: HashMap::from([
+                ("_builtin_heap_head".into(), -1),
+                ("_builtin_heap_tail".into(), -1),
+                ("_builtin_read64".into(), -1),
+                ("_builtin_set64".into(), -1),
+                ("_builtin_syscall".into(), -1),
+                ("io.printf".into(), -1),
+                ("_builtin_environ".into(), -1),
+            ]),
             constants: HashMap::new(),
             structs: HashMap::new(),
         }
@@ -160,22 +168,16 @@ impl Analyzer {
                 args,
             } => {
                 if let Expr::Variable(callee_name) = *callee.clone() {
-                    if callee_name.lexeme.starts_with("_builtin_")
-                        || self.functions.contains_key(&callee_name.lexeme)
-                    {
+                    if self.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         if let Some(arity) = self.functions.get(&callee_name.lexeme) {
-                            if *arity >= 0
-                                && *arity != args.len() as i32
-                                && callee_name.lexeme != "io.printf"
-                            // TODO: disgusting hack
-                            {
+                            if *arity >= 0 && *arity != args.len() as i32 {
                                 return error!(
                                     &paren.loc,
                                     format!("expected {} arguments, got {}", arity, args.len())
                                 );
                             }
-                        } else if !callee_name.lexeme.starts_with("_builtin_") {
+                        } else {
                             return error!(
                                 &paren.loc,
                                 format!("undefined function: {}", callee_name.lexeme)

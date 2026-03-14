@@ -186,35 +186,28 @@ func mem.write32[x: ptr, d: i64] : void
 func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
-// TODO: we don't have variadics so we manually skip arity checking in the analyzer
-func io.printf[s: str, a1: any, a2: any, a3: any, a4: any, a5: any] : void
-    // TODO: we really shouldn't heap allocate to print something
-    let args: Array = [a1, a2, a3, a4, a5]
-    let arg_idx: i64 = 0
-
+func io._printf_impl[s: str, args: ptr] : void
     while s[0]
         if s[0] == '%'
             s = s + 1
 
             if s[0] == 'd'
-                io.print_i64(array.nth(args, arg_idx))
-                arg_idx = arg_idx + 1
+                io.print_i64(mem.read64(args))
+                args = args + 8
             else if s[0] == 'x'
-                io.print_i64_hex(array.nth(args, arg_idx))
-                arg_idx = arg_idx + 1
+                io.print_i64_hex(mem.read64(args))
+                args = args + 8
             else if s[0] == 's'
-                io.print(array.nth(args, arg_idx))
-                arg_idx = arg_idx + 1
-            else if (s[0] == 'c')
-                io.print_char(array.nth(args, arg_idx))
-                arg_idx = arg_idx + 1
-            else if (s[0] == '%')
+                io.print(mem.read64(args))
+                args = args + 8
+            else if s[0] == 'c'
+                io.print_char(mem.read64(args))
+                args = args + 8
+            else if s[0] == '%'
                 io.print_char('%')
         else
             io.print_char(s[0])
         s = s + 1
-    
-    array.free(args)
 
 func io.print_sized[x: str, size: i64] : void
     _builtin_syscall(SYS_write, 1, x, size)

@@ -142,6 +142,21 @@ _builtin_syscall:
     mov r9,  [rsp+8]
     syscall
     ret
+
+section .text.io.printf
+io.printf:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 48
+    mov [rsp],      rsi
+    mov [rsp + 8],  rdx
+    mov [rsp + 16], rcx
+    mov [rsp + 24], r8
+    mov [rsp + 32], r9
+    lea rsi, [rsp]
+    call io._printf_impl
+    leave
+    ret
 "
         );
 
@@ -650,9 +665,7 @@ _builtin_environ:
                 }
 
                 if let Expr::Variable(callee_name) = &**callee {
-                    if callee_name.lexeme.starts_with("_builtin_")
-                        || self.analyzer.functions.contains_key(&callee_name.lexeme)
-                    {
+                    if self.analyzer.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
