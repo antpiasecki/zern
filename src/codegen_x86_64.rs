@@ -100,7 +100,7 @@ impl<'a> CodegenX86_64<'a> {
         format!("section .data\n{}{}", self.data_section, self.output)
     }
 
-    pub fn emit_prologue(&mut self, emit_start: bool) -> Result<(), ZernError> {
+    pub fn emit_prologue(&mut self, use_gcc: bool) -> Result<(), ZernError> {
         emit!(
             &mut self.output,
             "section .note.GNU-stack
@@ -145,7 +145,7 @@ _builtin_syscall:
 "
         );
 
-        if emit_start {
+        if !use_gcc {
             emit!(
                 &mut self.output,
                 "

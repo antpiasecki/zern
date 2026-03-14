@@ -165,7 +165,11 @@ impl Analyzer {
                     {
                         // its a function (defined/builtin/extern)
                         if let Some(arity) = self.functions.get(&callee_name.lexeme) {
-                            if *arity >= 0 && *arity != args.len() as i32 {
+                            if *arity >= 0
+                                && *arity != args.len() as i32
+                                && callee_name.lexeme != "io.printf"
+                            // TODO: disgusting hack
+                            {
                                 return error!(
                                     &paren.loc,
                                     format!("expected {} arguments, got {}", arity, args.len())

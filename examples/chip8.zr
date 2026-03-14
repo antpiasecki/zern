@@ -47,9 +47,7 @@ func chip8_create[] : CHIP8
 
 func chip8_disassemble[c: CHIP8, ins_count: i64] : void
     for i in 0..ins_count
-        io.print("0x")
-        io.print_i64_hex(c->pc)
-        io.print(": ")
+        io.printf("0x%x: ", c->pc)
 
         let high: i64 = c->memory[c->pc]
         let low: i64 = c->memory[c->pc + 1]
@@ -69,179 +67,82 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
             else if nnn == 0x0ee
                 io.println("RET")
             else
-                io.print("SYS ")
-                io.println_i64(nnn)
+                io.printf("SYS %d\n", nnn)
         else if op == 0x1
-            io.print("JP 0x")
-            io.print_i64_hex(nnn)
-            io.print("\n")
+            io.printf("JP 0x%x\n", nnn)
         else if op == 0x2
-            io.print("CALL ")
-            io.println_i64(nnn)
+            io.printf("CALL %d\n", nnn)
         else if op == 0x3
-            io.print("SE V")
-            io.print_i64_hex(x)
-            io.print(", ")
-            io.println_i64(kk)
+            io.printf("SE V%x, %d\n", x, kk)
         else if op == 0x4
-            io.print("SNE V")
-            io.print_i64_hex(x)
-            io.print(", ")
-            io.println_i64(kk)
+            io.printf("SNE V%x, %d\n", x, kk)
         else if op == 0x5
-            io.print("SE V")
-            io.print_i64_hex(x)
-            io.print(", V")
-            io.print_i64_hex(y)
-            io.print("\n")
+            io.printf("SE V%x, V%x\n", x, y)
         else if op == 0x6
-            io.print("LD V")
-            io.print_i64_hex(x)
-            io.print(", ")
-            io.println_i64(kk)
+            io.printf("LD V%x, %d\n", x, kk)
         else if op == 0x7
-            io.print("ADD V")
-            io.print_i64_hex(x)
-            io.print(", ")
-            io.println_i64(kk)
+            io.printf("ADD V%x, %d\n", x, kk)
         else if op == 0x8
             if n == 0x0
-                io.print("LD V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("LD V%x, V%x\n", x, y)
             else if n == 0x1
-                io.print("OR V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("OR V%x, V%x\n", x, y)
             else if n == 0x2
-                io.print("AND V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("AND V%x, V%x\n", x, y)
             else if n == 0x3
-                io.print("XOR V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("XOR V%x, V%x\n", x, y)
             else if n == 0x4
-                io.print("ADD V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("ADD V%x, V%x\n", x, y)
             else if n == 0x5
-                io.print("SUB V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("SUB V%x, V%x\n", x, y)
             else if n == 0x6
-                io.print("SHR V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("SHR V%x\n", x)
             else if n == 0x7
-                io.print("SUBN V")
-                io.print_i64_hex(x)
-                io.print(", V")
-                io.print_i64_hex(y)
-                io.print("\n")
+                io.printf("SUBN V%x, V%x\n", x, y)
             else if n == 0xE
-                io.print("SHL V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("SHL V%x\n", x)
             else
-                io.print("??? (")
-                io.print_i64_hex(ins)
-                io.println(")")
+                io.printf("??? (%x)\n", ins)
         else if op == 0x9
-            io.print("SNE V")
-            io.print_i64_hex(x)
-            io.print(", V")
-            io.print_i64_hex(y)
-            io.print("\n")
+            io.printf("SNE V%x, V%x\n", x, y)
         else if op == 0xa
-            io.print("LD I, 0x")
-            io.print_i64_hex(nnn)
-            io.print("\n")
+            io.printf("LD I, 0x%x\n", nnn)
         else if op == 0xb
-            io.print("JP V0, ")
-            io.println_i64(nnn)
+            io.printf("JP V0, %d\n", nnn)
         else if op == 0xc
-            io.print("RND V")
-            io.print_i64_hex(x)
-            io.print(", ")
-            io.println_i64(kk)
+            io.printf("RND V%x, %d\n", x, kk)
         else if op == 0xd
-            io.print("DRW V")
-            io.print_i64_hex(x)
-            io.print(", V")
-            io.print_i64_hex(y)
-            io.print(", ")
-            io.println_i64(n)
+            io.printf("DRW V%x, V%x, %d\n", x, y, n)
         else if op == 0xe
             if kk == 0x9e
-                io.print("SKP V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("SKP V%x\n", x)
             else if kk == 0xa1
-                io.print("SKNP V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("SKNP V%x\n", x)
             else
-                io.print("??? (")
-                io.print_i64_hex(ins)
-                io.println(")")
+                io.printf("??? (%x)\n", ins)
         else if op == 0xf
             if kk == 0x07
-                io.print("LD V")
-                io.print_i64_hex(x)
-                io.println(", DT")
+                io.printf("LD V%x, DT\n", x)
             else if kk == 0x0A
-                io.print("LD V")
-                io.print_i64_hex(x)
-                io.println(", K")
+                io.printf("LD V%x, K\n", x)
             else if kk == 0x15
-                io.print("LD DT, V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("LD DT, V%x\n", x)
             else if kk == 0x18
-                io.print("LD ST, V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("LD ST, V%x\n", x)
             else if kk == 0x1E
-                io.print("ADD I, V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("ADD I, V%x\n", x)
             else if kk == 0x29
-                io.print("LD F, V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("LD F, V%x\n", x)
             else if kk == 0x33
-                io.print("LD B, V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("LD B, V%x\n", x)
             else if kk == 0x55
-                io.print("LD [I], V")
-                io.print_i64_hex(x)
-                io.print("\n")
+                io.printf("LD [I], V%x\n", x)
             else if kk == 0x65
-                io.print("LD V")
-                io.print_i64_hex(x)
-                io.println(", [I]")
+                io.printf("LD V%x, [I]\n", x)
             else
-                io.print("??? (")
-                io.print_i64_hex(ins)
-                io.println(")")
+                io.printf("??? (%x)\n", ins)
         else
-            io.print("??? (")
-            io.print_i64_hex(ins)
-            io.println(")")
+            io.printf("??? (%x)\n", ins)
 
 func chip8_step[c: CHIP8] : void
     let high: i64 = c->memory[c->pc]

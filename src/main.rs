@@ -13,6 +13,18 @@ use tokenizer::ZernError;
 
 use clap::Parser;
 
+macro_rules! compile_std {
+    ($codegen:expr, $( $name:literal ),* $(,)? ) => {
+        $(
+            compile_file_to(
+                $codegen,
+                $name,
+                include_str!(concat!("std/", $name)).into()
+            )?;
+        )*
+    };
+}
+
 fn compile_file_to(
     codegen: &mut codegen_x86_64::CodegenX86_64,
     filename: &str,
@@ -63,14 +75,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let mut analyzer = analyzer::Analyzer::new();
     let mut codegen = codegen_x86_64::CodegenX86_64::new(&mut analyzer);
-    codegen.emit_prologue(!args.use_gcc)?;
-    compile_file_to(
-        &mut codegen,
-        "syscalls.zr",
-        include_str!("std/syscalls.zr").into(),
-    )?;
-    compile_file_to(&mut codegen, "std.zr", include_str!("std/std.zr").into())?;
-    compile_file_to(&mut codegen, "net.zr", include_str!("std/net.zr").into())?;
+    codegen.emit_prologue(args.use_gcc)?;
+    compile_std!(&mut codegen, "syscalls.zr", "std.zr", "net.zr");
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
