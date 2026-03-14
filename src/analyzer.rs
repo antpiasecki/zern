@@ -15,13 +15,13 @@ impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
             functions: HashMap::from([
-                ("_builtin_heap_head".into(), -1),
-                ("_builtin_heap_tail".into(), -1),
-                ("_builtin_read64".into(), -1),
-                ("_builtin_set64".into(), -1),
+                ("_builtin_heap_head".into(), 0),
+                ("_builtin_heap_tail".into(), 0),
+                ("_builtin_read64".into(), 1),
+                ("_builtin_set64".into(), 2),
                 ("_builtin_syscall".into(), -1),
                 ("io.printf".into(), -1),
-                ("_builtin_environ".into(), -1),
+                ("_builtin_environ".into(), 0),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),

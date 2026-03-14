@@ -183,9 +183,18 @@ func mem.write32[x: ptr, d: i64] : void
     x[2] = (d >> 16) & 0xff
     x[3] = (d >> 24) & 0xff
 
+func mem.write16[x: ptr, d: i64] : void
+    x[0] = d & 0xff
+    x[1] = (d >> 8) & 0xff
+
+func mem.write16be[x: ptr, d: i64] : void
+    x[0] = (d >> 8) & 0xff
+    x[1] = d & 0xff
+
 func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
+// see emit_prologue for the io.printf wrapper
 func io._printf_impl[s: str, args: ptr] : void
     while s[0]
         if s[0] == '%'
@@ -205,6 +214,8 @@ func io._printf_impl[s: str, args: ptr] : void
                 args = args + 8
             else if s[0] == '%'
                 io.print_char('%')
+            else if s[0] == 0
+                break
         else
             io.print_char(s[0])
         s = s + 1
@@ -278,6 +289,12 @@ func io.read_file[path: str] : str
 struct io.Buffer
     data: ptr
     size: i64
+
+func io.Buffer.alloc[size: i64] : io.Buffer
+    let buffer: io.Buffer = new io.Buffer
+    buffer->size = size
+    buffer->data = mem.alloc(size)
+    return buffer
 
 func io.read_binary_file[path: str] : io.Buffer
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)

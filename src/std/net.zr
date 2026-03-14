@@ -112,7 +112,7 @@ func net.udp_listen[packed_host: i64, port: i64] : net.UDPSocket
         return 0
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
-        net.udp_close_and_free(s)
+        net.UDPSocket.close_and_free(s)
         return 0
 
     return s
@@ -130,12 +130,95 @@ func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
     pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->buffer, size, 0, pkt->source_addr, ^addrlen)
     return pkt
 
-func net.udp_close_and_free[s: net.UDPSocket] : void
+func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     _builtin_syscall(SYS_close, s->fd)
     mem.free(s->addr)
     mem.free(s)
 
-func net.udp_free_packet[pkt: net.UDPPacket] : void
+func net.UDPPacket.free[pkt: net.UDPPacket] : void
     mem.free(pkt->buffer)
     mem.free(pkt->source_addr)
     mem.free(pkt)
+
+// https://implement-dns.wizardzines.com/book/part_1
+struct net.DNSHeader
+    id: i64
+    flags: i64
+    num_questions: i64
+    num_answers: i64
+    num_authorities: i64
+    num_additionals: i64
+
+struct net.DNSQuestion
+    name: io.Buffer
+    type: i64
+    class: i64
+
+func net.DNSHeader.to_bytes[h: net.DNSHeader] : io.Buffer
+    let buf: io.Buffer = io.Buffer.alloc(12)
+    mem.write16be(buf->data + 0, h->id)
+    mem.write16be(buf->data + 2, h->flags)
+    mem.write16be(buf->data + 4, h->num_questions)
+    mem.write16be(buf->data + 6, h->num_answers)
+    mem.write16be(buf->data + 8, h->num_authorities)
+    mem.write16be(buf->data + 10, h->num_additionals)
+    return buf
+
+func net.DNSQuestion.to_bytes[h: net.DNSQuestion] : io.Buffer
+    let name_buf: io.Buffer = h->name
+    let buf: io.Buffer = io.Buffer.alloc(name_buf->size + 4)
+    mem.copy(name_buf->data, buf->data, name_buf->size)
+    buf->data[name_buf->size + 0] = (h->type >> 8) & 0xff
+    buf->data[name_buf->size + 1] = h->type & 0xff
+    buf->data[name_buf->size + 2] = (h->class >> 8) & 0xff
+    buf->data[name_buf->size + 3] = h->class & 0xff
+    return buf
+
+func net.encode_dns_name[domain: str] : io.Buffer
+    let domain_len: i64 = str.len(domain)
+    let buf: io.Buffer = io.Buffer.alloc(domain_len + 2)
+    let out_pos: i64 = 0
+    let part_start: i64 = 0
+    let i: i64 = 0
+    while i <= domain_len
+        if i == domain_len || domain[i] == '.'
+            let part_len: i64 = i - part_start
+            buf->data[out_pos] = part_len & 0xff
+            out_pos = out_pos + 1
+            mem.copy(domain + part_start, buf->data + out_pos, part_len)
+            out_pos = out_pos + part_len
+            part_start = i + 1
+        i = i + 1
+
+    buf->data[out_pos] = 0
+    return buf
+
+const DNS_TYPE_A = 1
+const DNS_CLASS_IN = 1
+const DNS_RECURSION_DESIRED = 256
+
+func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
+    let h: net.DNSHeader = new net.DNSHeader
+    h->id = math.abs(os.urandom_i64()) % 65535
+    h->num_questions = 1
+    h->flags = DNS_RECURSION_DESIRED
+
+    let q: net.DNSQuestion = new net.DNSQuestion
+    let name: io.Buffer = net.encode_dns_name(domain_name)
+    q->name = name
+    q->type = record_type
+    q->class = DNS_CLASS_IN
+
+    let hb: io.Buffer = net.DNSHeader.to_bytes(h)
+    let qb: io.Buffer = net.DNSQuestion.to_bytes(q)
+
+    let out: io.Buffer = io.Buffer.alloc(hb->size + qb->size)
+    mem.copy(hb->data, out->data, hb->size)
+    mem.copy(qb->data, out->data + hb->size, qb->size)
+
+    mem.free(hb->data)
+    mem.free(qb->data)
+    mem.free(name->data)
+    mem.free(q->data)
+    mem.free(h->data)
+    return out
