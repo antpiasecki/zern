@@ -82,7 +82,7 @@ struct net.UDPSocket
     addr: ptr
 
 struct net.UDPPacket
-    buffer: ptr
+    data: ptr
     source_addr: ptr
     size: i64
 
@@ -122,12 +122,12 @@ func net.udp_send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : void
 
 func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
     let pkt: net.UDPPacket = new net.UDPPacket
-    pkt->buffer = mem.alloc(size)
+    pkt->data = mem.alloc(size)
     pkt->source_addr = mem.alloc(16)
     mem.zero(pkt->source_addr, 16)
 
     let addrlen: i64 = 16
-    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->buffer, size, 0, pkt->source_addr, ^addrlen)
+    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->data, size, 0, pkt->source_addr, ^addrlen)
     return pkt
 
 func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
@@ -136,43 +136,13 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     mem.free(s)
 
 func net.UDPPacket.free[pkt: net.UDPPacket] : void
-    mem.free(pkt->buffer)
+    mem.free(pkt->data)
     mem.free(pkt->source_addr)
     mem.free(pkt)
 
-// https://implement-dns.wizardzines.com/book/part_1
-struct net.DNSHeader
-    id: i64
-    flags: i64
-    num_questions: i64
-    num_answers: i64
-    num_authorities: i64
-    num_additionals: i64
-
-struct net.DNSQuestion
-    name: io.Buffer
-    type: i64
-    class: i64
-
-func net.DNSHeader.to_bytes[h: net.DNSHeader] : io.Buffer
-    let buf: io.Buffer = io.Buffer.alloc(12)
-    mem.write16be(buf->data + 0, h->id)
-    mem.write16be(buf->data + 2, h->flags)
-    mem.write16be(buf->data + 4, h->num_questions)
-    mem.write16be(buf->data + 6, h->num_answers)
-    mem.write16be(buf->data + 8, h->num_authorities)
-    mem.write16be(buf->data + 10, h->num_additionals)
-    return buf
-
-func net.DNSQuestion.to_bytes[h: net.DNSQuestion] : io.Buffer
-    let name_buf: io.Buffer = h->name
-    let buf: io.Buffer = io.Buffer.alloc(name_buf->size + 4)
-    mem.copy(name_buf->data, buf->data, name_buf->size)
-    buf->data[name_buf->size + 0] = (h->type >> 8) & 0xff
-    buf->data[name_buf->size + 1] = h->type & 0xff
-    buf->data[name_buf->size + 2] = (h->class >> 8) & 0xff
-    buf->data[name_buf->size + 3] = h->class & 0xff
-    return buf
+const DNS_TYPE_A = 1
+const DNS_CLASS_IN = 1
+const DNS_RECURSION_DESIRED = 256
 
 func net.encode_dns_name[domain: str] : io.Buffer
     let domain_len: i64 = str.len(domain)
@@ -193,32 +163,51 @@ func net.encode_dns_name[domain: str] : io.Buffer
     buf->data[out_pos] = 0
     return buf
 
-const DNS_TYPE_A = 1
-const DNS_CLASS_IN = 1
-const DNS_RECURSION_DESIRED = 256
-
 func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
-    let h: net.DNSHeader = new net.DNSHeader
-    h->id = math.abs(os.urandom_i64()) % 65535
-    h->num_questions = 1
-    h->flags = DNS_RECURSION_DESIRED
-
-    let q: net.DNSQuestion = new net.DNSQuestion
     let name: io.Buffer = net.encode_dns_name(domain_name)
-    q->name = name
-    q->type = record_type
-    q->class = DNS_CLASS_IN
+    let out: io.Buffer = io.Buffer.alloc(12 + name->size + 4)
 
-    let hb: io.Buffer = net.DNSHeader.to_bytes(h)
-    let qb: io.Buffer = net.DNSQuestion.to_bytes(q)
+    // header
+    let id: i64 = math.abs(os.urandom_i64() % 65536)
+    mem.write16be(out->data + 0, id)
+    mem.write16be(out->data + 2, DNS_RECURSION_DESIRED)
+    mem.write16be(out->data + 4, 1)  // num_questions
+    mem.write16be(out->data + 6, 0)  // num_answers
+    mem.write16be(out->data + 8, 0)  // num_authorities
+    mem.write16be(out->data + 10, 0) // num_additionals
 
-    let out: io.Buffer = io.Buffer.alloc(hb->size + qb->size)
-    mem.copy(hb->data, out->data, hb->size)
-    mem.copy(qb->data, out->data + hb->size, qb->size)
+    // question
+    mem.copy(name->data, out->data + 12, name->size)
+    mem.write16be(out->data + 12 + name->size, record_type)
+    mem.write16be(out->data + 12 + name->size + 2, DNS_CLASS_IN)
 
-    mem.free(hb->data)
-    mem.free(qb->data)
-    mem.free(name->data)
-    mem.free(q->data)
-    mem.free(h->data)
+    io.Buffer.free(name)
+    return out
+
+func net.resolve[domain: str] : i64
+    let query: io.Buffer = net.build_dns_query(domain, DNS_TYPE_A)
+
+    // TODO: this probably shouldnt be hardcoded
+    let s: net.UDPSocket = net.create_udp_client(net.pack_addr(8, 8, 8, 8), 53)
+    if s == 0
+        return 0
+
+    net.udp_send_to(s, s->addr, query->data, query->size)
+    io.Buffer.free(query)
+    let pkt: net.UDPPacket = net.udp_receive(s, 1024)
+    net.UDPSocket.close_and_free(s)
+
+    // TODO: do actual parsing
+
+    let pos: i64 = 12 // skip header (12 bytes)
+
+    while pkt->data[pos] != 0
+        pos = pos + pkt->data[pos] + 1 // skip question
+
+    pos = pos + 5  // skip null byte, type(2), class(2)
+
+    pos = pos + 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
+
+    let out: i64 = net.pack_addr(pkt->data[pos], pkt->data[pos+1], pkt->data[pos+2], pkt->data[pos+3])
+    net.UDPPacket.free(pkt)
     return out

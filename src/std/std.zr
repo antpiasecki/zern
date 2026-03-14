@@ -171,8 +171,14 @@ func mem.read8[x: ptr] : u8
 func mem.read16[x: ptr] : i64
     return x[0] | (x[1] << 8)
 
+func mem.read16be[x: ptr] : i64
+    return (x[0] << 8) | x[1]
+
 func mem.read32[x: ptr] : i64
     return x[0] | (x[1] << 8) | (x[2] << 16) | (x[3] << 24)
+
+func mem.read32be[x: ptr] : i64
+    return (x[0] << 24) | (x[1] << 16) | (x[2] << 8) | x[3]
 
 func mem.read64[x: ptr] : i64
     return _builtin_read64(x)
@@ -295,6 +301,10 @@ func io.Buffer.alloc[size: i64] : io.Buffer
     buffer->size = size
     buffer->data = mem.alloc(size)
     return buffer
+
+func io.Buffer.free[buf: io.Buffer] : void
+    mem.free(buf->data)
+    mem.free(buf)
 
 func io.read_binary_file[path: str] : io.Buffer
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
