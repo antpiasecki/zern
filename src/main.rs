@@ -73,39 +73,44 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
-    let mut analyzer = analyzer::Analyzer::new();
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&mut analyzer);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new();
     codegen.emit_prologue(args.use_gcc)?;
     compile_std!(&mut codegen, "syscalls.zr", "std.zr", "net.zr");
     compile_file_to(&mut codegen, filename, source)?;
 
     if !args.output_asm {
-        fs::write(format!("{}.s", args.out), codegen.get_output()).unwrap();
+        let out = args.out.unwrap_or_else(|| "out".into());
 
-        run_command(format!("nasm -f elf64 -o {}.o {}.s", args.out, args.out));
+        fs::write(format!("{}.s", out), codegen.get_output()).unwrap();
+
+        run_command(format!("nasm -f elf64 -o {}.o {}.s", out, out));
 
         if args.use_gcc {
             run_command(format!(
                 "gcc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
-                args.out, args.out, args.cflags
+                out, out, args.cflags
             ));
         } else {
             run_command(format!(
                 "ld -static -o {} {}.o --gc-sections -e _start",
-                args.out, args.out
+                out, out
             ));
         }
 
         if args.run_exe {
             run_command(
-                std::fs::canonicalize(args.out)
+                std::fs::canonicalize(out)
                     .unwrap()
                     .to_string_lossy()
                     .into_owned(),
             );
         }
     } else {
-        fs::write(&args.out, codegen.get_output()).unwrap();
+        fs::write(
+            args.out.unwrap_or_else(|| "out.s".into()),
+            codegen.get_output(),
+        )
+        .unwrap();
     }
 
     Ok(())
@@ -116,8 +121,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 struct Args {
     path: String,
 
-    #[arg(short, default_value = "out", help = "Output path")]
-    out: String,
+    #[arg(short, help = "Output path")]
+    out: Option<String>,
 
     #[arg(short = 'S', help = "Only generate assembly")]
     output_asm: bool,

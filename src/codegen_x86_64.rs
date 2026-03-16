@@ -72,22 +72,22 @@ static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 // TODO: currently they are all just 64 bit values
 static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "any"];
 
-pub struct CodegenX86_64<'a> {
+pub struct CodegenX86_64 {
     output: String,
     data_section: String,
     label_counter: usize,
     data_counter: usize,
-    pub analyzer: &'a mut Analyzer,
+    pub analyzer: Analyzer,
 }
 
-impl<'a> CodegenX86_64<'a> {
-    pub fn new(analyzer: &'a mut Analyzer) -> CodegenX86_64<'a> {
+impl CodegenX86_64 {
+    pub fn new() -> CodegenX86_64 {
         CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
             data_counter: 1,
-            analyzer,
+            analyzer: Analyzer::new(),
         }
     }
 
@@ -115,27 +115,27 @@ section .bss
 
 section .text._builtin_heap_head
 _builtin_heap_head:
-    lea     rax, [rel _heap_head]
+    lea rax, [rel _heap_head]
     ret
 
 section .text._builtin_heap_tail
 _builtin_heap_tail:
-    lea     rax, [rel _heap_tail]
+    lea rax, [rel _heap_tail]
     ret
 
 section .text._builtin_err_code
 _builtin_err_code:
-    lea     rax, [rel _err_code]
+    lea rax, [rel _err_code]
     ret
 
 section .text._builtin_err_msg
 _builtin_err_msg:
-    lea     rax, [rel _err_msg]
+    lea rax, [rel _err_msg]
     ret
 
 section .text._builtin_read64
 _builtin_read64:
-    mov rax, qword [rdi]
+    mov rax, QWORD [rdi]
     ret
 
 section .text._builtin_set64
@@ -150,8 +150,8 @@ _builtin_syscall:
     mov rsi, rdx
     mov rdx, rcx
     mov r10, r8
-    mov r8,  r9
-    mov r9,  [rsp+8]
+    mov r8, r9
+    mov r9, [rsp+8]
     syscall
     ret
 
@@ -160,8 +160,8 @@ io.printf:
     push rbp
     mov rbp, rsp
     sub rsp, 48
-    mov [rsp],      rsi
-    mov [rsp + 8],  rdx
+    mov [rsp], rsi
+    mov [rsp + 8], rdx
     mov [rsp + 16], rcx
     mov [rsp + 24], r8
     mov [rsp + 32], r9
@@ -178,28 +178,28 @@ io.printf:
                 "
 section .text._builtin_environ
 _builtin_environ:
-    lea     rax, [rel _environ]
-    mov     rax, [rax]
+    lea rax, [rel _environ]
+    mov rax, [rax]
     ret
 
 global _start
 section .text
 _start:
-    xor     rbp, rbp
+    xor rbp, rbp
     ; setup args
-    pop     rdi
-    mov     rsi, rsp
+    pop rdi
+    mov rsi, rsp
     ; save environ
-    lea     rdx, [rsi + rdi*8 + 8]
-    lea     rax, [rel _environ]
-    mov     [rax], rdx
+    lea rdx, [rsi + rdi*8 + 8]
+    lea rax, [rel _environ]
+    mov [rax], rdx
     ; align stack
-    and     rsp, -16
+    and rsp, -16
     ; main()
-    call    main
+    call main
     ; exit
-    mov     rdi, rax
-    mov     rax, 60
+    mov rdi, rax
+    mov rax, 60
     syscall
 "
             );

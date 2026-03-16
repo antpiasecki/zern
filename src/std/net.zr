@@ -42,7 +42,6 @@ func net.listen?[packed_host: i64, port: i64] : i64
     
     return s
 
-// TODO: resolve DNS
 func net.connect?[packed_host: i64, port: i64] : i64
     err.clear()
     let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)

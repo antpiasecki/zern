@@ -290,7 +290,7 @@ func main[argc: i64, argv: ptr] : i64
     
     let c: CHIP8 = chip8_create()
 
-    let buffer: io.Buffer = io.read_binary_file(path)
+    let buffer: io.Buffer = must(io.read_binary_file?(path))
 
     for i in 0..buffer->size
         c->memory[0x200 + i] = buffer->data[i]
