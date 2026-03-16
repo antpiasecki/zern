@@ -40,7 +40,7 @@ func part2[data: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let lines: Array = io.read_file("input.txt") |> str.split("\n")
+    let lines: Array = must(io.read_file?("input.txt")) |> str.split("\n")
 
     let data: Array = []
     for i in 0..lines->size

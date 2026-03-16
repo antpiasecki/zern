@@ -110,6 +110,8 @@ section .bss
     _heap_head: resq 1
     _heap_tail: resq 1
     _environ: resq 1
+    _err_code: resq 1
+    _err_msg: resq 1
 
 section .text._builtin_heap_head
 _builtin_heap_head:
@@ -119,6 +121,16 @@ _builtin_heap_head:
 section .text._builtin_heap_tail
 _builtin_heap_tail:
     lea     rax, [rel _heap_tail]
+    ret
+
+section .text._builtin_err_code
+_builtin_err_code:
+    lea     rax, [rel _err_code]
+    ret
+
+section .text._builtin_err_msg
+_builtin_err_msg:
+    lea     rax, [rel _err_msg]
     ret
 
 section .text._builtin_read64

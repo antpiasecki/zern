@@ -4,14 +4,17 @@ const SOCK_DGRAM = 2
 const SOL_SOCKET = 1
 const SO_REUSEADDR = 2
 
-func net.listen[packed_host: i64, port: i64] : i64
+func net.listen?[packed_host: i64, port: i64] : i64
+    err.clear()
     let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
+        err.set(ERR_SYSCALL_FAILED, "net.listen?: failed to create a socket")
         return -1
     
     let optval = 1
     if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
         _builtin_syscall(SYS_close, s)
+        err.set(ERR_SYSCALL_FAILED, "net.listen?: setsockopt() failed")
         return -1
 
     let sa: ptr = mem.alloc(16)
@@ -28,19 +31,23 @@ func net.listen[packed_host: i64, port: i64] : i64
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         _builtin_syscall(SYS_close, s)
         mem.free(sa)
+        err.set(ERR_SYSCALL_FAILED, "net.listen?: failed to bind")
         return -1
     mem.free(sa)
 
     if _builtin_syscall(SYS_listen, s, 128) < 0
         _builtin_syscall(SYS_close, s)
+        err.set(ERR_SYSCALL_FAILED, "net.listen?: listen() failed")
         return -1
     
     return s
 
 // TODO: resolve DNS
-func net.connect[packed_host: i64, port: i64] : i64
+func net.connect?[packed_host: i64, port: i64] : i64
+    err.clear()
     let s: i64 = _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
+        err.set(ERR_SYSCALL_FAILED, "net.connect?: failed to create a socket")
         return -1
 
     let sa: ptr = mem.alloc(16)
@@ -57,6 +64,7 @@ func net.connect[packed_host: i64, port: i64] : i64
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         mem.free(sa)
         _builtin_syscall(SYS_close, s)
+        err.set(ERR_CONNECTION_FAILED, "net.connect?: connection failed")
         return -1
 
     mem.free(sa)
@@ -86,12 +94,14 @@ struct net.UDPPacket
     source_addr: ptr
     size: i64
 
-func net.create_udp_client[packed_host: i64, port: i64] : net.UDPSocket
+func net.create_udp_client?[packed_host: i64, port: i64] : net.UDPSocket
+    err.clear()
     let s: net.UDPSocket = new net.UDPSocket
 
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
         mem.free(s)
+        err.set(ERR_SYSCALL_FAILED, "net.create_udp_client?: failed to create a socket")
         return 0
 
     s->addr = mem.alloc(16)
@@ -106,13 +116,15 @@ func net.create_udp_client[packed_host: i64, port: i64] : net.UDPSocket
     s->addr[7] = packed_host & 255
     return s
 
-func net.udp_listen[packed_host: i64, port: i64] : net.UDPSocket
-    let s: net.UDPSocket = net.create_udp_client(packed_host, port)
-    if !s
+func net.udp_listen?[packed_host: i64, port: i64] : net.UDPSocket
+    err.clear()
+    let s: net.UDPSocket = net.create_udp_client?(packed_host, port)
+    if err.check()
         return 0
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
         net.UDPSocket.close_and_free(s)
+        err.set(ERR_SYSCALL_FAILED, "net.udp_listen?: failed to bind")
         return 0
 
     return s
@@ -184,13 +196,15 @@ func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
     io.Buffer.free(name)
     return out
 
-func net.resolve[domain: str] : i64
+// TODO: dont resolve IPs
+func net.resolve?[domain: str] : i64
+    err.clear()
     let query: io.Buffer = net.build_dns_query(domain, DNS_TYPE_A)
 
     // TODO: this probably shouldnt be hardcoded
-    let s: net.UDPSocket = net.create_udp_client(net.pack_addr(8, 8, 8, 8), 53)
-    if s == 0
-        return 0
+    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8, 8, 8, 8), 53)
+    if err.check()
+        return -1
 
     net.udp_send_to(s, s->addr, query->data, query->size)
     io.Buffer.free(query)

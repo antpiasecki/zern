@@ -47,7 +47,7 @@ func part2[updates: Array, rules_left: Array, rules_right: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let data: Array = io.read_file("input.txt") |> str.split("\n\n")
+    let data: Array = must(io.read_file?("input.txt")) |> str.split("\n\n")
 
     let rules_left: Array = []
     let rules_right: Array = []

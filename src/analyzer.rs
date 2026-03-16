@@ -17,6 +17,8 @@ impl Analyzer {
             functions: HashMap::from([
                 ("_builtin_heap_head".into(), 0),
                 ("_builtin_heap_tail".into(), 0),
+                ("_builtin_err_code".into(), 0),
+                ("_builtin_err_msg".into(), 0),
                 ("_builtin_read64".into(), 1),
                 ("_builtin_set64".into(), 2),
                 ("_builtin_syscall".into(), -1),

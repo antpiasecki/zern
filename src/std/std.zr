@@ -1,7 +1,37 @@
+const ERR_NONE              = 0
+const ERR_SYSCALL_FAILED    = 1
+const ERR_OPEN_FAILED       = 2
+const ERR_READ_FAILED       = 3
+const ERR_WRITE_FAILED      = 4
+const ERR_ALLOC_FAILED      = 5
+const ERR_CONNECTION_FAILED = 6
+
+func err.code[] : i64
+    return mem.read64(_builtin_err_code())
+
+func err.msg[] : str
+    return mem.read64(_builtin_err_msg())
+
+func err.check[] : bool
+    return err.code() != 0
+
+func err.clear[] : void
+    err.set(0, 0)
+
+func err.set[code: i64, msg: str] : void
+    mem.write64(_builtin_err_code(), code)
+    mem.write64(_builtin_err_msg(), msg)
+
+func must[x: any] : any
+    if err.check()
+        panic(err.msg())
+    return x
+
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
-    (0 / 0) // crashes program which is kinda better since you get a gdb backtrace
+    // for gdb backtrace
+    _builtin_syscall(SYS_kill, os.getpid(), 6)
     os.exit(1)
 
 const MEM_BLOCK_SIZE = 32
@@ -32,7 +62,8 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
         blk->size = needed
         blk->next = new_blk
 
-func mem._request_space[size: i64] : mem.Block
+func mem._request_space?[size: i64] : mem.Block
+    err.clear()
     let needed: i64 = size + MEM_BLOCK_SIZE
     let alloc_size: i64 = (needed + 4095) & -4096
 
@@ -41,6 +72,7 @@ func mem._request_space[size: i64] : mem.Block
     // fd = -1, offset = 0
     let blk: mem.Block = _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0)
     if blk == -1
+        err.set(ERR_ALLOC_FAILED, "mem._request_space: mmap failed")
         return 0
 
     blk->size = alloc_size - MEM_BLOCK_SIZE
@@ -56,7 +88,8 @@ func mem._request_space[size: i64] : mem.Block
     mem.write64(_builtin_heap_tail(), blk)
     return blk
 
-func mem.alloc[size: i64] : ptr
+func mem.alloc?[size: i64] : ptr
+    err.clear()
     if size == 0
         return 0
 
@@ -70,8 +103,8 @@ func mem.alloc[size: i64] : ptr
             return cur + MEM_BLOCK_SIZE
         cur = cur->next
     
-    let blk: mem.Block = mem._request_space(size)
-    if !blk
+    let blk: mem.Block = mem._request_space?(size)
+    if err.check()
         return 0
     
     if !mem.read64(_builtin_heap_head())
@@ -80,6 +113,9 @@ func mem.alloc[size: i64] : ptr
     mem._split_block(blk, size)
     
     return blk + MEM_BLOCK_SIZE
+
+func mem.alloc[size: i64] : ptr
+    return must(mem.alloc?(size))
 
 func mem.free[x: ptr] : void
     if !x
@@ -127,9 +163,10 @@ func mem.free[x: ptr] : void
             mem.write64(_builtin_heap_tail(), blk->prev)
         _builtin_syscall(SYS_munmap, blk, block_total)
 
-func mem.realloc[x: ptr, new_size: i64] : ptr
+func mem.realloc?[x: ptr, new_size: i64] : ptr
+    err.clear()
     if !x
-        return mem.alloc(new_size)
+        return mem.alloc?(new_size)
 
     if new_size == 0
         mem.free(x)
@@ -159,11 +196,10 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
             return x
 
     let new_ptr: ptr = mem.alloc(new_size)
-    if !new_ptr
+    if err.check()
         return 0
 
     mem.copy(x, new_ptr, math.min(blk->size, new_size))
-
     mem.free(x)
     return new_ptr
 
@@ -306,10 +342,12 @@ func io.Buffer.free[buf: io.Buffer] : void
 func io.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
-func io.read_file[path: str] : str
+func io.read_file?[path: str] : str
+    err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        panic("failed to open file") // TODO
+        err.set(ERR_OPEN_FAILED, "io.read_file?: failed to open file")
+        return 0
 
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
@@ -320,15 +358,18 @@ func io.read_file[path: str] : str
 
     if n < 0
         mem.free(buffer)
-        panic("failed to read file") // TODO
+        err.set(ERR_READ_FAILED, "io.read_file?: failed to read file")
+        return 0
 
     buffer[n] = 0
     return buffer
 
-func io.read_binary_file[path: str] : io.Buffer
+func io.read_binary_file?[path: str] : io.Buffer
+    err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        panic("failed to open file") // TODO
+        err.set(ERR_OPEN_FAILED, "io.read_binary_file?: failed to open file")
+        return 0
     
     let buffer: io.Buffer = new io.Buffer
     buffer->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
@@ -340,22 +381,27 @@ func io.read_binary_file[path: str] : io.Buffer
 
     if n < 0
         mem.free(buffer)
-        panic("failed to read file") // TODO
+        err.set(ERR_READ_FAILED, "io.read_binary_file?: failed to read file")
+        return 0
 
     return buffer
 
-func io.write_file[path: str, content: str] : void
+func io.write_file?[path: str, content: str] : void
+    err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
-        panic("failed to open file") // TODO
+        err.set(ERR_OPEN_FAILED, "io.write_file?: failed to open file")
+        return 0
 
     _builtin_syscall(SYS_write, fd, content, str.len(content))
     _builtin_syscall(SYS_close, fd)
 
-func io.write_binary_file[path: str, content: ptr, size: i64] : void
+func io.write_binary_file?[path: str, content: ptr, size: i64] : void
+    err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
-        panic("failed to open file") // TODO
+        err.set(ERR_OPEN_FAILED, "io.write_binary_file?: failed to open file")
+        return 0
 
     _builtin_syscall(SYS_write, fd, content, size)
     _builtin_syscall(SYS_close, fd)
@@ -419,6 +465,9 @@ func str.find[haystack: str, needle: str] : i64
 
     if needle_len == 0
         return 0
+    
+    if needle_len > haystack_len
+        return -1
 
     for i in 0..(haystack_len - needle_len + 1)
         let match: bool = true
@@ -695,7 +744,7 @@ func array.new[] : Array
 func array.new_with_size_zeroed[size: i64] : Array
     let xs: Array = new Array
     if size > 0
-        xs->data = mem.realloc(xs->data, size * 8)
+        xs->data = must(mem.realloc?(xs->data, size * 8))
         mem.zero(xs->data, size * 8)
         xs->size = size
         xs->capacity = size
@@ -716,7 +765,7 @@ func array.push[xs: Array, x: any] : void
         let new_capacity = 4
         if xs->capacity != 0
             new_capacity = xs->capacity * 2
-        xs->data = mem.realloc(xs->data, new_capacity * 8)
+        xs->data = must(mem.realloc?(xs->data, new_capacity * 8))
         xs->capacity = new_capacity
 
     mem.write64(xs->data + xs->size * 8, x)
@@ -819,19 +868,28 @@ func os.sleep[ms: i64] : void
     _builtin_syscall(SYS_nanosleep, req, 0)
     mem.free(req)
 
-func os.urandom[n: i64]: ptr
+func os.urandom?[n: i64]: ptr
+    err.clear()
     let buffer: ptr = mem.alloc(n)
+    if err.check()
+        return 0
+
     let fd: i64 = _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
+    if fd < 0
+        err.set(ERR_READ_FAILED, "os.urandom?: failed to open /dev/urandom")
+        return 0
+
     let bytes_read: i64 = _builtin_syscall(SYS_read, fd, buffer, n)
     _builtin_syscall(SYS_close, fd)
 
-    if fd < 0 || n != bytes_read
-        panic("failed to read /dev/urandom")
+    if n != bytes_read
+        err.set(ERR_READ_FAILED, "os.urandom?: failed to read /dev/urandom")
+        return 0
     
     return buffer
 
 func os.urandom_i64[]: i64
-    let buffer: ptr = os.urandom(8)
+    let buffer: ptr = must(os.urandom?(8))
     let n: i64 = mem.read64(buffer)
     mem.free(buffer)
     return n

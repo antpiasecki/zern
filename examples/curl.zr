@@ -26,15 +26,9 @@ func main[argc: i64, argv: ptr] : i64
     if i < url_len
         path = str.substr(url, i, url_len - i)
     
-    let addr: i64 = net.resolve(host)
-    if addr <= 0
-        io.println("ERROR: domain resolution failed")
-        return 1
+    let addr: i64 = must(net.resolve?(host))
 
-    let s: i64 = net.connect(addr, 80)
-    if s < 0
-        io.println("ERROR: connection failed")
-        return 1
+    let s: i64 = must(net.connect?(addr, 80))
 
     // TODO: add string builder to std
     let req: str = "GET "
