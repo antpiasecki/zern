@@ -14,7 +14,7 @@ func run_test[x: str] : void
     io.print("... ")
 
     let build_start_time: i64 = os.time()
-    if os.run_shell_command(str.concat("./target/release/zern ", x)) != 0
+    if must(os.run_shell_command?(str.concat("./target/release/zern ", x))) != 0
         os.exit(1)
     let build_end_time: i64 = os.time()
 
@@ -39,7 +39,7 @@ func run_test[x: str] : void
         run_cmd = str.concat(run_cmd, " test.zr")
 
     let run_start_time: i64 = os.time()
-    if os.run_shell_command(run_cmd) != 0
+    if must(os.run_shell_command?(run_cmd)) != 0
         os.exit(1)
     let run_end_time: i64 = os.time()
 
@@ -50,14 +50,14 @@ func run_test[x: str] : void
     io.println("ms")
 
 func run_directory[dir: str] : void
-    let files: Array = os.list_directory(dir)
+    let files: Array = must(os.list_directory?(dir))
     for i in 0..files->size
         run_test(str.concat(dir, array.nth(files, i)))
     
     array.free(files)
 
 func main[] : i64
-    os.run_shell_command("cargo build --release")
+    must(os.run_shell_command?("cargo build --release"))
 
     run_directory("examples/")
     run_directory("examples/puzzles/")

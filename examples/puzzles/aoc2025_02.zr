@@ -54,7 +54,7 @@ func part2[ranges: Array] : void
     io.println_i64(sum)
 
 func main[] : i64
-    let ranges: Array = must(io.read_file?("input.txt")) |> str.split(",")
+    let ranges: Array = must(io.read_text_file?("input.txt")) |> str.split(",")
 
     part1(ranges)
     part2(ranges)

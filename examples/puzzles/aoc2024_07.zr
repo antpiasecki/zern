@@ -61,7 +61,7 @@ func part2[equations: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let lines: Array = must(io.read_file?("input.txt")) |> str.split("\n")
+    let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
     let equations: Array = []
 
     for i in 0..lines->size

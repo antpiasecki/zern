@@ -90,7 +90,8 @@ func mem._request_space?[size: i64] : mem.Block
 
 func mem.alloc?[size: i64] : ptr
     err.clear()
-    if size == 0
+    if size <= 0
+        err.set(ERR_ALLOC_FAILED, "mem.alloc? called with non-positive size")
         return 0
 
     size = mem._align(size)
@@ -167,6 +168,10 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
     err.clear()
     if !x
         return mem.alloc?(new_size)
+    
+    if new_size < 0
+        err.set(ERR_ALLOC_FAILED, "mem.realloc? called with negative size")
+        return 0
 
     if new_size == 0
         mem.free(x)
@@ -195,7 +200,7 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
             mem._split_block(blk, new_size)
             return x
 
-    let new_ptr: ptr = mem.alloc(new_size)
+    let new_ptr: ptr = mem.alloc?(new_size)
     if err.check()
         return 0
 
@@ -211,10 +216,15 @@ func mem.zero[x: ptr, size: i64] : void
     for i in 0..size
         x[i] = 0
 
-// TODO: handle overlapping src & dst
 func mem.copy[src: ptr, dst: ptr, n: i64] : void
-    for i in 0..n
-        dst[i] = src[i]
+    if dst > src
+        let i: i64 = n - 1
+        while i >= 0
+            dst[i] = src[i]
+            i = i - 1
+    else
+        for i in 0..n
+            dst[i] = src[i]
 
 func mem.read8[x: ptr] : u8
     return x[0]
@@ -323,16 +333,21 @@ func io.read_line[]: str
     if n < 0
         n = 0
     buffer[n] = 0
+    buffer = must(mem.realloc?(buffer, n + 1))
     return buffer
 
 struct io.Buffer
     data: ptr
     size: i64
 
-func io.Buffer.alloc[size: i64] : io.Buffer
+func io.Buffer.alloc?[size: i64] : io.Buffer
+    err.clear()
     let buffer: io.Buffer = new io.Buffer
     buffer->size = size
-    buffer->data = mem.alloc(size)
+    buffer->data = mem.alloc?(size)
+    if err.check()
+        mem.free(buffer)
+        return 0
     return buffer
 
 func io.Buffer.free[buf: io.Buffer] : void
@@ -342,23 +357,27 @@ func io.Buffer.free[buf: io.Buffer] : void
 func io.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
-func io.read_file?[path: str] : str
+func io.read_text_file?[path: str] : str
     err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        err.set(ERR_OPEN_FAILED, "io.read_file?: failed to open file")
+        err.set(ERR_OPEN_FAILED, "io.read_text_file?: failed to open file")
         return 0
 
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
-    let buffer: str = mem.alloc(size + 1)
+    let buffer: str = mem.alloc?(size + 1)
+    if err.check()
+        _builtin_syscall(SYS_close, fd)
+        return 0
+
     let n: i64 = _builtin_syscall(SYS_read, fd, buffer, size)
     _builtin_syscall(SYS_close, fd)
 
-    if n < 0
+    if n != size
         mem.free(buffer)
-        err.set(ERR_READ_FAILED, "io.read_file?: failed to read file")
+        err.set(ERR_READ_FAILED, "io.read_text_file?: failed to read file")
         return 0
 
     buffer[n] = 0
@@ -371,30 +390,28 @@ func io.read_binary_file?[path: str] : io.Buffer
         err.set(ERR_OPEN_FAILED, "io.read_binary_file?: failed to open file")
         return 0
     
-    let buffer: io.Buffer = new io.Buffer
-    buffer->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
+    let buf: io.Buffer = new io.Buffer
+    buf->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
-    buffer->data = mem.alloc(buffer->size)
-    let n: i64 = _builtin_syscall(SYS_read, fd, buffer->data, buffer->size)
+    buf->data = mem.alloc?(buf->size)
+    if err.check()
+        io.Buffer.free(buf)
+        _builtin_syscall(SYS_close, fd)
+        return 0
+
+    let n: i64 = _builtin_syscall(SYS_read, fd, buf->data, buf->size)
     _builtin_syscall(SYS_close, fd)
 
-    if n < 0
-        mem.free(buffer)
+    if n != buf->size
+        io.Buffer.free(buf)
         err.set(ERR_READ_FAILED, "io.read_binary_file?: failed to read file")
         return 0
 
-    return buffer
+    return buf
 
 func io.write_file?[path: str, content: str] : void
-    err.clear()
-    let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
-    if fd < 0
-        err.set(ERR_OPEN_FAILED, "io.write_file?: failed to open file")
-        return 0
-
-    _builtin_syscall(SYS_write, fd, content, str.len(content))
-    _builtin_syscall(SYS_close, fd)
+    io.write_binary_file?(path, content, str.len(content))
 
 func io.write_binary_file?[path: str, content: ptr, size: i64] : void
     err.clear()
@@ -403,8 +420,11 @@ func io.write_binary_file?[path: str, content: ptr, size: i64] : void
         err.set(ERR_OPEN_FAILED, "io.write_binary_file?: failed to open file")
         return 0
 
-    _builtin_syscall(SYS_write, fd, content, size)
+    let n: i64 = _builtin_syscall(SYS_write, fd, content, size)
     _builtin_syscall(SYS_close, fd)
+    if n != size
+        err.set(ERR_WRITE_FAILED, "io.write_binary_file?: failed to write file")
+        return 0
 
 func str.len[s: str] : i64
     let i = 0
@@ -491,7 +511,9 @@ func str.substr[s: str, start: i64, length: i64] : str
 func str.trim[s: str] : str
     let len: i64 = str.len(s)
     if len == 0
-        return s
+        let out: str = mem.alloc(1)
+        out[0] = 0
+        return out
 
     let start = 0
     let end: i64 = len - 1
@@ -665,6 +687,8 @@ func str.hex_decode[s: str] : str
     return out
 
 func math.gcd[a: i64, b: i64] : i64
+    a = math.abs(a)
+    b = math.abs(b)
     while b != 0
         let tmp: i64 = b
         b = a % b
@@ -682,6 +706,8 @@ func math.max[a: i64, b: i64] : i64
     return b
 
 func math.abs[n: i64] : i64
+    if n == -9223372036854775808
+        panic("MIN_I64 passed to math.abs")
     if n < 0
         return -n
     return n
@@ -695,13 +721,15 @@ func math.sign[n: i64] : i64
         return 0
 
 func math.pow[b: i64, e: i64] : i64
+    if e < 0
+        panic("negative exponent passed to math.pow")
     let out = 1
     for i in 0..e
         out = out * b
     return out
 
 func math.lcm[a: i64, b: i64] : i64
-    return (a * b) / math.gcd(a, b)
+    return (a / math.gcd(a, b)) * b
 
 func math.isqrt[n: i64] : i64
     if n < 0
@@ -876,6 +904,7 @@ func os.urandom?[n: i64]: ptr
 
     let fd: i64 = _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
     if fd < 0
+        mem.free(buffer)
         err.set(ERR_READ_FAILED, "os.urandom?: failed to open /dev/urandom")
         return 0
 
@@ -883,6 +912,7 @@ func os.urandom?[n: i64]: ptr
     _builtin_syscall(SYS_close, fd)
 
     if n != bytes_read
+        mem.free(buffer)
         err.set(ERR_READ_FAILED, "os.urandom?: failed to read /dev/urandom")
         return 0
     
@@ -907,8 +937,13 @@ func os.time[] : i64
     return out
 
 // voodoo magic
-func os.run_shell_command[command: str] : i64
+func os.run_shell_command?[command: str] : i64
+    err.clear()
     let pid: i64 = _builtin_syscall(SYS_fork)
+    if pid < 0
+        err.set(ERR_SYSCALL_FAILED, "os.run_shell_command?: failed to fork")
+        return -1
+
     if pid == 0
         let argv: Array = ["sh", "-c", command, 0] // gets freed after child process exits
         _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
@@ -916,7 +951,8 @@ func os.run_shell_command[command: str] : i64
     else
         let status = 0
         let wp: i64 = _builtin_syscall(SYS_wait4, pid, ^status, 0, 0)
-        if wp == -1
+        if wp < 0
+            err.set(ERR_SYSCALL_FAILED, "os.run_shell_command?: wait() failed")
             return -1
         let st: i64 = status & 0xffffffff
         
@@ -925,16 +961,28 @@ func os.run_shell_command[command: str] : i64
         else
             return -(st & 0x7f)
 
-func os.list_directory[path: str] : Array
+func os.list_directory?[path: str] : Array
+    err.clear()
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        return []
+        err.set(ERR_OPEN_FAILED, "os.list_directory?: failed to open dir")
+        return 0
 
     let files: Array = []
     let buf: ptr = mem.alloc(1024)
     while true
         let n: i64 = _builtin_syscall(SYS_getdents64, fd, buf, 1024)
-        if n <= 0
+        if n < 0
+            mem.free(buf)
+
+            for i in 0..files->size
+                mem.free(array.nth(files, i))
+            array.free(files)
+
+            _builtin_syscall(SYS_close, fd)
+            err.set(ERR_SYSCALL_FAILED, "os.list_directory?: getdents64() failed")
+            return 0
+        else if n == 0
             break
 
         let pos = 0

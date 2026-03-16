@@ -158,7 +158,7 @@ const DNS_RECURSION_DESIRED = 256
 
 func net.encode_dns_name[domain: str] : io.Buffer
     let domain_len: i64 = str.len(domain)
-    let buf: io.Buffer = io.Buffer.alloc(domain_len + 2)
+    let buf: io.Buffer = must(io.Buffer.alloc?(domain_len + 2))
     let out_pos: i64 = 0
     let part_start: i64 = 0
     let i: i64 = 0
@@ -177,7 +177,7 @@ func net.encode_dns_name[domain: str] : io.Buffer
 
 func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
     let name: io.Buffer = net.encode_dns_name(domain_name)
-    let out: io.Buffer = io.Buffer.alloc(12 + name->size + 4)
+    let out: io.Buffer = must(io.Buffer.alloc?(12 + name->size + 4))
 
     // header
     let id: i64 = math.abs(os.urandom_i64() % 65536)
