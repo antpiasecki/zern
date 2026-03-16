@@ -159,6 +159,7 @@ func mem.zero[x: ptr, size: i64] : void
     for i in 0..size
         x[i] = 0
 
+// TODO: handle overlapping src & dst
 func mem.copy[src: ptr, dst: ptr, n: i64] : void
     for i in 0..n
         dst[i] = src[i]
@@ -272,6 +273,20 @@ func io.read_line[]: str
     buffer[n] = 0
     return buffer
 
+struct io.Buffer
+    data: ptr
+    size: i64
+
+func io.Buffer.alloc[size: i64] : io.Buffer
+    let buffer: io.Buffer = new io.Buffer
+    buffer->size = size
+    buffer->data = mem.alloc(size)
+    return buffer
+
+func io.Buffer.free[buf: io.Buffer] : void
+    mem.free(buf->data)
+    mem.free(buf)
+
 func io.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
@@ -294,20 +309,6 @@ func io.read_file[path: str] : str
     buffer[n] = 0
     return buffer
 
-struct io.Buffer
-    data: ptr
-    size: i64
-
-func io.Buffer.alloc[size: i64] : io.Buffer
-    let buffer: io.Buffer = new io.Buffer
-    buffer->size = size
-    buffer->data = mem.alloc(size)
-    return buffer
-
-func io.Buffer.free[buf: io.Buffer] : void
-    mem.free(buf->data)
-    mem.free(buf)
-
 func io.read_binary_file[path: str] : io.Buffer
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
@@ -320,6 +321,11 @@ func io.read_binary_file[path: str] : io.Buffer
     buffer->data = mem.alloc(buffer->size)
     _builtin_syscall(SYS_read, fd, buffer->data, buffer->size)
     _builtin_syscall(SYS_close, fd)
+
+    if n < 0
+        mem.free(buffer)
+        panic("failed to read file") // TODO
+
     return buffer
 
 func io.write_file[path: str, content: str] : void
@@ -420,7 +426,7 @@ func str.substr[s: str, start: i64, length: i64] : str
 func str.trim[s: str] : str
     let len: i64 = str.len(s)
     if len == 0
-        return ""
+        return s
 
     let start = 0
     let end: i64 = len - 1
@@ -503,9 +509,6 @@ func str.from_i64[n: i64] : str
     return s
 
 func str.hex_from_i64[n: i64] : str
-    if n < 0
-        panic("negative number passed to str.hex_from_i64")
-
     let hex_chars: str = "0123456789abcdef"
 
     if n == 0
@@ -514,12 +517,13 @@ func str.hex_from_i64[n: i64] : str
         out[1] = 0
         return out
 
+    let mask: i64 = (1 << 60) - 1
     let buf: str = mem.alloc(17)
     let len = 0
 
-    while n > 0
+    while n != 0
         buf[len] = hex_chars[n & 15]
-        n = n >> 4
+        n = (n >> 4) & mask
         len = len + 1
 
     let out: str = mem.alloc(len + 1)
@@ -672,10 +676,11 @@ struct Array
 func array.new[] : Array
     return new Array
 
-func array.new_with_size[size: i64] : Array
+func array.new_with_size_zeroed[size: i64] : Array
     let xs: Array = new Array
     if size > 0
         xs->data = mem.realloc(xs->data, size * 8)
+        mem.zero(xs->data, size * 8)
         xs->size = size
         xs->capacity = size
     return xs
@@ -717,13 +722,13 @@ func array.slice[xs: Array, start: i64, length: i64] : Array
     if start < 0 || length < 0 || start + length > xs->size
         panic("array.slice out of bounds")
 
-    let new_array: Array = array.new_with_size(length)
+    let new_array: Array = array.new_with_size_zeroed(length)
     for i in 0..length
         array.set(new_array, i, array.nth(xs, start + i))
     return new_array
 
 func array.concat[a: Array, b: Array] : Array
-    let new_array: Array = array.new_with_size(a->size + b->size)
+    let new_array: Array = array.new_with_size_zeroed(a->size + b->size)
     for i in 0..a->size
         array.set(new_array, i, array.nth(a, i))
     for i in 0..b->size
@@ -761,7 +766,7 @@ func alg.count[arr: Array, item: any] : i64
     return count
 
 func alg.map[arr: Array, fn: ptr] : Array
-    let out: Array = array.new_with_size(arr->size)
+    let out: Array = array.new_with_size_zeroed(arr->size)
     for i in 0..arr->size
         array.set(out, i, fn(array.nth(arr, i)))
     return out
@@ -801,8 +806,12 @@ func os.sleep[ms: i64] : void
 func os.urandom[n: i64]: ptr
     let buffer: ptr = mem.alloc(n)
     let fd: i64 = _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
-    _builtin_syscall(SYS_read, fd, buffer, n)
+    let bytes_read: i64 = _builtin_syscall(SYS_read, fd, buffer, n)
     _builtin_syscall(SYS_close, fd)
+
+    if fd < 0 || n != bytes_read
+        panic("failed to read /dev/urandom")
+    
     return buffer
 
 func os.urandom_i64[]: i64
