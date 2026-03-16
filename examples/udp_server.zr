@@ -10,5 +10,5 @@ func main[] : i64
             net.UDPPacket.free(pkt)
             continue
 
-        net.udp_send_to(s, pkt->source_addr, pkt->buffer, pkt->size)
+        net.udp_send_to(s, pkt->source_addr, pkt->data, pkt->size)
         net.UDPPacket.free(pkt)

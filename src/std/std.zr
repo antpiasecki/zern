@@ -76,7 +76,7 @@ func mem._coalesce[] : void
                     mem.write64(_builtin_heap_tail(), 0)
             
             let saved_next: mem.Block = cur->next
-            _builtin_syscall(11, cur, block_total)
+            _builtin_syscall(SYS_munmap, cur, block_total)
             cur = saved_next
             continue
             
@@ -109,12 +109,10 @@ func mem.alloc[size: i64] : ptr
     return blk + MEM_BLOCK_SIZE
 
 func mem.free[x: ptr] : void
-    if !x
-        return 0
-    
-    let blk: mem.Block = x - MEM_BLOCK_SIZE
-    blk->free = true
-    mem._coalesce()
+    if x
+        let blk: mem.Block = x - MEM_BLOCK_SIZE
+        blk->free = true
+        mem._coalesce()
 
 func mem.realloc[x: ptr, new_size: i64] : ptr
     if !x
@@ -270,8 +268,7 @@ func io.read_line[]: str
     let buffer: str = mem.alloc(MAX_SIZE + 1)
     let n: i64 = _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
     if n < 0
-        mem.free(buffer)
-        return ""
+        n = 0
     buffer[n] = 0
     return buffer
 
@@ -280,7 +277,7 @@ func io.file_exists[path: str] : bool
 
 func io.read_file[path: str] : str
     let fd: i64 = _builtin_syscall(SYS_openat, -100, path, 0, 0)
-    if fd <= 0
+    if fd < 0
         panic("failed to open file") // TODO
 
     let size: i64 = _builtin_syscall(SYS_lseek, fd, 0, 2)
@@ -289,6 +286,11 @@ func io.read_file[path: str] : str
     let buffer: str = mem.alloc(size + 1)
     let n: i64 = _builtin_syscall(SYS_read, fd, buffer, size)
     _builtin_syscall(SYS_close, fd)
+
+    if n < 0
+        mem.free(buffer)
+        panic("failed to read file") // TODO
+
     buffer[n] = 0
     return buffer
 
@@ -472,7 +474,6 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-// not sure this covers all the wacky edge cases
 func str.from_i64[n: i64] : str
     if n == 0
         let out: str = mem.alloc(2)
@@ -482,23 +483,29 @@ func str.from_i64[n: i64] : str
 
     let neg: bool = n < 0
     if neg
+        // negating MIN_I64 causes overflow
+        if n == -9223372036854775808
+            return str.make_copy("-9223372036854775808")
         n = -n
     let buf: str = mem.alloc(21) // enough to fit -MAX_I64
-    let i = 0
+    let end = 20
+    buf[end] = 0
+    end = end - 1
     while n > 0
-        let d: u8 = n % 10
-        buf[i] = '0' + d
+        buf[end] = '0' + (n % 10)
         n = n / 10
-        i = i + 1
+        end = end - 1
     if neg
-        buf[i] = '-'
-        i = i + 1
-    buf[i] = 0
-    let s: str = str.reverse(buf)
+        buf[end] = '-'
+        end = end - 1
+    let s: str = str.make_copy(buf + end + 1)
     mem.free(buf)
     return s
 
 func str.hex_from_i64[n: i64] : str
+    if n < 0
+        panic("negative number passed to str.hex_from_i64")
+
     let hex_chars: str = "0123456789abcdef"
 
     if n == 0
@@ -522,6 +529,7 @@ func str.hex_from_i64[n: i64] : str
         j = j + 1
 
     out[len] = 0
+    mem.free(buf)
     return out
 
 func str.from_char[c: u8] : str
@@ -572,6 +580,9 @@ func str._hex_digit_to_int[d: u8] : i64
 
 func str.hex_decode[s: str] : str
     let s_len: i64 = str.len(s)
+    if s_len % 2 != 0
+        panic("invalid hex string passed to str.hex_decode")
+
     let i = 0
     let j = 0
     let out: str = mem.alloc(s_len / 2 + 1)
@@ -661,6 +672,14 @@ struct Array
 func array.new[] : Array
     return new Array
 
+func array.new_with_size[size: i64] : Array
+    let xs: Array = new Array
+    if size > 0
+        xs->data = mem.realloc(xs->data, size * 8)
+        xs->size = size
+        xs->capacity = size
+    return xs
+
 func array.nth[xs: Array, n: i64] : any
     if n < 0 || n >= xs->size
         panic("array.nth out of bounds")
@@ -698,17 +717,17 @@ func array.slice[xs: Array, start: i64, length: i64] : Array
     if start < 0 || length < 0 || start + length > xs->size
         panic("array.slice out of bounds")
 
-    let new_array: Array = []
+    let new_array: Array = array.new_with_size(length)
     for i in 0..length
-        array.push(new_array, array.nth(xs, start + i))
+        array.set(new_array, i, array.nth(xs, start + i))
     return new_array
 
 func array.concat[a: Array, b: Array] : Array
-    let new_array: Array = []
+    let new_array: Array = array.new_with_size(a->size + b->size)
     for i in 0..a->size
-        array.push(new_array, array.nth(a, i))
+        array.set(new_array, i, array.nth(a, i))
     for i in 0..b->size
-        array.push(new_array, array.nth(b, i))
+        array.set(new_array, a->size + i, array.nth(b, i))
     return new_array
 
 func alg.quicksort[arr: Array] : void
@@ -742,9 +761,9 @@ func alg.count[arr: Array, item: any] : i64
     return count
 
 func alg.map[arr: Array, fn: ptr] : Array
-    let out: Array = []
+    let out: Array = array.new_with_size(arr->size)
     for i in 0..arr->size
-        array.push(out, fn(array.nth(arr, i)))
+        array.set(out, i, fn(array.nth(arr, i)))
     return out
 
 func alg.filter[arr: Array, fn: ptr] : Array
@@ -765,14 +784,17 @@ func os.exit[code: i64] : void
 func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
 
+struct os.Timespec
+    tv_sec: i64
+    tv_nsec: i64
+
 func os.sleep[ms: i64] : void
     if ms < 0
         panic("negative time passed to os.sleep")
     // TODO: we really shouldnt need a heap allocation to sleep
-    let req: os.Timeval = new os.Timeval
+    let req: os.Timespec = new os.Timespec
     req->tv_sec = ms / 1000
-    // yes, we should have a os.Timespec with tv_nsec but this works for now
-    req->tv_usec = (ms % 1000) * 1000000
+    req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
     mem.free(req)
 

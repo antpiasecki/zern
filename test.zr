@@ -1,6 +1,6 @@
 func run_test[x: str] : void
     let build_blacklist: Array = ["examples/puzzles", "examples/raylib.zr", "examples/chip8.zr", "examples/sqlite_todo.zr"]
-    let run_blacklist: Array = ["/aoc", "guess_number.zr", "tcp_server.zr"]
+    let run_blacklist: Array = ["/aoc", "guess_number.zr", "tcp_server.zr", "udp_server.zr"]
 
     for i in 0..build_blacklist->size
         if str.equal(x, array.nth(build_blacklist, i))
