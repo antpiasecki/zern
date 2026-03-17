@@ -5,13 +5,37 @@ use crate::{
     tokenizer::{ZernError, error},
 };
 
+pub type Type = String;
+
 pub struct StructField {
     pub offset: usize,
-    pub field_type: String,
+    pub field_type: Type,
+}
+
+#[derive(Clone)]
+pub struct FnType {
+    pub return_type: Type,
+    pub params: Option<Vec<Type>>,
+}
+
+impl FnType {
+    fn new(return_type: &str, params: Vec<&str>) -> FnType {
+        FnType {
+            return_type: return_type.to_string(),
+            params: Some(params.iter().map(|x| x.to_string()).collect()),
+        }
+    }
+
+    fn new_variadic(return_type: &str) -> FnType {
+        FnType {
+            return_type: return_type.to_string(),
+            params: None,
+        }
+    }
 }
 
 pub struct Analyzer {
-    pub functions: HashMap<String, (String, Option<Vec<String>>)>,
+    pub functions: HashMap<String, FnType>,
     pub constants: HashMap<String, u64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
 }
@@ -20,21 +44,18 @@ impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
             functions: HashMap::from([
-                ("_builtin_heap_head".into(), ("ptr".into(), Some(vec![]))),
-                ("_builtin_heap_tail".into(), ("ptr".into(), Some(vec![]))),
-                ("_builtin_err_code".into(), ("ptr".into(), Some(vec![]))),
-                ("_builtin_err_msg".into(), ("ptr".into(), Some(vec![]))),
-                (
-                    "_builtin_read64".into(),
-                    ("i64".into(), Some(vec!["ptr".into()])),
-                ),
+                ("_builtin_heap_head".into(), FnType::new("ptr", vec![])),
+                ("_builtin_heap_tail".into(), FnType::new("ptr", vec![])),
+                ("_builtin_err_code".into(), FnType::new("ptr", vec![])),
+                ("_builtin_err_msg".into(), FnType::new("ptr", vec![])),
+                ("_builtin_read64".into(), FnType::new("i64", vec!["ptr"])),
                 (
                     "_builtin_set64".into(),
-                    ("void".into(), Some(vec!["ptr".into(), "i64".into()])),
+                    FnType::new("void", vec!["ptr", "any"]),
                 ),
-                ("_builtin_syscall".into(), ("any".into(), None)),
-                ("io.printf".into(), ("void".into(), None)),
-                ("_builtin_environ".into(), ("ptr".into(), Some(vec![]))),
+                ("_builtin_syscall".into(), FnType::new_variadic("any")),
+                ("io.printf".into(), FnType::new_variadic("void")),
+                ("_builtin_environ".into(), FnType::new("ptr", vec![])),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),
@@ -55,10 +76,10 @@ impl Analyzer {
             }
             self.functions.insert(
                 name.lexeme.clone(),
-                (
-                    return_type.lexeme.clone(),
-                    Some(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
-                ),
+                FnType {
+                    return_type: return_type.lexeme.clone(),
+                    params: Some(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                },
             );
         }
         Ok(())
@@ -144,7 +165,7 @@ impl Analyzer {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 self.functions
-                    .insert(name.lexeme.clone(), ("any".into(), None));
+                    .insert(name.lexeme.clone(), FnType::new_variadic("any"));
             }
             Stmt::Struct { name, fields } => {
                 let mut fields_map: HashMap<String, StructField> = HashMap::new();
@@ -195,9 +216,9 @@ impl Analyzer {
                 if let Expr::Variable(callee_name) = *callee.clone() {
                     if self.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
-                        if let Some(params) = self.functions.get(&callee_name.lexeme) {
+                        if let Some(fn_type) = self.functions.get(&callee_name.lexeme) {
                             // if its None, its variadic
-                            if let (_, Some(params)) = params
+                            if let Some(params) = &fn_type.params
                                 && params.len() != args.len()
                             {
                                 return error!(

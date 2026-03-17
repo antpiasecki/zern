@@ -20,7 +20,7 @@ func err.clear[] : void
 
 func err.set[code: i64, msg: str] : void
     mem.write64(_builtin_err_code(), code)
-    mem.write64(_builtin_err_msg(), msg as ptr as i64)
+    mem.write64(_builtin_err_msg(), msg)
 
 func must[x: any] : any
     if err.check()
@@ -57,7 +57,7 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
             let next: mem.Block = blk->next
             next->prev = new_blk
         else
-            mem.write64(_builtin_heap_tail(), new_blk as ptr as i64)
+            mem.write64(_builtin_heap_tail(), new_blk)
 
         blk->size = needed
         blk->next = new_blk
@@ -87,10 +87,10 @@ func mem._request_space?[size: i64] : mem.Block
         tail->next = blk
         blk->prev = tail
 
-    mem.write64(_builtin_heap_tail(), blk as ptr as i64)
+    mem.write64(_builtin_heap_tail(), blk)
     return blk
 
-func mem.alloc?[size: i64] : ptr
+func mem.alloc?[size: i64] : any
     err.clear()
     if size <= 0
         err.set(ERR_ALLOC_FAILED, "mem.alloc? called with non-positive size")
@@ -111,13 +111,13 @@ func mem.alloc?[size: i64] : ptr
         return 0
     
     if !mem.read64(_builtin_heap_head())
-        mem.write64(_builtin_heap_head(), blk as ptr as i64)
+        mem.write64(_builtin_heap_head(), blk)
     
     mem._split_block(blk, size)
     
     return blk + MEM_BLOCK_SIZE
 
-func mem.alloc[size: i64] : ptr
+func mem.alloc[size: i64] : any
     return must(mem.alloc?(size))
 
 func mem.free[x: any] : void
@@ -137,7 +137,7 @@ func mem.free[x: any] : void
                 let b: mem.Block = next->next
                 b->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
-                mem.write64(_builtin_heap_tail(), blk as ptr as i64)
+                mem.write64(_builtin_heap_tail(), blk)
 
     let prev: mem.Block = blk->prev
     if prev as ptr && prev->free
@@ -149,7 +149,7 @@ func mem.free[x: any] : void
                 let b: mem.Block = blk->next
                 b->prev = prev
             if mem.read64(_builtin_heap_tail()) == blk as ptr
-                mem.write64(_builtin_heap_tail(), prev as ptr as i64)
+                mem.write64(_builtin_heap_tail(), prev)
             blk = prev
 
     let block_total: i64 = blk->size + MEM_BLOCK_SIZE
@@ -158,12 +158,12 @@ func mem.free[x: any] : void
             let b: mem.Block = blk->prev
             b->next = blk->next
         else
-            mem.write64(_builtin_heap_head(), blk->next as ptr as i64)
+            mem.write64(_builtin_heap_head(), blk->next)
         if blk->next
             let b: mem.Block = blk->next
             b->prev = blk->prev
         else
-            mem.write64(_builtin_heap_tail(), blk->prev as ptr as i64)
+            mem.write64(_builtin_heap_tail(), blk->prev)
         _builtin_syscall(SYS_munmap, blk, block_total)
 
 func mem.realloc?[x: ptr, new_size: i64] : ptr
@@ -198,7 +198,7 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
                 let b: mem.Block = next->next
                 b->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
-                mem.write64(_builtin_heap_tail(), blk as ptr as i64)
+                mem.write64(_builtin_heap_tail(), blk)
             mem._split_block(blk, new_size)
             return x
 
@@ -260,7 +260,7 @@ func mem.write16be[x: ptr, d: i64] : void
     x[0] = (d >> 8) & 0xff
     x[1] = d & 0xff
 
-func mem.write64[x: ptr, d: i64] : void
+func mem.write64[x: ptr, d: any] : void
     _builtin_set64(x, d)
 
 // see emit_prologue for the io.printf wrapper
@@ -330,12 +330,12 @@ func io.read_char[] : u8
 
 func io.read_line[]: str
     let MAX_SIZE = 60000
-    let buffer: str = mem.alloc(MAX_SIZE + 1) as str
+    let buffer: str = mem.alloc(MAX_SIZE + 1)
     let n: i64 = _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
     if n < 0
         n = 0
     buffer[n] = 0
-    buffer = must(mem.realloc?(buffer, n + 1) as str)
+    buffer = must(mem.realloc?(buffer, n + 1))
     return buffer
 
 struct io.Buffer
@@ -436,7 +436,7 @@ func str.len[s: str] : i64
 
 func str.make_copy[s: str] : str
     let size: i64 = str.len(s) + 1
-    let dup: str = mem.alloc(size) as str
+    let dup: str = mem.alloc(size)
     mem.copy(s as ptr, dup as ptr, size)
     return dup
 
@@ -472,7 +472,7 @@ func str.is_alphanumeric[x: u8] : bool
 func str.concat[a: str, b: str] : str
     let a_len: i64 = str.len(a)
     let b_len: i64 = str.len(b)
-    let out: str = mem.alloc(a_len + b_len + 1) as str
+    let out: str = mem.alloc(a_len + b_len + 1)
     mem.copy(a as ptr, out as ptr, a_len)
     mem.copy(b as ptr, out as ptr + a_len, b_len)
     out[a_len + b_len] = 0
@@ -505,7 +505,7 @@ func str.substr[s: str, start: i64, length: i64] : str
     if start < 0 || length < 0 || start + length > str.len(s)
         panic("str.substr out of bounds")
 
-    let out: str = mem.alloc(length + 1) as str
+    let out: str = mem.alloc(length + 1)
     mem.copy(s as ptr + start, out as ptr, length)
     out[length] = 0
     return out
@@ -513,7 +513,7 @@ func str.substr[s: str, start: i64, length: i64] : str
 func str.trim[s: str] : str
     let len: i64 = str.len(s)
     if len == 0
-        let out: str = mem.alloc(1) as str
+        let out: str = mem.alloc(1)
         out[0] = 0
         return out
 
@@ -562,7 +562,7 @@ func str.split[haystack: str, needle: str]: Array
 
 func str.reverse[s: str] : str
     let len: i64 = str.len(s)
-    let out: str = mem.alloc(len + 1) as str
+    let out: str = mem.alloc(len + 1)
 
     for i in 0..len
         out[i] = s[len - i - 1]
@@ -571,7 +571,7 @@ func str.reverse[s: str] : str
 
 func str.from_i64[n: i64] : str
     if n == 0
-        let out: str = mem.alloc(2) as str
+        let out: str = mem.alloc(2)
         out[0] = '0'
         out[1] = 0
         return out
@@ -582,7 +582,7 @@ func str.from_i64[n: i64] : str
         if n == -9223372036854775808
             return str.make_copy("-9223372036854775808")
         n = -n
-    let buf: str = mem.alloc(21) as str // enough to fit -MAX_I64
+    let buf: str = mem.alloc(21) // enough to fit -MAX_I64
     let end = 20
     buf[end] = 0
     end = end - 1
@@ -601,13 +601,13 @@ func str.hex_from_i64[n: i64] : str
     let hex_chars: str = "0123456789abcdef"
 
     if n == 0
-        let out: str = mem.alloc(2) as str
+        let out: str = mem.alloc(2)
         out[0] = '0'
         out[1] = 0
         return out
 
     let mask: i64 = (1 << 60) - 1
-    let buf: str = mem.alloc(17) as str
+    let buf: str = mem.alloc(17)
     let len = 0
 
     while n != 0
@@ -615,7 +615,7 @@ func str.hex_from_i64[n: i64] : str
         n = (n >> 4) & mask
         len = len + 1
 
-    let out: str = mem.alloc(len + 1) as str
+    let out: str = mem.alloc(len + 1)
     let j = 0
     while j < len
         out[j] = buf[len - 1 - j]
@@ -626,7 +626,7 @@ func str.hex_from_i64[n: i64] : str
     return out
 
 func str.from_char[c: u8] : str
-    let s: str = mem.alloc(2) as str
+    let s: str = mem.alloc(2)
     s[0] = c
     s[1] = 0
     return s
@@ -652,7 +652,7 @@ func str.parse_i64[s: str] : i64
 func str.hex_encode[s: str, s_len: i64] : str
     let hex_chars: str = "0123456789abcdef"
     let j = 0
-    let out: str = mem.alloc(s_len * 2 + 1) as str
+    let out: str = mem.alloc(s_len * 2 + 1)
 
     for i in 0..s_len
         let high: u8 = (s[i] >> 4) & 15
@@ -678,7 +678,7 @@ func str.hex_decode[s: str] : str
 
     let i = 0
     let j = 0
-    let out: str = mem.alloc(s_len / 2 + 1) as str
+    let out: str = mem.alloc(s_len / 2 + 1)
 
     while i < s_len
         out[j] = str._hex_digit_to_int(s[i]) * 16 + str._hex_digit_to_int(s[i + 1])

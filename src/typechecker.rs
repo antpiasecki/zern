@@ -4,12 +4,10 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    analyzer::Analyzer,
+    analyzer::{Analyzer, Type},
     parser::{Expr, Stmt},
     tokenizer::{TokenType, ZernError, error},
 };
-
-type Type = String;
 
 macro_rules! expect_type {
     ($expr_type:expr, $expected:expr, $loc:expr) => {
@@ -330,14 +328,15 @@ impl TypeChecker {
                         .functions
                         .contains_key(&callee_name.lexeme)
                     {
-                        let params = self.analyzer.borrow().functions[&callee_name.lexeme].clone();
-                        if let (_, Some(params)) = params {
+                        let fn_type =
+                            &self.analyzer.borrow().functions[&callee_name.lexeme].clone();
+                        if let Some(params) = fn_type.params.clone() {
                             // its a function (defined/builtin/extern)
                             for (i, arg) in args.iter().enumerate() {
                                 expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
                             }
                         }
-                        Ok(params.0)
+                        Ok(fn_type.return_type.clone())
                     } else {
                         // its a variable containing function address
                         expect_type!(self.typecheck_expr(env, callee)?, "fnptr", paren.loc);
