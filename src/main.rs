@@ -52,7 +52,7 @@ fn compile_file_to(
     }
 
     for stmt in &statements {
-        typechecker.typecheck_stmt(stmt)?;
+        typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
     for stmt in statements {

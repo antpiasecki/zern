@@ -69,9 +69,6 @@ macro_rules! emit {
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-// TODO: currently they are all just 64 bit values
-static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "any"];
-
 pub struct CodegenX86_64 {
     output: String,
     data_section: String,
@@ -248,10 +245,6 @@ _builtin_environ:
                     },
                 };
 
-                if !self.is_valid_type_name(&var_type) {
-                    return error!(&name.loc, "unrecognized type: ".to_owned() + &var_type);
-                }
-
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
@@ -306,7 +299,7 @@ _builtin_environ:
             Stmt::Function {
                 name,
                 params,
-                return_type,
+                return_type: _,
                 body,
                 exported,
             } => {
@@ -319,21 +312,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    mov rbp, rsp");
                 emit!(&mut self.output, "    sub rsp, 256"); // TODO
 
-                if !self.is_valid_type_name(&return_type.lexeme) {
-                    return error!(
-                        &return_type.loc,
-                        "unrecognized type: ".to_owned() + &return_type.lexeme
-                    );
-                }
-
                 for (i, param) in params.iter().enumerate() {
-                    if !self.is_valid_type_name(&param.var_type.lexeme) {
-                        return error!(
-                            &param.var_name.loc,
-                            "unrecognized type: ".to_owned() + &param.var_type.lexeme
-                        );
-                    }
-
                     let offset = env
                         .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
                     if let Some(reg) = REGISTERS.get(i) {
@@ -578,15 +557,9 @@ _builtin_environ:
                         self.analyzer.borrow().constants[&name.lexeme]
                     );
                 } else {
-                    // TODO: move to analyzer
                     let var = match env.get_var(&name.lexeme) {
                         Some(x) => x,
-                        None => {
-                            return error!(
-                                name.loc,
-                                format!("undefined variable: {}", &name.lexeme)
-                            );
-                        }
+                        None => unreachable!(),
                     };
                     emit!(
                         &mut self.output,
@@ -768,16 +741,6 @@ _builtin_environ:
             }
         }
         Ok(())
-    }
-
-    fn is_valid_type_name(&self, name: &str) -> bool {
-        if BUILTIN_TYPES.contains(&name) {
-            return true;
-        }
-        if self.analyzer.borrow().structs.contains_key(name) {
-            return true;
-        }
-        false
     }
 
     fn get_field_offset(
