@@ -51,9 +51,9 @@ impl Analyzer {
                 ("_builtin_read64".into(), FnType::new("i64", vec!["ptr"])),
                 (
                     "_builtin_set64".into(),
-                    FnType::new("void", vec!["ptr", "any"]),
+                    FnType::new("void", vec!["ptr", "i64"]),
                 ),
-                ("_builtin_syscall".into(), FnType::new_variadic("any")),
+                ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("io.printf".into(), FnType::new_variadic("void")),
                 ("_builtin_environ".into(), FnType::new("ptr", vec![])),
             ]),
@@ -145,7 +145,7 @@ impl Analyzer {
 
                 self.analyze_stmt(body)?;
             }
-            Stmt::Return(expr) => {
+            Stmt::Return { expr, keyword: _ } => {
                 self.analyze_expr(expr)?;
             }
             Stmt::For {

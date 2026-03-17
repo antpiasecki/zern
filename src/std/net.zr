@@ -82,7 +82,7 @@ func net.close[s: i64] : void
     _builtin_syscall(SYS_close, s)
 
 func net.pack_addr[a: u8, b: u8, c: u8, d: u8] : i64
-    return (a << 24) | (b << 16) | (c << 8) | d
+    return (a as i64 << 24) | (b << 16) | (c << 8) | d
 
 struct net.UDPSocket
     fd: i64
@@ -101,7 +101,7 @@ func net.create_udp_client?[packed_host: i64, port: i64] : net.UDPSocket
     if s->fd < 0
         mem.free(s)
         err.set(ERR_SYSCALL_FAILED, "net.create_udp_client?: failed to create a socket")
-        return 0
+        return 0 as net.UDPSocket
 
     s->addr = mem.alloc(16)
     mem.zero(s->addr, 16)
@@ -115,16 +115,16 @@ func net.create_udp_client?[packed_host: i64, port: i64] : net.UDPSocket
     s->addr[7] = packed_host & 255
     return s
 
-func net.udp_listen?[packed_host: i64, port: i64] : net.UDPSocket
+func net.create_udp_server?[packed_host: i64, port: i64] : net.UDPSocket
     err.clear()
     let s: net.UDPSocket = net.create_udp_client?(packed_host, port)
     if err.check()
-        return 0
+        return 0 as net.UDPSocket
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
         net.UDPSocket.close_and_free(s)
-        err.set(ERR_SYSCALL_FAILED, "net.udp_listen?: failed to bind")
-        return 0
+        err.set(ERR_SYSCALL_FAILED, "net.create_udp_server?: failed to bind")
+        return 0 as net.UDPSocket
 
     return s
 

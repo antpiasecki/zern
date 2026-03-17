@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
@@ -72,11 +69,15 @@ impl Env {
 
 pub struct TypeChecker {
     analyzer: Rc<RefCell<Analyzer>>,
+    current_function_return_type: String,
 }
 
 impl TypeChecker {
     pub fn new(analyzer: Rc<RefCell<Analyzer>>) -> TypeChecker {
-        TypeChecker { analyzer }
+        TypeChecker {
+            analyzer,
+            current_function_return_type: String::new(),
+        }
     }
 
     pub fn typecheck_stmt(&mut self, env: &mut Env, stmt: &Stmt) -> Result<(), ZernError> {
@@ -106,11 +107,15 @@ impl TypeChecker {
 
                 env.define_var(name.lexeme.clone(), actual_type);
             }
-            Stmt::Const { name, value } => {}
+            Stmt::Const { name: _, value: _ } => {
+                // handled in the analyzer
+            }
             Stmt::Block(stmts) => {
+                env.push_scope();
                 for stmt in stmts {
                     self.typecheck_stmt(env, stmt)?;
                 }
+                env.pop_scope();
             }
             Stmt::If {
                 condition,
@@ -140,14 +145,12 @@ impl TypeChecker {
                 env.pop_scope();
             }
             Stmt::Function {
-                name,
+                name: _,
                 params,
                 return_type,
                 body,
-                exported,
+                exported: _,
             } => {
-                env.push_scope();
-
                 if !self.is_valid_type_name(&return_type.lexeme) {
                     return error!(
                         &return_type.loc,
@@ -155,7 +158,11 @@ impl TypeChecker {
                     );
                 }
 
-                for (i, param) in params.iter().enumerate() {
+                self.current_function_return_type = return_type.lexeme.clone();
+
+                env.push_scope();
+
+                for param in params {
                     if !self.is_valid_type_name(&param.var_type.lexeme) {
                         return error!(
                             &param.var_name.loc,
@@ -170,15 +177,22 @@ impl TypeChecker {
 
                 env.pop_scope();
             }
-            Stmt::Return(expr) => {
-                // TODO
+            Stmt::Return { expr, keyword } => {
+                let expected = if self.current_function_return_type == "void" {
+                    "i64".into()
+                } else {
+                    self.current_function_return_type.clone()
+                };
+                expect_type!(self.typecheck_expr(env, expr)?, expected, keyword.loc);
             }
             Stmt::Break => {}
             Stmt::Continue => {}
             Stmt::Extern(_) => {
                 // handled in the analyzer
             }
-            Stmt::Struct { name, fields } => {}
+            Stmt::Struct { name: _, fields: _ } => {
+                // TODO: validate types
+            }
         }
         Ok(())
     }
@@ -265,7 +279,7 @@ impl TypeChecker {
 
                 match left.as_ref() {
                     Expr::Variable(name) => {
-                        let var_type = match env.get_var_type(&name.lexeme) {
+                        let existing_var_type = match env.get_var_type(&name.lexeme) {
                             Some(x) => x,
                             None => {
                                 return error!(
@@ -274,7 +288,7 @@ impl TypeChecker {
                                 );
                             }
                         };
-                        expect_type!(*var_type, value_type, name.loc);
+                        expect_type!(value_type, *existing_var_type, name.loc);
                     }
                     Expr::Index {
                         expr,
@@ -403,6 +417,7 @@ impl TypeChecker {
             }
             Expr::Cast { expr, type_name } => {
                 self.typecheck_expr(env, expr)?;
+                // TODO: validate target type
                 Ok(type_name.lexeme.clone())
             }
         }

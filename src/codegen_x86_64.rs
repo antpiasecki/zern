@@ -339,7 +339,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    ret");
                 }
             }
-            Stmt::Return(expr) => {
+            Stmt::Return { expr, keyword: _ } => {
                 self.compile_expr(env, expr)?;
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");

@@ -41,7 +41,10 @@ pub enum Stmt {
         body: Box<Stmt>,
         exported: bool,
     },
-    Return(Expr),
+    Return {
+        expr: Expr,
+        keyword: Token,
+    },
     Break,
     Continue,
     Extern(Token),
@@ -262,7 +265,11 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordFor]) {
             self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
-            Ok(Stmt::Return(self.expression()?))
+            let keyword = self.previous().clone();
+            Ok(Stmt::Return {
+                expr: self.expression()?,
+                keyword,
+            })
         } else if self.match_token(&[TokenType::KeywordBreak]) {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
