@@ -573,15 +573,9 @@ _builtin_environ:
 
                 match left.as_ref() {
                     Expr::Variable(name) => {
-                        // TODO: move to analyzer
                         let var = match env.get_var(&name.lexeme) {
                             Some(x) => x,
-                            None => {
-                                return error!(
-                                    name.loc,
-                                    format!("undefined variable: {}", &name.lexeme)
-                                );
-                            }
+                            None => unreachable!(),
                         };
                         emit!(
                             &mut self.output,
@@ -589,7 +583,11 @@ _builtin_environ:
                             var.stack_offset,
                         );
                     }
-                    Expr::Index { expr, index } => {
+                    Expr::Index {
+                        expr,
+                        bracket: _,
+                        index,
+                    } => {
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, expr)?;
                         emit!(&mut self.output, "    push rax");
@@ -688,7 +686,11 @@ _builtin_environ:
                 }
                 emit!(&mut self.output, "    pop rax");
             }
-            Expr::Index { expr, index } => {
+            Expr::Index {
+                expr,
+                bracket: _,
+                index,
+            } => {
                 self.compile_expr(env, expr)?;
                 emit!(&mut self.output, "    push rax");
                 self.compile_expr(env, index)?;
@@ -739,6 +741,9 @@ _builtin_environ:
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    mov rax, QWORD [rax+{}]", offset);
             }
+            Expr::Cast { expr, type_name: _ } => {
+                self.compile_expr(env, expr)?;
+            }
         }
         Ok(())
     }
@@ -772,11 +777,11 @@ _builtin_environ:
             }
         };
 
-        let offset = match fields.get(&field.lexeme) {
-            Some(o) => *o,
+        let field = match fields.get(&field.lexeme) {
+            Some(o) => o,
             None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
         };
 
-        Ok(offset)
+        Ok(field.offset)
     }
 }

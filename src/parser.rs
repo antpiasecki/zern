@@ -83,6 +83,7 @@ pub enum Expr {
     ArrayLiteral(Vec<Expr>),
     Index {
         expr: Box<Expr>,
+        bracket: Token,
         index: Box<Expr>,
     },
     AddrOf {
@@ -93,6 +94,10 @@ pub enum Expr {
     MemberAccess {
         left: Box<Expr>,
         field: Token,
+    },
+    Cast {
+        expr: Box<Expr>,
+        type_name: Token,
     },
 }
 
@@ -438,7 +443,7 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Result<Expr, ZernError> {
-        let mut expr = self.unary()?;
+        let mut expr = self.cast()?;
 
         while self.match_token(&[
             TokenType::Star,
@@ -454,6 +459,20 @@ impl Parser {
                 op,
                 right: Box::new(right),
             }
+        }
+
+        Ok(expr)
+    }
+
+    fn cast(&mut self) -> Result<Expr, ZernError> {
+        let mut expr = self.unary()?;
+
+        while self.match_token(&[TokenType::KeywordAs]) {
+            let type_name = self.consume(TokenType::Identifier, "expected type after 'as'")?;
+            expr = Expr::Cast {
+                expr: Box::new(expr),
+                type_name,
+            };
         }
 
         Ok(expr)
@@ -504,9 +523,10 @@ impl Parser {
                 };
             } else if self.match_token(&[TokenType::LeftBracket]) {
                 let index = self.expression()?;
-                self.consume(TokenType::RightBracket, "expected ']' after index")?;
+                let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
                 expr = Expr::Index {
                     expr: Box::new(expr),
+                    bracket,
                     index: Box::new(index),
                 }
             } else if self.match_token(&[TokenType::Arrow]) {

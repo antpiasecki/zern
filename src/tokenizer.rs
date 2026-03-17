@@ -55,6 +55,7 @@ pub enum TokenType {
     KeywordExport,
     KeywordStruct,
     KeywordNew,
+    KeywordAs,
 
     Indent,
     Dedent,
@@ -371,6 +372,7 @@ impl Tokenizer {
             "export" => TokenType::KeywordExport,
             "struct" => TokenType::KeywordStruct,
             "new" => TokenType::KeywordNew,
+            "as" => TokenType::KeywordAs,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

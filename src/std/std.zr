@@ -47,7 +47,7 @@ func mem._align[x: i64] : i64
 
 func mem._split_block[blk: mem.Block, needed: i64] : void
     if blk->size >= needed + MEM_BLOCK_SIZE + 8
-        let new_blk: mem.Block = blk + MEM_BLOCK_SIZE + needed
+        let new_blk: mem.Block = (blk as ptr + MEM_BLOCK_SIZE + needed) as mem.Block
         new_blk->size = blk->size - needed - MEM_BLOCK_SIZE
         new_blk->free = true
         new_blk->next = blk->next
@@ -70,17 +70,19 @@ func mem._request_space?[size: i64] : mem.Block
     // PROT_READ | PROT_WRITE = 3
     // MAP_PRIVATE | MAP_ANONYMOUS = 34
     // fd = -1, offset = 0
-    let blk: mem.Block = _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0)
-    if blk == -1
+    let blk_ptr: ptr = _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0) as ptr
+    if blk_ptr == -1
         err.set(ERR_ALLOC_FAILED, "mem._request_space: mmap failed")
         return 0
+    
+    let blk: mem.Block = blk_ptr as mem.Block
 
     blk->size = alloc_size - MEM_BLOCK_SIZE
     blk->free = false
-    blk->next = 0
-    blk->prev = 0
+    blk->next = 0 as mem.Block
+    blk->prev = 0 as mem.Block
 
-    let tail: mem.Block = mem.read64(_builtin_heap_tail())
+    let tail: mem.Block = mem.read64(_builtin_heap_tail()) as mem.Block
     if tail
         tail->next = blk
         blk->prev = tail

@@ -22,6 +22,21 @@ macro_rules! expect_type {
     };
 }
 
+macro_rules! expect_types {
+    ($expr_type:expr, [$( $expected:expr ),+], $loc:expr) => {
+        if $( $expr_type != $expected )&&+ {
+            return error!(
+                $loc,
+                format!(
+                    "expected one of [{}], got '{}'",
+                    [$( $expected ),+].join(", "),
+                    $expr_type
+                )
+            );
+        }
+    };
+}
+
 // TODO: currently they are all just 64 bit values
 static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "str", "bool", "ptr", "fnptr", "any"];
 
@@ -119,6 +134,8 @@ impl TypeChecker {
                 body,
                 exported,
             } => {
+                env.push_scope();
+
                 if !self.is_valid_type_name(&return_type.lexeme) {
                     return error!(
                         &return_type.loc,
@@ -138,6 +155,8 @@ impl TypeChecker {
                 }
 
                 self.typecheck_stmt(env, body)?;
+
+                env.pop_scope();
             }
             Stmt::Return(expr) => {
                 // TODO
@@ -153,11 +172,31 @@ impl TypeChecker {
     pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
         match expr {
             Expr::Binary { left, op, right } => {
-                expect_type!(self.typecheck_expr(env, left)?, "i64", op.loc);
-                Ok("i64".into())
+                expect_types!(self.typecheck_expr(env, left)?, ["i64", "ptr"], op.loc);
+                expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr"], op.loc);
+
+                match op.token_type {
+                    TokenType::Plus
+                    | TokenType::Minus
+                    | TokenType::Star
+                    | TokenType::Slash
+                    | TokenType::Mod
+                    | TokenType::Xor
+                    | TokenType::BitAnd
+                    | TokenType::BitOr
+                    | TokenType::ShiftLeft
+                    | TokenType::ShiftRight => Ok("i64".into()),
+                    TokenType::DoubleEqual
+                    | TokenType::NotEqual
+                    | TokenType::Greater
+                    | TokenType::GreaterEqual
+                    | TokenType::Less
+                    | TokenType::LessEqual => Ok("bool".into()),
+                    _ => unreachable!(),
+                }
             }
             Expr::Logical { left, op, right } => todo!(),
-            Expr::Grouping(expr) => todo!(),
+            Expr::Grouping(expr) => self.typecheck_expr(env, expr),
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => Ok("i64".into()),
                 TokenType::Char => Ok("u8".into()),
@@ -166,10 +205,23 @@ impl TypeChecker {
                 TokenType::False => Ok("bool".into()),
                 _ => unreachable!(),
             },
-            Expr::Unary { op, right } => todo!(),
+            Expr::Unary { op, right } => {
+                let right_type = self.typecheck_expr(env, right)?;
+                match op.token_type {
+                    TokenType::Minus => {
+                        expect_type!(right_type, "i64", op.loc);
+                        Ok("i64".into())
+                    }
+                    TokenType::Bang => {
+                        expect_type!(right_type, "bool", op.loc);
+                        Ok("bool".into())
+                    }
+                    _ => unreachable!(),
+                }
+            }
             Expr::Variable(name) => {
                 if self.analyzer.borrow().constants.contains_key(&name.lexeme) {
-                    Ok("fnptr".into())
+                    Ok("i64".into())
                 } else {
                     match env.get_var_type(&name.lexeme) {
                         Some(x) => Ok(x.clone()),
@@ -177,7 +229,60 @@ impl TypeChecker {
                     }
                 }
             }
-            Expr::Assign { left, op, value } => todo!(),
+            Expr::Assign { left, op, value } => {
+                let value_type = self.typecheck_expr(env, value)?;
+
+                match left.as_ref() {
+                    Expr::Variable(name) => {
+                        let var_type = match env.get_var_type(&name.lexeme) {
+                            Some(x) => x,
+                            None => {
+                                return error!(
+                                    name.loc,
+                                    format!("undefined variable: {}", &name.lexeme)
+                                );
+                            }
+                        };
+                        expect_type!(*var_type, value_type, name.loc);
+                    }
+                    Expr::Index {
+                        expr,
+                        bracket,
+                        index,
+                    } => {
+                        expect_type!(self.typecheck_expr(env, expr)?, "ptr", bracket.loc);
+                        expect_type!(self.typecheck_expr(env, index)?, "u8", bracket.loc);
+                    }
+                    Expr::MemberAccess { left, field } => {
+                        let left_type = self.typecheck_expr(env, left)?;
+
+                        let analyzer = self.analyzer.borrow();
+                        let fields = match analyzer.structs.get(&left_type) {
+                            Some(f) => f,
+                            None => {
+                                return error!(
+                                    &field.loc,
+                                    format!("unknown struct type: {}", left_type)
+                                );
+                            }
+                        };
+
+                        let f = match fields.get(&field.lexeme) {
+                            Some(o) => o,
+                            None => {
+                                return error!(
+                                    &field.loc,
+                                    format!("unknown field: {}", &field.lexeme)
+                                );
+                            }
+                        };
+
+                        expect_type!(value_type, f.field_type, field.loc);
+                    }
+                    _ => return error!(&op.loc, "invalid assignment target"),
+                }
+                Ok(value_type)
+            }
             Expr::Call {
                 callee,
                 paren,
@@ -201,6 +306,7 @@ impl TypeChecker {
                 }
 
                 for arg in args {
+                    // TODO: actually check against the function we're calling
                     self.typecheck_expr(env, arg)?;
                 }
 
@@ -208,14 +314,34 @@ impl TypeChecker {
                 Ok("any".into())
             }
             Expr::ArrayLiteral(exprs) => todo!(),
-            Expr::Index { expr, index } => todo!(),
+            Expr::Index {
+                expr,
+                bracket,
+                index,
+            } => todo!(),
             Expr::AddrOf { op, expr } => todo!(),
             Expr::New(token) => todo!(),
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
-                // TODO: actually look up left_type->field type
-                Ok("any".into())
+                let analyzer = self.analyzer.borrow();
+                let fields = match analyzer.structs.get(&left_type) {
+                    Some(f) => f,
+                    None => {
+                        return error!(&field.loc, format!("unknown struct type: {}", left_type));
+                    }
+                };
+
+                let field = match fields.get(&field.lexeme) {
+                    Some(o) => o,
+                    None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
+                };
+
+                Ok(field.field_type.clone())
+            }
+            Expr::Cast { expr, type_name } => {
+                self.typecheck_expr(env, expr)?;
+                Ok(type_name.lexeme.clone())
             }
         }
     }
