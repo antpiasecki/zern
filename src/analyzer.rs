@@ -5,25 +5,36 @@ use crate::{
     tokenizer::{ZernError, error},
 };
 
+pub struct StructField {
+    pub offset: usize,
+    pub field_type: String,
+}
+
 pub struct Analyzer {
-    pub functions: HashMap<String, i32>,
+    pub functions: HashMap<String, (String, Option<Vec<String>>)>,
     pub constants: HashMap<String, u64>,
-    pub structs: HashMap<String, HashMap<String, usize>>,
+    pub structs: HashMap<String, HashMap<String, StructField>>,
 }
 
 impl Analyzer {
     pub fn new() -> Analyzer {
         Analyzer {
             functions: HashMap::from([
-                ("_builtin_heap_head".into(), 0),
-                ("_builtin_heap_tail".into(), 0),
-                ("_builtin_err_code".into(), 0),
-                ("_builtin_err_msg".into(), 0),
-                ("_builtin_read64".into(), 1),
-                ("_builtin_set64".into(), 2),
-                ("_builtin_syscall".into(), -1),
-                ("io.printf".into(), -1),
-                ("_builtin_environ".into(), 0),
+                ("_builtin_heap_head".into(), ("ptr".into(), Some(vec![]))),
+                ("_builtin_heap_tail".into(), ("ptr".into(), Some(vec![]))),
+                ("_builtin_err_code".into(), ("ptr".into(), Some(vec![]))),
+                ("_builtin_err_msg".into(), ("ptr".into(), Some(vec![]))),
+                (
+                    "_builtin_read64".into(),
+                    ("i64".into(), Some(vec!["ptr".into()])),
+                ),
+                (
+                    "_builtin_set64".into(),
+                    ("void".into(), Some(vec!["ptr".into(), "i64".into()])),
+                ),
+                ("_builtin_syscall".into(), ("any".into(), None)),
+                ("io.printf".into(), ("void".into(), None)),
+                ("_builtin_environ".into(), ("ptr".into(), Some(vec![]))),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),
@@ -34,7 +45,7 @@ impl Analyzer {
         if let Stmt::Function {
             name,
             params,
-            return_type: _,
+            return_type,
             body: _,
             exported: _,
         } = stmt
@@ -42,8 +53,13 @@ impl Analyzer {
             if self.functions.contains_key(&name.lexeme) {
                 return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
             }
-            self.functions
-                .insert(name.lexeme.clone(), params.len() as i32);
+            self.functions.insert(
+                name.lexeme.clone(),
+                (
+                    return_type.lexeme.clone(),
+                    Some(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                ),
+            );
         }
         Ok(())
     }
@@ -127,14 +143,21 @@ impl Analyzer {
                 if self.functions.contains_key(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
-                self.functions.insert(name.lexeme.clone(), -1);
+                self.functions
+                    .insert(name.lexeme.clone(), ("any".into(), None));
             }
             Stmt::Struct { name, fields } => {
-                let mut fields_map: HashMap<String, usize> = HashMap::new();
+                let mut fields_map: HashMap<String, StructField> = HashMap::new();
 
                 let mut offset: usize = 0;
                 for field in fields {
-                    fields_map.insert(field.var_name.lexeme.clone(), offset);
+                    fields_map.insert(
+                        field.var_name.lexeme.clone(),
+                        StructField {
+                            offset,
+                            field_type: field.var_type.lexeme.clone(),
+                        },
+                    );
                     offset += 8;
                 }
 
@@ -172,11 +195,18 @@ impl Analyzer {
                 if let Expr::Variable(callee_name) = *callee.clone() {
                     if self.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
-                        if let Some(arity) = self.functions.get(&callee_name.lexeme) {
-                            if *arity >= 0 && *arity != args.len() as i32 {
+                        if let Some(params) = self.functions.get(&callee_name.lexeme) {
+                            // if its None, its variadic
+                            if let (_, Some(params)) = params
+                                && params.len() != args.len()
+                            {
                                 return error!(
                                     &paren.loc,
-                                    format!("expected {} arguments, got {}", arity, args.len())
+                                    format!(
+                                        "expected {} arguments, got {}",
+                                        params.len(),
+                                        args.len()
+                                    )
                                 );
                             }
                         } else {
@@ -203,7 +233,11 @@ impl Analyzer {
                     self.analyze_expr(expr)?;
                 }
             }
-            Expr::Index { expr, index } => {
+            Expr::Index {
+                expr,
+                bracket: _,
+                index,
+            } => {
                 self.analyze_expr(expr)?;
                 self.analyze_expr(index)?;
             }
@@ -213,6 +247,9 @@ impl Analyzer {
             Expr::New(_) => {}
             Expr::MemberAccess { left, field: _ } => {
                 self.analyze_expr(left)?;
+            }
+            Expr::Cast { expr, type_name: _ } => {
+                self.analyze_expr(expr)?;
             }
         }
         Ok(())

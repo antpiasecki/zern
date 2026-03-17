@@ -13,7 +13,7 @@ type Type = String;
 
 macro_rules! expect_type {
     ($expr_type:expr, $expected:expr, $loc:expr) => {
-        if $expr_type != $expected {
+        if $expected != "any" && $expr_type != "any" && $expr_type != $expected {
             return error!(
                 $loc,
                 format!("expected type '{}', got '{}'", $expected, $expr_type)
@@ -24,7 +24,7 @@ macro_rules! expect_type {
 
 macro_rules! expect_types {
     ($expr_type:expr, [$( $expected:expr ),+], $loc:expr) => {
-        if $( $expr_type != $expected )&&+ {
+        if $expr_type != "any" && $( $expr_type != $expected )&&+ {
             return error!(
                 $loc,
                 format!(
@@ -92,7 +92,7 @@ impl TypeChecker {
                 var_type,
                 initializer,
             } => {
-                let inferred = self.typecheck_expr(env, initializer)?;
+                let mut actual_type = self.typecheck_expr(env, initializer)?;
                 if let Some(var_type) = var_type {
                     if !self.is_valid_type_name(&var_type.lexeme) {
                         return error!(
@@ -100,10 +100,14 @@ impl TypeChecker {
                             "unrecognized type: ".to_owned() + &var_type.lexeme
                         );
                     }
-                    expect_type!(inferred, var_type.lexeme, var_type.loc);
+                    expect_type!(actual_type, var_type.lexeme, var_type.loc);
+
+                    if actual_type == "any" {
+                        actual_type = var_type.lexeme.clone();
+                    }
                 }
 
-                env.define_var(name.lexeme.clone(), inferred);
+                env.define_var(name.lexeme.clone(), actual_type);
             }
             Stmt::Const { name, value } => {}
             Stmt::Block(stmts) => {
@@ -120,13 +124,24 @@ impl TypeChecker {
                 self.typecheck_stmt(env, then_branch)?;
                 self.typecheck_stmt(env, else_branch)?;
             }
-            Stmt::While { condition, body } => todo!(),
+            Stmt::While { condition, body } => {
+                self.typecheck_expr(env, condition)?;
+                self.typecheck_stmt(env, body)?;
+            }
             Stmt::For {
                 var,
                 start,
                 end,
                 body,
-            } => todo!(),
+            } => {
+                expect_type!(self.typecheck_expr(env, start)?, "i64", var.loc);
+                expect_type!(self.typecheck_expr(env, end)?, "i64", var.loc);
+
+                env.push_scope();
+                env.define_var(var.lexeme.clone(), "i64".into());
+                self.typecheck_stmt(env, body)?;
+                env.pop_scope();
+            }
             Stmt::Function {
                 name,
                 params,
@@ -161,9 +176,11 @@ impl TypeChecker {
             Stmt::Return(expr) => {
                 // TODO
             }
-            Stmt::Break => todo!(),
-            Stmt::Continue => todo!(),
-            Stmt::Extern(token) => todo!(),
+            Stmt::Break => {}
+            Stmt::Continue => {}
+            Stmt::Extern(_) => {
+                // handled in the analyzer
+            }
             Stmt::Struct { name, fields } => {}
         }
         Ok(())
@@ -172,8 +189,13 @@ impl TypeChecker {
     pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
         match expr {
             Expr::Binary { left, op, right } => {
-                expect_types!(self.typecheck_expr(env, left)?, ["i64", "ptr"], op.loc);
-                expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr"], op.loc);
+                let left_type = self.typecheck_expr(env, left)?;
+                expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
+                expect_types!(
+                    self.typecheck_expr(env, right)?,
+                    ["i64", "ptr", "u8"],
+                    op.loc
+                );
 
                 match op.token_type {
                     TokenType::Plus
@@ -185,7 +207,7 @@ impl TypeChecker {
                     | TokenType::BitAnd
                     | TokenType::BitOr
                     | TokenType::ShiftLeft
-                    | TokenType::ShiftRight => Ok("i64".into()),
+                    | TokenType::ShiftRight => Ok(left_type),
                     TokenType::DoubleEqual
                     | TokenType::NotEqual
                     | TokenType::Greater
@@ -195,7 +217,19 @@ impl TypeChecker {
                     _ => unreachable!(),
                 }
             }
-            Expr::Logical { left, op, right } => todo!(),
+            Expr::Logical { left, op, right } => {
+                expect_types!(
+                    self.typecheck_expr(env, left)?,
+                    ["bool", "i64", "ptr"],
+                    op.loc
+                );
+                expect_types!(
+                    self.typecheck_expr(env, right)?,
+                    ["bool", "i64", "ptr"],
+                    op.loc
+                );
+                Ok("bool".into())
+            }
             Expr::Grouping(expr) => self.typecheck_expr(env, expr),
             Expr::Literal(token) => match token.token_type {
                 TokenType::Number => Ok("i64".into()),
@@ -213,7 +247,7 @@ impl TypeChecker {
                         Ok("i64".into())
                     }
                     TokenType::Bang => {
-                        expect_type!(right_type, "bool", op.loc);
+                        expect_types!(right_type, ["bool", "i64", "ptr"], op.loc);
                         Ok("bool".into())
                     }
                     _ => unreachable!(),
@@ -250,8 +284,9 @@ impl TypeChecker {
                         bracket,
                         index,
                     } => {
-                        expect_type!(self.typecheck_expr(env, expr)?, "ptr", bracket.loc);
-                        expect_type!(self.typecheck_expr(env, index)?, "u8", bracket.loc);
+                        expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
+                        expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
+                        expect_types!(value_type, ["u8", "i64"], bracket.loc);
                     }
                     Expr::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
@@ -295,32 +330,53 @@ impl TypeChecker {
                         .functions
                         .contains_key(&callee_name.lexeme)
                     {
-                        // its a function (defined/builtin/extern)
+                        let params = self.analyzer.borrow().functions[&callee_name.lexeme].clone();
+                        if let (_, Some(params)) = params {
+                            // its a function (defined/builtin/extern)
+                            for (i, arg) in args.iter().enumerate() {
+                                expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
+                            }
+                        }
+                        Ok(params.0)
                     } else {
                         // its a variable containing function address
                         expect_type!(self.typecheck_expr(env, callee)?, "fnptr", paren.loc);
+
+                        for arg in args {
+                            self.typecheck_expr(env, arg)?;
+                        }
+                        Ok("any".into())
                     }
                 } else {
                     // its an expression that evalutes to function address
                     expect_type!(self.typecheck_expr(env, callee)?, "fnptr", paren.loc);
-                }
 
-                for arg in args {
-                    // TODO: actually check against the function we're calling
-                    self.typecheck_expr(env, arg)?;
+                    for arg in args {
+                        self.typecheck_expr(env, arg)?;
+                    }
+                    Ok("any".into())
                 }
-
-                // TODO: actually look up return type
-                Ok("any".into())
             }
-            Expr::ArrayLiteral(exprs) => todo!(),
+            Expr::ArrayLiteral(exprs) => {
+                for expr in exprs {
+                    self.typecheck_expr(env, expr)?;
+                }
+                Ok("Array".into())
+            }
             Expr::Index {
                 expr,
                 bracket,
                 index,
-            } => todo!(),
-            Expr::AddrOf { op, expr } => todo!(),
-            Expr::New(token) => todo!(),
+            } => {
+                expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
+                expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
+                Ok("u8".into())
+            }
+            Expr::AddrOf { op, expr } => {
+                self.typecheck_expr(env, expr)?;
+                Ok("ptr".into())
+            }
+            Expr::New(struct_name) => Ok(struct_name.lexeme.clone()),
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 

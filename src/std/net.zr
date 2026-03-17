@@ -81,7 +81,7 @@ func net.read[s: i64, buffer: ptr, size: i64] : i64
 func net.close[s: i64] : void
     _builtin_syscall(SYS_close, s)
 
-func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
+func net.pack_addr[a: u8, b: u8, c: u8, d: u8] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
 
 struct net.UDPSocket
@@ -166,7 +166,7 @@ func net.encode_dns_name[domain: str] : io.Buffer
             let part_len: i64 = i - part_start
             buf->data[out_pos] = part_len & 0xff
             out_pos = out_pos + 1
-            mem.copy(domain + part_start, buf->data + out_pos, part_len)
+            mem.copy(domain as ptr + part_start, buf->data + out_pos, part_len)
             out_pos = out_pos + part_len
             part_start = i + 1
         i = i + 1
@@ -201,7 +201,7 @@ func net.resolve?[domain: str] : i64
     let query: io.Buffer = net.build_dns_query(domain, DNS_TYPE_A)
 
     // TODO: this probably shouldnt be hardcoded
-    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8, 8, 8, 8), 53)
+    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8 as u8, 8 as u8, 8 as u8, 8 as u8), 53)
     if err.check()
         return -1
 
