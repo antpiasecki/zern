@@ -25,7 +25,7 @@ func part2_rec[bank: str, start: i64, remaining: i64] : i64
     let len: i64 = str.len(bank)
 
     for i in (start)..(len-remaining+1)
-        let v: i64 = bank[i] - '0'
+        let v: i64 = (bank[i] - '0') as i64
         if v > largest
             largest = v
             largest_idx = i

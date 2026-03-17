@@ -35,7 +35,6 @@ macro_rules! expect_types {
     };
 }
 
-// TODO: currently they are all just 64 bit values
 static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "str", "bool", "ptr", "fnptr", "any"];
 
 pub struct Env {
@@ -245,7 +244,7 @@ impl TypeChecker {
                         Ok("i64".into())
                     }
                     TokenType::Bang => {
-                        expect_types!(right_type, ["bool", "i64", "ptr"], op.loc);
+                        expect_types!(right_type, ["bool", "i64", "ptr", "u8"], op.loc);
                         Ok("bool".into())
                     }
                     _ => unreachable!(),
@@ -371,10 +370,18 @@ impl TypeChecker {
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                 Ok("u8".into())
             }
-            Expr::AddrOf { op, expr } => {
-                self.typecheck_expr(env, expr)?;
-                Ok("ptr".into())
-            }
+            Expr::AddrOf { op, expr } => match *expr.clone() {
+                Expr::Variable(name) => {
+                    if self.analyzer.borrow().functions.contains_key(&name.lexeme) {
+                        Ok("fnptr".into())
+                    } else {
+                        Ok("ptr".into())
+                    }
+                }
+                _ => {
+                    error!(&op.loc, "can only take address of variables and functions")
+                }
+            },
             Expr::New(struct_name) => Ok(struct_name.lexeme.clone()),
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;

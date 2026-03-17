@@ -1,5 +1,5 @@
 func main[] : i64
-    let s: i64 = must(net.udp_listen?(net.pack_addr(127, 0, 0, 1), 8000))
+    let s: net.UDPSocket = must(net.udp_listen?(net.pack_addr(127, 0, 0, 1), 8000))
 
     io.println("Listening on port 8000...")
     while true

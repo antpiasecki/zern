@@ -289,18 +289,18 @@ func io._printf_impl[s: ptr, args: ptr] : void
             io.print_char(s[0])
         s = s + 1
 
-func io.print_sized[x: str, size: i64] : void
+func io.print_sized[x: ptr, size: i64] : void
     _builtin_syscall(SYS_write, 1, x, size)
 
 func io.print[x: str] : void
-    io.print_sized(x, str.len(x))
+    io.print_sized(x as ptr, str.len(x))
 
 func io.println[x: str] : void
     io.print(x)
     io.print("\n")
 
 func io.print_char[x: u8] : void
-    io.print_sized(^x as str, 1)
+    io.print_sized(^x, 1)
 
 func io.print_bool[x: bool] : void
     if x
@@ -860,7 +860,7 @@ func alg.count[arr: Array, item: any] : i64
             count = count + 1
     return count
 
-func alg.map[arr: Array, fn: ptr] : Array
+func alg.map[arr: Array, fn: fnptr] : Array
     let out: Array = array.new_with_size_zeroed(arr->size)
     for i in 0..arr->size
         array.set(out, i, fn(array.nth(arr, i)))
