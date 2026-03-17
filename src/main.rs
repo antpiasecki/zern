@@ -2,11 +2,14 @@ mod analyzer;
 mod codegen_x86_64;
 mod parser;
 mod tokenizer;
+mod typechecker;
 
 use std::{
+    cell::RefCell,
     fs,
     path::Path,
     process::{self, Command},
+    rc::Rc,
 };
 
 use tokenizer::ZernError;
@@ -14,10 +17,12 @@ use tokenizer::ZernError;
 use clap::Parser;
 
 macro_rules! compile_std {
-    ($codegen:expr, $( $name:literal ),* $(,)? ) => {
+    ($codegen:expr, $typechecker:expr, $analyzer:expr, $( $name:literal ),* $(,)? ) => {
         $(
             compile_file_to(
                 $codegen,
+                $typechecker,
+                $analyzer,
                 $name,
                 include_str!(concat!("std/", $name)).into()
             )?;
@@ -27,6 +32,8 @@ macro_rules! compile_std {
 
 fn compile_file_to(
     codegen: &mut codegen_x86_64::CodegenX86_64,
+    typechecker: &mut typechecker::TypeChecker,
+    analyzer: Rc<RefCell<analyzer::Analyzer>>,
     filename: &str,
     source: String,
 ) -> Result<(), ZernError> {
@@ -37,11 +44,15 @@ fn compile_file_to(
     let statements = parser.parse()?;
 
     for stmt in &statements {
-        codegen.analyzer.register_function(stmt)?;
+        analyzer.borrow_mut().register_function(stmt)?;
     }
 
     for stmt in &statements {
-        codegen.analyzer.analyze_stmt(stmt)?;
+        analyzer.borrow_mut().analyze_stmt(stmt)?;
+    }
+
+    for stmt in &statements {
+        typechecker.typecheck_stmt(stmt)?;
     }
 
     for stmt in statements {
@@ -73,10 +84,21 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new();
+    let analyzer = Rc::new(RefCell::new(analyzer::Analyzer::new()));
+
+    let mut typechecker = typechecker::TypeChecker::new(analyzer.clone());
+
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(analyzer.clone());
     codegen.emit_prologue(args.use_gcc)?;
-    compile_std!(&mut codegen, "syscalls.zr", "std.zr", "net.zr");
-    compile_file_to(&mut codegen, filename, source)?;
+    compile_std!(
+        &mut codegen,
+        &mut typechecker,
+        analyzer.clone(),
+        "syscalls.zr",
+        "std.zr",
+        "net.zr"
+    );
+    compile_file_to(&mut codegen, &mut typechecker, analyzer, filename, source)?;
 
     if !args.output_asm {
         let out = args.out.unwrap_or_else(|| "out".into());
