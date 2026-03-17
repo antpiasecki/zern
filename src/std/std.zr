@@ -103,7 +103,7 @@ func mem.alloc?[size: i64] : any
         if cur->free && cur->size >= size
             mem._split_block(cur, size)
             cur->free = false
-            return cur + MEM_BLOCK_SIZE
+            return cur as ptr + MEM_BLOCK_SIZE
         cur = cur->next
     
     let blk: mem.Block = mem._request_space?(size)
@@ -115,7 +115,7 @@ func mem.alloc?[size: i64] : any
     
     mem._split_block(blk, size)
     
-    return blk + MEM_BLOCK_SIZE
+    return blk as ptr + MEM_BLOCK_SIZE
 
 func mem.alloc[size: i64] : any
     return must(mem.alloc?(size))
@@ -335,7 +335,7 @@ func io.read_line[]: str
     if n < 0
         n = 0
     buffer[n] = 0
-    buffer = must(mem.realloc?(buffer, n + 1))
+    buffer = must(mem.realloc?(buffer as ptr, n + 1))
     return buffer
 
 struct io.Buffer
@@ -1001,7 +1001,7 @@ func os.list_directory?[path: str] : Array
                         if name[2] == 0
                             skip = true
                 if !skip
-                    array.push(files, str.make_copy(name))
+                    array.push(files, str.make_copy(name as str))
             pos = pos + len
 
     mem.free(buf)

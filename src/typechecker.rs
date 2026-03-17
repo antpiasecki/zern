@@ -7,14 +7,15 @@ use crate::{
 };
 
 macro_rules! expect_type {
-    ($expr_type:expr, $expected:expr, $loc:expr) => {
-        if $expected != "any" && $expr_type != "any" && $expr_type != $expected {
+    ($expr_type:expr, $expected:expr, $loc:expr) => {{
+        let actual = $expr_type;
+        if $expected != "any" && actual != "any" && actual != $expected {
             return error!(
                 $loc,
-                format!("expected type '{}', got '{}'", $expected, $expr_type)
+                format!("expected type '{}', got '{}'", $expected, actual)
             );
         }
-    };
+    }};
 }
 
 macro_rules! expect_types {
@@ -98,7 +99,7 @@ impl TypeChecker {
                             "unrecognized type: ".to_owned() + &var_type.lexeme
                         );
                     }
-                    expect_type!(actual_type, var_type.lexeme, var_type.loc);
+                    expect_type!(actual_type.clone(), var_type.lexeme, var_type.loc);
 
                     if actual_type == "any" {
                         actual_type = var_type.lexeme.clone();
@@ -288,7 +289,7 @@ impl TypeChecker {
                                 );
                             }
                         };
-                        expect_type!(value_type, *existing_var_type, name.loc);
+                        expect_type!(value_type.clone(), *existing_var_type, name.loc);
                     }
                     Expr::Index {
                         expr,
@@ -297,7 +298,7 @@ impl TypeChecker {
                     } => {
                         expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
-                        expect_types!(value_type, ["u8", "i64"], bracket.loc);
+                        expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
                     }
                     Expr::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
@@ -323,7 +324,7 @@ impl TypeChecker {
                             }
                         };
 
-                        expect_type!(value_type, f.field_type, field.loc);
+                        expect_type!(value_type.clone(), f.field_type, field.loc);
                     }
                     _ => return error!(&op.loc, "invalid assignment target"),
                 }
@@ -343,10 +344,15 @@ impl TypeChecker {
                     {
                         let fn_type =
                             &self.analyzer.borrow().functions[&callee_name.lexeme].clone();
+                        // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
-                            // its a function (defined/builtin/extern)
                             for (i, arg) in args.iter().enumerate() {
                                 expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
+                            }
+                        } else {
+                            // its a variadic function, cant check arg types
+                            for arg in args {
+                                self.typecheck_expr(env, arg)?;
                             }
                         }
                         Ok(fn_type.return_type.clone())

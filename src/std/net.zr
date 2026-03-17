@@ -81,8 +81,8 @@ func net.read[s: i64, buffer: ptr, size: i64] : i64
 func net.close[s: i64] : void
     _builtin_syscall(SYS_close, s)
 
-func net.pack_addr[a: u8, b: u8, c: u8, d: u8] : i64
-    return (a as i64 << 24) | (b << 16) | (c << 8) | d
+func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
+    return (a << 24) | (b << 16) | (c << 8) | d
 
 struct net.UDPSocket
     fd: i64
@@ -201,7 +201,7 @@ func net.resolve?[domain: str] : i64
     let query: io.Buffer = net.build_dns_query(domain, DNS_TYPE_A)
 
     // TODO: this probably shouldnt be hardcoded
-    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8 as u8, 8 as u8, 8 as u8, 8 as u8), 53)
+    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8, 8, 8, 8), 53)
     if err.check()
         return -1
 
@@ -221,6 +221,6 @@ func net.resolve?[domain: str] : i64
 
     pos = pos + 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
-    let out: i64 = net.pack_addr(pkt->data[pos], pkt->data[pos+1], pkt->data[pos+2], pkt->data[pos+3])
+    let out: i64 = net.pack_addr(pkt->data[pos] as i64, pkt->data[pos+1] as i64, pkt->data[pos+2] as i64, pkt->data[pos+3] as i64)
     net.UDPPacket.free(pkt)
     return out
