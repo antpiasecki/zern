@@ -5,72 +5,22 @@ mod tokenizer;
 mod typechecker;
 
 use std::{
-    cell::RefCell,
     fs,
     path::Path,
     process::{self, Command},
-    rc::Rc,
 };
 
 use tokenizer::ZernError;
 
 use clap::Parser;
 
-macro_rules! compile_std {
-    ($codegen:expr, $typechecker:expr, $analyzer:expr, $( $name:literal ),* $(,)? ) => {
-        $(
-            compile_file_to(
-                $codegen,
-                $typechecker,
-                $analyzer,
-                $name,
-                include_str!(concat!("std/", $name)).into()
-            )?;
-        )*
+macro_rules! parse_std_file {
+    ($statements:expr, $filename:expr) => {
+        let source: String = include_str!($filename).into();
+        let tokenizer = tokenizer::Tokenizer::new($filename.to_owned(), source);
+        let parser = parser::Parser::new(tokenizer.tokenize()?);
+        $statements.extend(parser.parse()?);
     };
-}
-
-fn compile_file_to(
-    codegen: &mut codegen_x86_64::CodegenX86_64,
-    typechecker: &mut typechecker::TypeChecker,
-    analyzer: Rc<RefCell<analyzer::Analyzer>>,
-    filename: &str,
-    source: String,
-) -> Result<(), ZernError> {
-    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
-    let tokens = tokenizer.tokenize()?;
-
-    let parser = parser::Parser::new(tokens);
-    let statements = parser.parse()?;
-
-    for stmt in &statements {
-        analyzer.borrow_mut().register_function(stmt)?;
-    }
-
-    for stmt in &statements {
-        analyzer.borrow_mut().analyze_stmt(stmt)?;
-    }
-
-    for stmt in &statements {
-        typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
-    }
-
-    for stmt in statements {
-        // top level statements are all function/const/extern declarations so a new env for each
-        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
-    }
-    Ok(())
-}
-
-fn run_command(cmd: String) {
-    if !Command::new("sh")
-        .args(["-c", &cmd])
-        .status()
-        .unwrap()
-        .success()
-    {
-        process::exit(1);
-    }
 }
 
 fn compile_file(args: Args) -> Result<(), ZernError> {
@@ -84,21 +34,34 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
-    let analyzer = Rc::new(RefCell::new(analyzer::Analyzer::new()));
+    let mut statements = Vec::new();
 
-    let mut typechecker = typechecker::TypeChecker::new(analyzer.clone());
+    parse_std_file!(statements, "std/syscalls.zr");
+    parse_std_file!(statements, "std/std.zr");
+    parse_std_file!(statements, "std/net.zr");
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(analyzer.clone());
+    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
+    let parser = parser::Parser::new(tokenizer.tokenize()?);
+    statements.extend(parser.parse()?);
+
+    let mut analyzer = analyzer::Analyzer::new();
+    for stmt in &statements {
+        analyzer.register_function(stmt)?;
+    }
+    for stmt in &statements {
+        analyzer.analyze_stmt(stmt)?;
+    }
+
+    let mut typechecker = typechecker::TypeChecker::new(&analyzer);
+    for stmt in &statements {
+        typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
+    }
+
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&analyzer);
     codegen.emit_prologue(args.use_gcc)?;
-    compile_std!(
-        &mut codegen,
-        &mut typechecker,
-        analyzer.clone(),
-        "syscalls.zr",
-        "std.zr",
-        "net.zr"
-    );
-    compile_file_to(&mut codegen, &mut typechecker, analyzer, filename, source)?;
+    for stmt in statements {
+        codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
+    }
 
     if !args.output_asm {
         let out = args.out.unwrap_or_else(|| "out".into());
@@ -136,6 +99,17 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     }
 
     Ok(())
+}
+
+fn run_command(cmd: String) {
+    if !Command::new("sh")
+        .args(["-c", &cmd])
+        .status()
+        .unwrap()
+        .success()
+    {
+        process::exit(1);
+    }
 }
 
 #[derive(Parser, Debug)]

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Write, rc::Rc};
+use std::{collections::HashMap, fmt::Write};
 
 use crate::{
     analyzer::Analyzer,
@@ -69,16 +69,16 @@ macro_rules! emit {
 
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-pub struct CodegenX86_64 {
+pub struct CodegenX86_64<'a> {
     output: String,
     data_section: String,
     label_counter: usize,
     data_counter: usize,
-    pub analyzer: Rc<RefCell<Analyzer>>,
+    pub analyzer: &'a Analyzer,
 }
 
-impl CodegenX86_64 {
-    pub fn new(analyzer: Rc<RefCell<Analyzer>>) -> CodegenX86_64 {
+impl<'a> CodegenX86_64<'a> {
+    pub fn new(analyzer: &'a Analyzer) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
@@ -555,11 +555,11 @@ _builtin_environ:
                 }
             }
             Expr::Variable(name) => {
-                if self.analyzer.borrow().constants.contains_key(&name.lexeme) {
+                if self.analyzer.constants.contains_key(&name.lexeme) {
                     emit!(
                         &mut self.output,
                         "    mov rax, {}",
-                        self.analyzer.borrow().constants[&name.lexeme]
+                        self.analyzer.constants[&name.lexeme]
                     );
                 } else {
                     let var = match env.get_var(&name.lexeme) {
@@ -653,12 +653,7 @@ _builtin_environ:
                 }
 
                 if let Expr::Variable(callee_name) = &**callee {
-                    if self
-                        .analyzer
-                        .borrow()
-                        .functions
-                        .contains_key(&callee_name.lexeme)
-                    {
+                    if self.analyzer.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
@@ -705,7 +700,7 @@ _builtin_environ:
             }
             Expr::AddrOf { op, expr } => match *expr.clone() {
                 Expr::Variable(name) => {
-                    if self.analyzer.borrow().functions.contains_key(&name.lexeme) {
+                    if self.analyzer.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    mov rax, {}", name.lexeme);
                     } else {
                         let var = match env.get_var(&name.lexeme) {
@@ -729,7 +724,7 @@ _builtin_environ:
                 }
             },
             Expr::New(struct_name) => {
-                let struct_fields = &self.analyzer.borrow().structs[&struct_name.lexeme];
+                let struct_fields = &self.analyzer.structs[&struct_name.lexeme];
 
                 // TODO: panic on mem.alloc error
                 let memory_size = struct_fields.len() * 8;
@@ -774,8 +769,7 @@ _builtin_environ:
             }
         };
 
-        let analyzer = self.analyzer.borrow();
-        let fields = match analyzer.structs.get(&struct_name) {
+        let fields = match self.analyzer.structs.get(&struct_name) {
             Some(f) => f,
             None => {
                 return error!(&field.loc, format!("unknown struct type: {}", struct_name));

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use crate::{
     analyzer::{Analyzer, Type},
@@ -69,13 +69,13 @@ impl Env {
     }
 }
 
-pub struct TypeChecker {
-    analyzer: Rc<RefCell<Analyzer>>,
+pub struct TypeChecker<'a> {
+    analyzer: &'a Analyzer,
     current_function_return_type: String,
 }
 
-impl TypeChecker {
-    pub fn new(analyzer: Rc<RefCell<Analyzer>>) -> TypeChecker {
+impl<'a> TypeChecker<'a> {
+    pub fn new(analyzer: &'a Analyzer) -> TypeChecker<'a> {
         TypeChecker {
             analyzer,
             current_function_return_type: String::new(),
@@ -300,7 +300,7 @@ impl TypeChecker {
                 }
             }
             Expr::Variable(name) => {
-                if self.analyzer.borrow().constants.contains_key(&name.lexeme) {
+                if self.analyzer.constants.contains_key(&name.lexeme) {
                     Ok("i64".into())
                 } else {
                     match env.get_var_type(&name.lexeme) {
@@ -337,8 +337,7 @@ impl TypeChecker {
                     Expr::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
 
-                        let analyzer = self.analyzer.borrow();
-                        let fields = match analyzer.structs.get(&left_type) {
+                        let fields = match self.analyzer.structs.get(&left_type) {
                             Some(f) => f,
                             None => {
                                 return error!(
@@ -370,14 +369,8 @@ impl TypeChecker {
                 args,
             } => {
                 if let Expr::Variable(callee_name) = &**callee {
-                    if self
-                        .analyzer
-                        .borrow()
-                        .functions
-                        .contains_key(&callee_name.lexeme)
-                    {
-                        let fn_type =
-                            &self.analyzer.borrow().functions[&callee_name.lexeme].clone();
+                    if self.analyzer.functions.contains_key(&callee_name.lexeme) {
+                        let fn_type = &self.analyzer.functions[&callee_name.lexeme].clone();
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
                             for (i, arg) in args.iter().enumerate() {
@@ -427,7 +420,7 @@ impl TypeChecker {
             }
             Expr::AddrOf { op, expr } => match expr.as_ref() {
                 Expr::Variable(name) => {
-                    if self.analyzer.borrow().functions.contains_key(&name.lexeme) {
+                    if self.analyzer.functions.contains_key(&name.lexeme) {
                         Ok("fnptr".into())
                     } else {
                         Ok("ptr".into())
@@ -438,12 +431,7 @@ impl TypeChecker {
                 }
             },
             Expr::New(struct_name) => {
-                if !self
-                    .analyzer
-                    .borrow()
-                    .structs
-                    .contains_key(&struct_name.lexeme)
-                {
+                if !self.analyzer.structs.contains_key(&struct_name.lexeme) {
                     return error!(
                         &struct_name.loc,
                         format!("unknown struct name: {}", &struct_name.lexeme)
@@ -454,8 +442,7 @@ impl TypeChecker {
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
-                let analyzer = self.analyzer.borrow();
-                let fields = match analyzer.structs.get(&left_type) {
+                let fields = match self.analyzer.structs.get(&left_type) {
                     Some(f) => f,
                     None => {
                         return error!(&field.loc, format!("unknown struct type: {}", left_type));
@@ -486,7 +473,7 @@ impl TypeChecker {
         if BUILTIN_TYPES.contains(&name) {
             return true;
         }
-        if self.analyzer.borrow().structs.contains_key(name) {
+        if self.analyzer.structs.contains_key(name) {
             return true;
         }
         false
