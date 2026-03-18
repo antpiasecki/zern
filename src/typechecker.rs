@@ -219,7 +219,7 @@ impl<'a> TypeChecker<'a> {
         Ok(())
     }
 
-    pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
+    pub fn typecheck_expr(&self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
         match expr {
             Expr::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
@@ -370,7 +370,7 @@ impl<'a> TypeChecker<'a> {
             } => {
                 if let Expr::Variable(callee_name) = &**callee {
                     if self.analyzer.functions.contains_key(&callee_name.lexeme) {
-                        let fn_type = &self.analyzer.functions[&callee_name.lexeme].clone();
+                        let fn_type = &self.analyzer.functions[&callee_name.lexeme];
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
                             for (i, arg) in args.iter().enumerate() {

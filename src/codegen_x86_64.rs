@@ -564,7 +564,7 @@ _builtin_environ:
                 } else {
                     let var = match env.get_var(&name.lexeme) {
                         Some(x) => x,
-                        None => unreachable!(),
+                        None => unreachable!("this should be caught in the typechecker"),
                     };
                     emit!(
                         &mut self.output,
