@@ -260,6 +260,7 @@ _builtin_environ:
                 env.pop_scope();
             }
             Stmt::If {
+                keyword: _,
                 condition,
                 then_branch,
                 else_branch,
@@ -276,7 +277,11 @@ _builtin_environ:
                 self.compile_stmt(env, else_branch)?;
                 emit!(&mut self.output, "{}:", end_label);
             }
-            Stmt::While { condition, body } => {
+            Stmt::While {
+                keyword: _,
+                condition,
+                body,
+            } => {
                 let old_loop_begin_label = env.loop_begin_label.clone();
                 let old_loop_end_label = env.loop_end_label.clone();
                 let old_loop_continue_label = env.loop_continue_label.clone();

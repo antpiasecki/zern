@@ -120,6 +120,7 @@ impl Analyzer {
                 }
             }
             Stmt::If {
+                keyword: _,
                 condition,
                 then_branch,
                 else_branch,
@@ -128,7 +129,11 @@ impl Analyzer {
                 self.analyze_stmt(then_branch)?;
                 self.analyze_stmt(else_branch)?;
             }
-            Stmt::While { condition, body } => {
+            Stmt::While {
+                keyword: _,
+                condition,
+                body,
+            } => {
                 self.analyze_expr(condition)?;
                 self.analyze_stmt(body)?;
             }

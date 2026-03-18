@@ -51,6 +51,7 @@ impl Env {
     }
 
     pub fn pop_scope(&mut self) {
+        assert!(!self.scopes.is_empty());
         self.scopes.pop();
     }
 
@@ -119,15 +120,29 @@ impl TypeChecker {
                 env.pop_scope();
             }
             Stmt::If {
+                keyword,
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                self.typecheck_expr(env, condition)?;
+                expect_types!(
+                    self.typecheck_expr(env, condition)?,
+                    ["i64", "u8", "ptr", "bool"],
+                    keyword.loc
+                );
                 self.typecheck_stmt(env, then_branch)?;
                 self.typecheck_stmt(env, else_branch)?;
             }
-            Stmt::While { condition, body } => {
+            Stmt::While {
+                keyword,
+                condition,
+                body,
+            } => {
+                expect_types!(
+                    self.typecheck_expr(env, condition)?,
+                    ["i64", "u8", "ptr", "bool"],
+                    keyword.loc
+                );
                 self.typecheck_expr(env, condition)?;
                 self.typecheck_stmt(env, body)?;
             }
@@ -202,30 +217,43 @@ impl TypeChecker {
         match expr {
             Expr::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
-                expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
-                expect_types!(
-                    self.typecheck_expr(env, right)?,
-                    ["i64", "ptr", "u8"],
-                    op.loc
-                );
 
                 match op.token_type {
-                    TokenType::Plus
-                    | TokenType::Minus
-                    | TokenType::Star
+                    TokenType::Plus | TokenType::Minus => {
+                        expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
+                        expect_types!(
+                            self.typecheck_expr(env, right)?,
+                            ["i64", "ptr", "u8"],
+                            op.loc
+                        );
+                        Ok(left_type)
+                    }
+                    TokenType::Star
                     | TokenType::Slash
                     | TokenType::Mod
                     | TokenType::Xor
                     | TokenType::BitAnd
                     | TokenType::BitOr
                     | TokenType::ShiftLeft
-                    | TokenType::ShiftRight => Ok(left_type),
+                    | TokenType::ShiftRight => {
+                        expect_types!(left_type, ["i64", "u8"], op.loc);
+                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "u8"], op.loc);
+                        Ok(left_type)
+                    }
                     TokenType::DoubleEqual
                     | TokenType::NotEqual
                     | TokenType::Greater
                     | TokenType::GreaterEqual
                     | TokenType::Less
-                    | TokenType::LessEqual => Ok("bool".into()),
+                    | TokenType::LessEqual => {
+                        expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
+                        expect_types!(
+                            self.typecheck_expr(env, right)?,
+                            ["i64", "ptr", "u8"],
+                            op.loc
+                        );
+                        Ok("bool".into())
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -347,6 +375,7 @@ impl TypeChecker {
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
                             for (i, arg) in args.iter().enumerate() {
+                                // arity is checked in the analyzer
                                 expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
                             }
                         } else {
@@ -390,7 +419,7 @@ impl TypeChecker {
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                 Ok("u8".into())
             }
-            Expr::AddrOf { op, expr } => match *expr.clone() {
+            Expr::AddrOf { op, expr } => match expr.as_ref() {
                 Expr::Variable(name) => {
                     if self.analyzer.borrow().functions.contains_key(&name.lexeme) {
                         Ok("fnptr".into())

@@ -53,7 +53,7 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
         new_blk->next = blk->next
         new_blk->prev = blk
 
-        if blk->next
+        if blk->next as ptr
             let next: mem.Block = blk->next
             next->prev = new_blk
         else
@@ -83,7 +83,7 @@ func mem._request_space?[size: i64] : mem.Block
     blk->prev = 0 as mem.Block
 
     let tail: mem.Block = mem.read64(_builtin_heap_tail()) as mem.Block
-    if tail
+    if tail as ptr
         tail->next = blk
         blk->prev = tail
 
@@ -99,7 +99,7 @@ func mem.alloc?[size: i64] : any
     size = mem._align(size)
 
     let cur: mem.Block = mem.read64(_builtin_heap_head()) as mem.Block
-    while cur
+    while cur as ptr
         if cur->free && cur->size >= size
             mem._split_block(cur, size)
             cur->free = false
@@ -133,7 +133,7 @@ func mem.free[x: any] : void
         if expected_next as ptr == next as ptr
             blk->size = blk->size + MEM_BLOCK_SIZE + next->size
             blk->next = next->next
-            if next->next
+            if next->next as ptr
                 let b: mem.Block = next->next
                 b->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
@@ -145,7 +145,7 @@ func mem.free[x: any] : void
         if expected_blk as ptr == blk as ptr
             prev->size = prev->size + MEM_BLOCK_SIZE + blk->size
             prev->next = blk->next
-            if blk->next
+            if blk->next as ptr
                 let b: mem.Block = blk->next
                 b->prev = prev
             if mem.read64(_builtin_heap_tail()) == blk as ptr
@@ -154,12 +154,12 @@ func mem.free[x: any] : void
 
     let block_total: i64 = blk->size + MEM_BLOCK_SIZE
     if (blk as i64 & 4095) == 0 && (block_total & 4095) == 0
-        if blk->prev
+        if blk->prev as ptr
             let b: mem.Block = blk->prev
             b->next = blk->next
         else
             mem.write64(_builtin_heap_head(), blk->next)
-        if blk->next
+        if blk->next as ptr
             let b: mem.Block = blk->next
             b->prev = blk->prev
         else
@@ -194,7 +194,7 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
         if combined >= new_size
             blk->size = combined
             blk->next = next->next
-            if next->next
+            if next->next as ptr
                 let b: mem.Block = next->next
                 b->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
@@ -771,7 +771,7 @@ struct Array
 func array.new[] : Array
     return new Array
 
-func array.new_with_size_zeroed[size: i64] : Array
+func array.new_preallocated_and_zeroed[size: i64] : Array
     let xs: Array = new Array
     if size > 0
         xs->data = must(mem.realloc?(xs->data, size * 8)) as ptr
@@ -817,13 +817,13 @@ func array.slice[xs: Array, start: i64, length: i64] : Array
     if start < 0 || length < 0 || start + length > xs->size
         panic("array.slice out of bounds")
 
-    let new_array: Array = array.new_with_size_zeroed(length)
+    let new_array: Array = array.new_preallocated_and_zeroed(length)
     for i in 0..length
         array.set(new_array, i, array.nth(xs, start + i))
     return new_array
 
 func array.concat[a: Array, b: Array] : Array
-    let new_array: Array = array.new_with_size_zeroed(a->size + b->size)
+    let new_array: Array = array.new_preallocated_and_zeroed(a->size + b->size)
     for i in 0..a->size
         array.set(new_array, i, array.nth(a, i))
     for i in 0..b->size
@@ -861,7 +861,7 @@ func alg.count[arr: Array, item: any] : i64
     return count
 
 func alg.map[arr: Array, fn: fnptr] : Array
-    let out: Array = array.new_with_size_zeroed(arr->size)
+    let out: Array = array.new_preallocated_and_zeroed(arr->size)
     for i in 0..arr->size
         array.set(out, i, fn(array.nth(arr, i)))
     return out

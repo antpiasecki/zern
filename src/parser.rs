@@ -20,11 +20,13 @@ pub enum Stmt {
     },
     Block(Vec<Stmt>),
     If {
+        keyword: Token,
         condition: Expr,
         then_branch: Box<Stmt>,
         else_branch: Box<Stmt>,
     },
     While {
+        keyword: Token,
         condition: Expr,
         body: Box<Stmt>,
     },
@@ -280,6 +282,7 @@ impl Parser {
     }
 
     fn if_statement(&mut self) -> Result<Stmt, ZernError> {
+        let keyword = self.previous().clone();
         let condition = self.expression()?;
         let then_branch = self.block()?;
         let else_branch = if self.match_token(&[TokenType::KeywordElse]) {
@@ -292,6 +295,7 @@ impl Parser {
             Box::new(Stmt::Block(vec![]))
         };
         Ok(Stmt::If {
+            keyword,
             condition,
             then_branch: Box::new(then_branch),
             else_branch,
@@ -299,9 +303,11 @@ impl Parser {
     }
 
     fn while_statement(&mut self) -> Result<Stmt, ZernError> {
+        let keyword = self.previous().clone();
         let condition = self.expression()?;
         let body = self.block()?;
         Ok(Stmt::While {
+            keyword,
             condition,
             body: Box::new(body),
         })
