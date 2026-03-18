@@ -143,7 +143,6 @@ impl TypeChecker {
                     ["i64", "u8", "ptr", "bool"],
                     keyword.loc
                 );
-                self.typecheck_expr(env, condition)?;
                 self.typecheck_stmt(env, body)?;
             }
             Stmt::For {
@@ -206,8 +205,15 @@ impl TypeChecker {
             Stmt::Extern(_) => {
                 // handled in the analyzer
             }
-            Stmt::Struct { name: _, fields: _ } => {
-                // TODO: validate types
+            Stmt::Struct { name: _, fields } => {
+                for field in fields {
+                    if !self.is_valid_type_name(&field.var_type.lexeme) {
+                        return error!(
+                            &field.var_type.loc,
+                            format!("unknown type: {}", &field.var_type.lexeme)
+                        );
+                    }
+                }
             }
         }
         Ok(())
@@ -431,7 +437,20 @@ impl TypeChecker {
                     error!(&op.loc, "can only take address of variables and functions")
                 }
             },
-            Expr::New(struct_name) => Ok(struct_name.lexeme.clone()),
+            Expr::New(struct_name) => {
+                if !self
+                    .analyzer
+                    .borrow()
+                    .structs
+                    .contains_key(&struct_name.lexeme)
+                {
+                    return error!(
+                        &struct_name.loc,
+                        format!("unknown struct name: {}", &struct_name.lexeme)
+                    );
+                }
+                Ok(struct_name.lexeme.clone())
+            }
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
@@ -452,7 +471,12 @@ impl TypeChecker {
             }
             Expr::Cast { expr, type_name } => {
                 self.typecheck_expr(env, expr)?;
-                // TODO: validate target type
+                if !self.is_valid_type_name(&type_name.lexeme) {
+                    return error!(
+                        &type_name.loc,
+                        format!("unknown type: {}", &type_name.lexeme)
+                    );
+                }
                 Ok(type_name.lexeme.clone())
             }
         }
