@@ -315,7 +315,7 @@ _builtin_environ:
                 emit!(&mut self.output, "{}:", name.lexeme);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
-                emit!(&mut self.output, "    sub rsp, 256"); // TODO
+                emit!(&mut self.output, "    sub rsp, 256"); // TODO: eww
 
                 for (i, param) in params.iter().enumerate() {
                     let offset = env
@@ -639,6 +639,8 @@ _builtin_environ:
                             offset
                         );
                     }
+                    // TODO: since all zern values are 64bit large we currently cannot call
+                    // external functions that expect a non-64bit value past the 6th argument
                     let num_stack = arg_count - 6;
                     for i in 0..num_stack {
                         let arg_idx = arg_count - 1 - i;

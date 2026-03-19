@@ -2,6 +2,7 @@
 name = "zern"
 version = "0.3.0"
 edition = "2024"
+license = "BSD-2-Clause"
 
 [dependencies]
 clap = { version = "4.5.40", features = ["derive"] }
