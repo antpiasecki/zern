@@ -46,10 +46,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let mut analyzer = analyzer::Analyzer::new();
     for stmt in &statements {
-        analyzer.register_function(stmt)?;
-    }
-    for stmt in &statements {
-        analyzer.analyze_stmt(stmt)?;
+        analyzer.register_declaration(stmt)?;
     }
 
     let mut typechecker = typechecker::TypeChecker::new(&analyzer);

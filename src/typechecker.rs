@@ -160,12 +160,16 @@ impl<'a> TypeChecker<'a> {
                 env.pop_scope();
             }
             Stmt::Function {
-                name: _,
+                name,
                 params,
                 return_type,
                 body,
                 exported: _,
             } => {
+                if name.lexeme == "main" && return_type.lexeme != "i64" {
+                    return error!(&name.loc, "main must return i64");
+                }
+
                 if !self.is_valid_type_name(&return_type.lexeme) {
                     return error!(
                         &return_type.loc,
@@ -369,12 +373,20 @@ impl<'a> TypeChecker<'a> {
                 args,
             } => {
                 if let Expr::Variable(callee_name) = &**callee {
-                    if self.analyzer.functions.contains_key(&callee_name.lexeme) {
-                        let fn_type = &self.analyzer.functions[&callee_name.lexeme];
+                    if let Some(fn_type) = self.analyzer.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
+                            if params.len() != args.len() {
+                                return error!(
+                                    &paren.loc,
+                                    format!(
+                                        "expected {} arguments, got {}",
+                                        params.len(),
+                                        args.len()
+                                    )
+                                );
+                            }
                             for (i, arg) in args.iter().enumerate() {
-                                // arity is checked in the analyzer
                                 expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
                             }
                         } else {
