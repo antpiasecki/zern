@@ -12,8 +12,6 @@ use std::{
 
 use tokenizer::ZernError;
 
-use clap::Parser;
-
 macro_rules! parse_std_file {
     ($statements:expr, $filename:expr) => {
         let source: String = include_str!($filename).into();
@@ -109,29 +107,71 @@ fn run_command(cmd: String) {
     }
 }
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
 struct Args {
     path: String,
-
-    #[arg(short, help = "Output path")]
     out: Option<String>,
-
-    #[arg(short = 'S', help = "Only generate assembly")]
     output_asm: bool,
-
-    #[arg(short = 'r', help = "Run the compiled executable")]
     run_exe: bool,
-
-    #[arg(short = 'm', help = "Use gcc")]
     use_gcc: bool,
-
-    #[arg(short = 'C', default_value = "", help = "Extra flags to pass to gcc")]
     cflags: String,
 }
 
+impl Args {
+    fn parse(mut args: std::env::Args) -> Args {
+        let mut out = Args {
+            path: String::new(),
+            out: None,
+            output_asm: false,
+            run_exe: false,
+            use_gcc: false,
+            cflags: String::new(),
+        };
+
+        while let Some(arg) = args.next() {
+            if arg == "-o" {
+                match args.next() {
+                    Some(s) => out.out = Some(s),
+                    None => {
+                        eprintln!("-o option requires a name");
+                        process::exit(1);
+                    }
+                }
+            } else if arg == "-S" {
+                out.output_asm = true;
+            } else if arg == "-r" {
+                out.run_exe = true;
+            } else if arg == "-m" {
+                out.use_gcc = true;
+            } else if arg == "-C" {
+                match args.next() {
+                    Some(s) => out.cflags = s,
+                    None => {
+                        eprintln!("-C option requires a name");
+                        process::exit(1);
+                    }
+                }
+            } else if arg == "-h" || arg == "--help" {
+                println!("Usage: zern [-o path] [-S] [-r] [-m] [-C cflags] path");
+                process::exit(0);
+            } else if arg.starts_with('-') {
+                eprintln!("unrecognized option: {}", arg);
+                process::exit(1);
+            } else if out.path.is_empty() {
+                out.path = arg
+            } else {
+                eprintln!("unrecognized argument: {}", arg);
+                process::exit(1);
+            }
+        }
+
+        out
+    }
+}
+
 fn main() {
-    let args = Args::parse();
+    let mut raw_args = std::env::args();
+    _ = raw_args.next();
+    let args = Args::parse(raw_args);
 
     if !args.use_gcc && !args.cflags.is_empty() {
         eprintln!("You can't set CFLAGS if you're not using gcc. Add the -m flag.");

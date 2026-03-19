@@ -12,7 +12,7 @@ macro_rules! expect_type {
         if $expected != "any" && actual != "any" && actual != $expected {
             return error!(
                 $loc,
-                format!("expected type '{}', got '{}'", $expected, actual)
+                format!("expected type '{}', got {}", $expected, actual)
             );
         }
     }};
@@ -24,7 +24,7 @@ macro_rules! expect_types {
             return error!(
                 $loc,
                 format!(
-                    "expected one of [{}], got '{}'",
+                    "expected one of [{}], got {}",
                     [$( $expected ),+].join(", "),
                     $expr_type
                 )
