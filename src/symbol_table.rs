@@ -34,15 +34,15 @@ impl FnType {
     }
 }
 
-pub struct Analyzer {
+pub struct SymbolTable {
     pub functions: HashMap<String, FnType>,
     pub constants: HashMap<String, u64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
 }
 
-impl Analyzer {
-    pub fn new() -> Analyzer {
-        Analyzer {
+impl SymbolTable {
+    pub fn new() -> SymbolTable {
+        SymbolTable {
             functions: HashMap::from([
                 ("_builtin_heap_head".into(), FnType::new("ptr", vec![])),
                 ("_builtin_heap_tail".into(), FnType::new("ptr", vec![])),

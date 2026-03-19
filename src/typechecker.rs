@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    analyzer::{Analyzer, Type},
     parser::{Expr, Stmt},
+    symbol_table::{SymbolTable, Type},
     tokenizer::{TokenType, ZernError, error},
 };
 
@@ -70,14 +70,14 @@ impl Env {
 }
 
 pub struct TypeChecker<'a> {
-    analyzer: &'a Analyzer,
+    symbol_table: &'a SymbolTable,
     current_function_return_type: String,
 }
 
 impl<'a> TypeChecker<'a> {
-    pub fn new(analyzer: &'a Analyzer) -> TypeChecker<'a> {
+    pub fn new(symbol_table: &'a SymbolTable) -> TypeChecker<'a> {
         TypeChecker {
-            analyzer,
+            symbol_table,
             current_function_return_type: String::new(),
         }
     }
@@ -110,7 +110,7 @@ impl<'a> TypeChecker<'a> {
                 env.define_var(name.lexeme.clone(), actual_type);
             }
             Stmt::Const { name: _, value: _ } => {
-                // handled in the analyzer
+                // handled in SymbolTable
             }
             Stmt::Block(stmts) => {
                 env.push_scope();
@@ -207,7 +207,7 @@ impl<'a> TypeChecker<'a> {
             Stmt::Break => {}
             Stmt::Continue => {}
             Stmt::Extern(_) => {
-                // handled in the analyzer
+                // handled in the SymbolTable
             }
             Stmt::Struct { name: _, fields } => {
                 for field in fields {
@@ -304,7 +304,7 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             Expr::Variable(name) => {
-                if self.analyzer.constants.contains_key(&name.lexeme) {
+                if self.symbol_table.constants.contains_key(&name.lexeme) {
                     Ok("i64".into())
                 } else {
                     match env.get_var_type(&name.lexeme) {
@@ -341,7 +341,7 @@ impl<'a> TypeChecker<'a> {
                     Expr::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
 
-                        let fields = match self.analyzer.structs.get(&left_type) {
+                        let fields = match self.symbol_table.structs.get(&left_type) {
                             Some(f) => f,
                             None => {
                                 return error!(
@@ -373,7 +373,7 @@ impl<'a> TypeChecker<'a> {
                 args,
             } => {
                 if let Expr::Variable(callee_name) = &**callee {
-                    if let Some(fn_type) = self.analyzer.functions.get(&callee_name.lexeme) {
+                    if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
                             if params.len() != args.len() {
@@ -432,7 +432,7 @@ impl<'a> TypeChecker<'a> {
             }
             Expr::AddrOf { op, expr } => match expr.as_ref() {
                 Expr::Variable(name) => {
-                    if self.analyzer.functions.contains_key(&name.lexeme) {
+                    if self.symbol_table.functions.contains_key(&name.lexeme) {
                         Ok("fnptr".into())
                     } else {
                         Ok("ptr".into())
@@ -443,7 +443,7 @@ impl<'a> TypeChecker<'a> {
                 }
             },
             Expr::New(struct_name) => {
-                if !self.analyzer.structs.contains_key(&struct_name.lexeme) {
+                if !self.symbol_table.structs.contains_key(&struct_name.lexeme) {
                     return error!(
                         &struct_name.loc,
                         format!("unknown struct name: {}", &struct_name.lexeme)
@@ -454,7 +454,7 @@ impl<'a> TypeChecker<'a> {
             Expr::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
-                let fields = match self.analyzer.structs.get(&left_type) {
+                let fields = match self.symbol_table.structs.get(&left_type) {
                     Some(f) => f,
                     None => {
                         return error!(&field.loc, format!("unknown struct type: {}", left_type));
@@ -485,7 +485,7 @@ impl<'a> TypeChecker<'a> {
         if BUILTIN_TYPES.contains(&name) {
             return true;
         }
-        if self.analyzer.structs.contains_key(name) {
+        if self.symbol_table.structs.contains_key(name) {
             return true;
         }
         false

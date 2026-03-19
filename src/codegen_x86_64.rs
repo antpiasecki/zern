@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
-    analyzer::Analyzer,
     parser::{Expr, Stmt},
+    symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
 };
 
@@ -74,17 +74,17 @@ pub struct CodegenX86_64<'a> {
     data_section: String,
     label_counter: usize,
     data_counter: usize,
-    pub analyzer: &'a Analyzer,
+    pub symbol_table: &'a SymbolTable,
 }
 
 impl<'a> CodegenX86_64<'a> {
-    pub fn new(analyzer: &'a Analyzer) -> CodegenX86_64<'a> {
+    pub fn new(symbol_table: &'a SymbolTable) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
             data_counter: 1,
-            analyzer,
+            symbol_table,
         }
     }
 
@@ -223,7 +223,7 @@ _builtin_environ:
                 var_type,
                 initializer,
             } => {
-                // TODO: move to analyzer
+                // TODO: move to typechecker?
                 if env.get_var(&name.lexeme).is_some() {
                     return error!(
                         name.loc,
@@ -250,7 +250,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
             }
             Stmt::Const { name: _, value: _ } => {
-                // handled in the analyzer
+                // handled in SymbolTable
             }
             Stmt::Block(statements) => {
                 env.push_scope();
@@ -398,7 +398,7 @@ _builtin_environ:
                 emit!(&mut self.output, "extern {}", name.lexeme);
             }
             Stmt::Struct { name: _, fields: _ } => {
-                // handled in the analyzer
+                // handled in SymbolTable
             }
         }
         Ok(())
@@ -555,11 +555,11 @@ _builtin_environ:
                 }
             }
             Expr::Variable(name) => {
-                if self.analyzer.constants.contains_key(&name.lexeme) {
+                if self.symbol_table.constants.contains_key(&name.lexeme) {
                     emit!(
                         &mut self.output,
                         "    mov rax, {}",
-                        self.analyzer.constants[&name.lexeme]
+                        self.symbol_table.constants[&name.lexeme]
                     );
                 } else {
                     let var = match env.get_var(&name.lexeme) {
@@ -655,7 +655,11 @@ _builtin_environ:
                 }
 
                 if let Expr::Variable(callee_name) = &**callee {
-                    if self.analyzer.functions.contains_key(&callee_name.lexeme) {
+                    if self
+                        .symbol_table
+                        .functions
+                        .contains_key(&callee_name.lexeme)
+                    {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
@@ -702,7 +706,7 @@ _builtin_environ:
             }
             Expr::AddrOf { op, expr } => match *expr.clone() {
                 Expr::Variable(name) => {
-                    if self.analyzer.functions.contains_key(&name.lexeme) {
+                    if self.symbol_table.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    mov rax, {}", name.lexeme);
                     } else {
                         let var = match env.get_var(&name.lexeme) {
@@ -726,7 +730,7 @@ _builtin_environ:
                 }
             },
             Expr::New(struct_name) => {
-                let struct_fields = &self.analyzer.structs[&struct_name.lexeme];
+                let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
 
                 // TODO: panic on mem.alloc error
                 let memory_size = struct_fields.len() * 8;
@@ -771,7 +775,7 @@ _builtin_environ:
             }
         };
 
-        let fields = match self.analyzer.structs.get(&struct_name) {
+        let fields = match self.symbol_table.structs.get(&struct_name) {
             Some(f) => f,
             None => {
                 return error!(&field.loc, format!("unknown struct type: {}", struct_name));

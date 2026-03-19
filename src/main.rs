@@ -1,6 +1,6 @@
-mod analyzer;
 mod codegen_x86_64;
 mod parser;
+mod symbol_table;
 mod tokenizer;
 mod typechecker;
 
@@ -44,17 +44,17 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let parser = parser::Parser::new(tokenizer.tokenize()?);
     statements.extend(parser.parse()?);
 
-    let mut analyzer = analyzer::Analyzer::new();
+    let mut symbol_table = symbol_table::SymbolTable::new();
     for stmt in &statements {
-        analyzer.register_declaration(stmt)?;
+        symbol_table.register_declaration(stmt)?;
     }
 
-    let mut typechecker = typechecker::TypeChecker::new(&analyzer);
+    let mut typechecker = typechecker::TypeChecker::new(&symbol_table);
     for stmt in &statements {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&analyzer);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table);
     codegen.emit_prologue(args.use_gcc)?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
