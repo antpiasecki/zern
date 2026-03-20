@@ -5,6 +5,7 @@ const ERR_READ_FAILED       = 3
 const ERR_WRITE_FAILED      = 4
 const ERR_ALLOC_FAILED      = 5
 const ERR_CONNECTION_FAILED = 6
+const ERR_KEY_ERROR         = 7
 
 func err.code[] : i64
     return mem.read64(_builtin_err_code())
@@ -845,6 +846,89 @@ func array.concat[a: Array, b: Array] : Array
     for i in 0..b->size
         array.set(new_array, a->size + i, array.nth(b, i))
     return new_array
+
+const HashMap._TABLE_SIZE = 100
+
+struct HashMap
+    table: Array
+
+struct HashMap._Node
+    key: str
+    value: any
+    next: HashMap._Node
+
+func HashMap.new[] : HashMap
+    let map: HashMap = new HashMap
+    map->table = array.new_preallocated_and_zeroed(HashMap._TABLE_SIZE)
+    return map
+
+func HashMap.insert[map: HashMap, key: str, value: any] : void
+    let index: i64 = HashMap._djb2(key)
+    let current: HashMap._Node = array.nth(map->table, index)
+
+    while current as ptr
+        if str.equal(current->key, key)
+            current->value = value
+            return 0
+        current = current->next
+
+    let new_node: HashMap._Node = new HashMap._Node
+    new_node->key = str.make_copy(key)
+    new_node->value = value
+    new_node->next = array.nth(map->table, index)
+    array.set(map->table, index, new_node)
+
+func HashMap.get?[map: HashMap, key: str] : any
+    err.clear()
+    let index: i64 = HashMap._djb2(key)
+    let current: HashMap._Node = array.nth(map->table, index)
+
+    while current as ptr
+        if str.equal(current->key, key)
+            return current->value
+        current = current->next
+    
+    err.set(ERR_KEY_ERROR, "key not found")
+    return 0
+
+func HashMap.delete[map: HashMap, key: str] : void
+    let index: i64 = HashMap._djb2(key)
+    let current: HashMap._Node = array.nth(map->table, index)
+    let prev: HashMap._Node = 0 as HashMap._Node
+
+    while current as ptr
+        if str.equal(current->key, key)
+            if prev as ptr
+                prev->next = current->next
+            else
+                array.set(map->table, index, current->next)
+            
+            mem.free(current->key)
+            mem.free(current)
+            return 0
+
+        prev = current
+        current = current->next
+
+func HashMap._djb2[key: str] : i64
+    let hash: i64 = 5381 
+    let key_len: i64 = str.len(key)
+    for i in 0..key_len
+        hash = ((hash << 5) + hash) + key[i]
+    hash = (hash & 0x7fffffffffffffff) // prevent negative
+    return hash % HashMap._TABLE_SIZE
+
+func HashMap.free[map: HashMap] : void
+    for i in 0..HashMap._TABLE_SIZE
+        let current: HashMap._Node = array.nth(map->table, i)
+        while current as ptr
+            let tmp: HashMap._Node = current
+            current = current->next
+            mem.free(tmp->key)
+            mem.free(tmp)
+
+    array.free(map->table)
+    mem.free(map)
 
 func alg.quicksort[arr: Array] : void
     alg._do_quicksort(arr, 0, arr->size - 1)

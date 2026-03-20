@@ -66,10 +66,7 @@ impl SymbolTable {
         match stmt {
             Stmt::Const { name, value } => {
                 if self.is_name_defined(&name.lexeme) {
-                    return error!(
-                        name.loc,
-                        format!("tried to redefine constant '{}'", name.lexeme)
-                    );
+                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 if value.lexeme.starts_with("0x") {
                     self.constants.insert(

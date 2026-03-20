@@ -166,8 +166,29 @@ impl<'a> TypeChecker<'a> {
                 body,
                 exported: _,
             } => {
-                if name.lexeme == "main" && return_type.lexeme != "i64" {
-                    return error!(&name.loc, "main must return i64");
+                if name.lexeme == "main" {
+                    if return_type.lexeme != "i64" {
+                        return error!(&name.loc, "main function must return i64");
+                    }
+
+                    if !params.is_empty() && params.len() != 2 {
+                        return error!(&name.loc, "main function must accept 0 or 2 parameters");
+                    }
+
+                    if params.len() == 2 {
+                        if params[0].var_type.lexeme != "i64" {
+                            return error!(
+                                &name.loc,
+                                "first parameter of the main function must be a i64"
+                            );
+                        }
+                        if params[1].var_type.lexeme != "ptr" {
+                            return error!(
+                                &name.loc,
+                                "second parameter of the main function must be a ptr"
+                            );
+                        }
+                    }
                 }
 
                 if !self.is_valid_type_name(&return_type.lexeme) {

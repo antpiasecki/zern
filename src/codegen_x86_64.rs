@@ -732,7 +732,6 @@ _builtin_environ:
             Expr::New(struct_name) => {
                 let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
 
-                // TODO: panic on mem.alloc error
                 let memory_size = struct_fields.len() * 8;
                 emit!(&mut self.output, "    mov rdi, {}", memory_size);
                 emit!(&mut self.output, "    call mem.alloc");

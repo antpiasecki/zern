@@ -8,7 +8,7 @@ A very cool language
 * Growing [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
 * Produces tiny static executables (11KB for `hello.zr`)
 * No libc required!
-* Has the pipe operator
+* Has the pipe operator, dynamic arrays, hashmaps
 
 ## Syntax
 ```rust
