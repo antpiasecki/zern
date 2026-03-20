@@ -132,7 +132,7 @@ impl Args {
                 match args.next() {
                     Some(s) => out.out = Some(s),
                     None => {
-                        eprintln!("-o option requires a name");
+                        eprintln!("\x1b[91mERROR\x1b[0m: -o option requires a name");
                         process::exit(1);
                     }
                 }
@@ -146,7 +146,7 @@ impl Args {
                 match args.next() {
                     Some(s) => out.cflags = s,
                     None => {
-                        eprintln!("-C option requires a name");
+                        eprintln!("\x1b[91mERROR\x1b[0m: -C option requires a name");
                         process::exit(1);
                     }
                 }
@@ -154,14 +154,25 @@ impl Args {
                 println!("Usage: zern [-o path] [-S] [-r] [-m] [-C cflags] path");
                 process::exit(0);
             } else if arg.starts_with('-') {
-                eprintln!("unrecognized option: {}", arg);
+                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {}", arg);
                 process::exit(1);
             } else if out.path.is_empty() {
                 out.path = arg
             } else {
-                eprintln!("unrecognized argument: {}", arg);
+                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized argument: {}", arg);
                 process::exit(1);
             }
+        }
+
+        if out.path.is_empty() {
+            eprintln!("\x1b[91mERROR\x1b[0m: you must provide a path");
+            process::exit(1);
+        }
+
+        if !out.use_gcc && !out.cflags.is_empty() {
+            // no "ERROR:" since its not an error
+            eprintln!("You can't set CFLAGS if you're not using gcc. Add the -m flag.");
+            process::exit(1);
         }
 
         out
@@ -172,11 +183,6 @@ fn main() {
     let mut raw_args = std::env::args();
     _ = raw_args.next();
     let args = Args::parse(raw_args);
-
-    if !args.use_gcc && !args.cflags.is_empty() {
-        eprintln!("You can't set CFLAGS if you're not using gcc. Add the -m flag.");
-        process::exit(1);
-    }
 
     if let Err(err) = compile_file(args) {
         eprintln!("{}", err);

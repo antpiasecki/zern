@@ -39,7 +39,7 @@ func main[argc: i64, argv: ptr] : i64
     net.send(s, req as ptr, str.len(req))
     mem.free(req)
 
-    let header_buf: str = mem.alloc(8192)
+    let header_buf: str = mem.alloc(8192) as str
     let header_size = 0
     let found: bool = false
     let end_index: i64 = -1

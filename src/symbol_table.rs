@@ -65,9 +65,7 @@ impl SymbolTable {
     pub fn register_declaration(&mut self, stmt: &Stmt) -> Result<(), ZernError> {
         match stmt {
             Stmt::Const { name, value } => {
-                if self.constants.contains_key(&name.lexeme)
-                    || self.functions.contains_key(&name.lexeme)
-                {
+                if self.is_name_defined(&name.lexeme) {
                     return error!(
                         name.loc,
                         format!("tried to redefine constant '{}'", name.lexeme)
@@ -78,13 +76,18 @@ impl SymbolTable {
                         name.lexeme.clone(),
                         u64::from_str_radix(&value.lexeme[2..], 16).unwrap(),
                     );
+                } else if value.lexeme.starts_with("0o") {
+                    self.constants.insert(
+                        name.lexeme.clone(),
+                        u64::from_str_radix(&value.lexeme[2..], 8).unwrap(),
+                    );
                 } else {
                     self.constants
                         .insert(name.lexeme.clone(), value.lexeme.parse().unwrap());
                 }
             }
             Stmt::Extern(name) => {
-                if self.functions.contains_key(&name.lexeme) {
+                if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 self.functions
@@ -97,7 +100,7 @@ impl SymbolTable {
                 body: _,
                 exported: _,
             } => {
-                if self.functions.contains_key(&name.lexeme) {
+                if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 self.functions.insert(
@@ -109,6 +112,9 @@ impl SymbolTable {
                 );
             }
             Stmt::Struct { name, fields } => {
+                if self.is_name_defined(&name.lexeme) {
+                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
+                }
                 let mut fields_map: HashMap<String, StructField> = HashMap::new();
 
                 let mut offset: usize = 0;
@@ -128,5 +134,11 @@ impl SymbolTable {
             _ => {}
         }
         Ok(())
+    }
+
+    fn is_name_defined(&self, s: &str) -> bool {
+        self.functions.contains_key(s)
+            || self.constants.contains_key(s)
+            || self.structs.contains_key(s)
     }
 }

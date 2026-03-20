@@ -1,4 +1,4 @@
-// needs to be compiled with -m -C="-lsqlite3"
+// needs to be compiled with -m -C "-lsqlite3"
 extern sqlite3_open
 extern sqlite3_exec
 extern sqlite3_prepare_v2

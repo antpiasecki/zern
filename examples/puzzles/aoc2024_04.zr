@@ -43,7 +43,7 @@ func part2[lines: Array] : void
     for x in 1..lines->size-1
         for y in 1..str.len(array.nth(lines, x))-1
             if array.nth(lines, x)[y] == 'A'
-                let s: str = mem.alloc(5)
+                let s: str = mem.alloc(5) as str
                 s[0] = array.nth(lines, x - 1)[y - 1]
                 s[1] = array.nth(lines, x + 1)[y - 1]
                 s[2] = array.nth(lines, x + 1)[y + 1]

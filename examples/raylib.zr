@@ -1,4 +1,4 @@
-// needs to be compiled with -m -C="-lraylib"
+// needs to be compiled with -m -C "-lraylib"
 extern InitWindow
 extern SetTargetFPS
 extern WindowShouldClose

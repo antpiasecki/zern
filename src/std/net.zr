@@ -137,7 +137,7 @@ func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
     pkt->source_addr = mem.alloc(16)
     mem.zero(pkt->source_addr, 16)
 
-    let addrlen: i64 = 16
+    let addrlen = 16
     pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->data, size, 0, pkt->source_addr, ^addrlen)
     return pkt
 
@@ -158,9 +158,9 @@ const DNS_RECURSION_DESIRED = 256
 func net.encode_dns_name[domain: str] : io.Buffer
     let domain_len: i64 = str.len(domain)
     let buf: io.Buffer = must(io.Buffer.alloc?(domain_len + 2))
-    let out_pos: i64 = 0
-    let part_start: i64 = 0
-    let i: i64 = 0
+    let out_pos = 0
+    let part_start = 0
+    let i = 0
     while i <= domain_len
         if i == domain_len || domain[i] == '.'
             let part_len: i64 = i - part_start
@@ -212,7 +212,7 @@ func net.resolve?[domain: str] : i64
 
     // TODO: do actual parsing
 
-    let pos: i64 = 12 // skip header (12 bytes)
+    let pos = 12 // skip header (12 bytes)
 
     while pkt->data[pos] != 0
         pos = pos + pkt->data[pos] + 1 // skip question
