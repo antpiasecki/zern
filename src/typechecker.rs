@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{Expr, Stmt},
+    parser::{Expr, Params, Stmt},
     symbol_table::{SymbolTable, Type},
     tokenizer::{TokenType, ZernError, error},
 };
@@ -171,22 +171,32 @@ impl<'a> TypeChecker<'a> {
                         return error!(&name.loc, "main function must return i64");
                     }
 
-                    if !params.is_empty() && params.len() != 2 {
-                        return error!(&name.loc, "main function must accept 0 or 2 parameters");
-                    }
+                    match params {
+                        Params::Normal(params) => {
+                            if !params.is_empty() && params.len() != 2 {
+                                return error!(
+                                    &name.loc,
+                                    "main function must accept 0 or 2 parameters"
+                                );
+                            }
 
-                    if params.len() == 2 {
-                        if params[0].var_type.lexeme != "i64" {
-                            return error!(
-                                &name.loc,
-                                "first parameter of the main function must be a i64"
-                            );
+                            if params.len() == 2 {
+                                if params[0].var_type.lexeme != "i64" {
+                                    return error!(
+                                        &name.loc,
+                                        "first parameter of the main function must be a i64"
+                                    );
+                                }
+                                if params[1].var_type.lexeme != "ptr" {
+                                    return error!(
+                                        &name.loc,
+                                        "second parameter of the main function must be a ptr"
+                                    );
+                                }
+                            }
                         }
-                        if params[1].var_type.lexeme != "ptr" {
-                            return error!(
-                                &name.loc,
-                                "second parameter of the main function must be a ptr"
-                            );
+                        Params::Variadic(_) => {
+                            return error!(&name.loc, "main function cannot be variadic");
                         }
                     }
                 }
@@ -202,15 +212,25 @@ impl<'a> TypeChecker<'a> {
 
                 env.push_scope();
 
-                for param in params {
-                    if !self.is_valid_type_name(&param.var_type.lexeme) {
-                        return error!(
-                            &param.var_name.loc,
-                            "unrecognized type: ".to_owned() + &param.var_type.lexeme
-                        );
-                    }
+                match params {
+                    Params::Normal(params) => {
+                        for param in params {
+                            if !self.is_valid_type_name(&param.var_type.lexeme) {
+                                return error!(
+                                    &param.var_name.loc,
+                                    "unrecognized type: ".to_owned() + &param.var_type.lexeme
+                                );
+                            }
 
-                    env.define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
+                            env.define_var(
+                                param.var_name.lexeme.clone(),
+                                param.var_type.lexeme.clone(),
+                            );
+                        }
+                    }
+                    Params::Variadic(name) => {
+                        env.define_var(name.lexeme.clone(), "ptr".into());
+                    }
                 }
 
                 self.typecheck_stmt(env, body)?;

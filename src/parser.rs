@@ -7,6 +7,12 @@ pub struct Param {
 }
 
 #[derive(Debug, Clone)]
+pub enum Params {
+    Normal(Vec<Param>),
+    Variadic(Token),
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
     Let {
@@ -38,7 +44,7 @@ pub enum Stmt {
     },
     Function {
         name: Token,
-        params: Vec<Param>,
+        params: Params,
         return_type: Token,
         body: Box<Stmt>,
         exported: bool,
@@ -164,17 +170,25 @@ impl Parser {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
+        let mut variadic_param: Option<Token> = None;
         let mut params = vec![];
         if !self.check(&TokenType::RightBracket) {
-            loop {
-                let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
-                self.consume(TokenType::Colon, "expected ':' after parameter name")?;
+            if self.match_token(&[TokenType::DoubleDot]) {
+                variadic_param =
+                    Some(self.consume(TokenType::Identifier, "expected variadic parameter name")?);
+            } else {
+                loop {
+                    let var_name =
+                        self.consume(TokenType::Identifier, "expected parameter name")?;
+                    self.consume(TokenType::Colon, "expected ':' after parameter name")?;
 
-                let var_type = self.consume(TokenType::Identifier, "expected parameter type")?;
+                    let var_type =
+                        self.consume(TokenType::Identifier, "expected parameter type")?;
 
-                params.push(Param { var_type, var_name });
-                if !self.match_token(&[TokenType::Comma]) {
-                    break;
+                    params.push(Param { var_type, var_name });
+                    if !self.match_token(&[TokenType::Comma]) {
+                        break;
+                    }
                 }
             }
         }
@@ -187,6 +201,10 @@ impl Parser {
         let body = Box::new(self.block()?);
         self.is_inside_function = false;
 
+        let params = match variadic_param {
+            Some(name) => Params::Variadic(name),
+            None => Params::Normal(params),
+        };
         Ok(Stmt::Function {
             name,
             params,

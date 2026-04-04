@@ -1007,7 +1007,7 @@ func os.urandom?[n: i64]: ptr
     let fd: i64 = _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
     if fd < 0
         mem.free(buffer)
-        err.set(ERR_READ_FAILED, "os.urandom?: failed to open /dev/urandom")
+        err.set(ERR_OPEN_FAILED, "os.urandom?: failed to open /dev/urandom")
         return 0 as ptr
 
     let bytes_read: i64 = _builtin_syscall(SYS_read, fd, buffer, n)

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::Stmt,
+    parser::{Params, Stmt},
     tokenizer::{ZernError, error},
 };
 
@@ -100,13 +100,24 @@ impl SymbolTable {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
-                self.functions.insert(
-                    name.lexeme.clone(),
-                    FnType {
-                        return_type: return_type.lexeme.clone(),
-                        params: Some(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
-                    },
-                );
+                match params {
+                    Params::Normal(params) => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type: return_type.lexeme.clone(),
+                            params: Some(
+                                params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
+                            ),
+                        },
+                    ),
+                    Params::Variadic(name) => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type: return_type.lexeme.clone(),
+                            params: None,
+                        },
+                    ),
+                };
             }
             Stmt::Struct { name, fields } => {
                 if self.is_name_defined(&name.lexeme) {

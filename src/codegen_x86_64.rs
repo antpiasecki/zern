@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
-    parser::{Expr, Stmt},
+    parser::{Expr, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
 };
@@ -317,20 +317,27 @@ _builtin_environ:
                 emit!(&mut self.output, "    mov rbp, rsp");
                 emit!(&mut self.output, "    sub rsp, 256"); // TODO: eww
 
-                for (i, param) in params.iter().enumerate() {
-                    let offset = env
-                        .define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
-                    if let Some(reg) = REGISTERS.get(i) {
-                        emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
-                    } else {
-                        let stack_offset = 16 + 8 * (i - REGISTERS.len());
-                        emit!(
-                            &mut self.output,
-                            "    mov rax, QWORD [rbp+{}]",
-                            stack_offset
-                        );
-                        emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                match params {
+                    Params::Normal(params) => {
+                        for (i, param) in params.iter().enumerate() {
+                            let offset = env.define_var(
+                                param.var_name.lexeme.clone(),
+                                param.var_type.lexeme.clone(),
+                            );
+                            if let Some(reg) = REGISTERS.get(i) {
+                                emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                            } else {
+                                let stack_offset = 16 + 8 * (i - REGISTERS.len());
+                                emit!(
+                                    &mut self.output,
+                                    "    mov rax, QWORD [rbp+{}]",
+                                    stack_offset
+                                );
+                                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                            }
+                        }
                     }
+                    Params::Variadic(_name) => todo!(),
                 }
 
                 self.compile_stmt(env, body)?;
