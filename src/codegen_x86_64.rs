@@ -151,21 +151,6 @@ _builtin_syscall:
     mov r9, [rsp+8]
     syscall
     ret
-
-section .text.io.printf
-io.printf:
-    push rbp
-    mov rbp, rsp
-    sub rsp, 48
-    mov [rsp], rsi
-    mov [rsp + 8], rdx
-    mov [rsp + 16], rcx
-    mov [rsp + 24], r8
-    mov [rsp + 32], r9
-    lea rsi, [rsp]
-    call io._printf_impl
-    leave
-    ret
 "
         );
 
@@ -337,7 +322,16 @@ _builtin_environ:
                             }
                         }
                     }
-                    Params::Variadic(_name) => todo!(),
+                    Params::Variadic => {
+                        emit!(&mut self.output, "    sub rsp, 48");
+                        emit!(&mut self.output, "    mov [rbp - 8], rdi");
+                        emit!(&mut self.output, "    mov [rbp - 16], rsi");
+                        emit!(&mut self.output, "    mov [rbp - 24], rdx");
+                        emit!(&mut self.output, "    mov [rbp - 32], rcx");
+                        emit!(&mut self.output, "    mov [rbp - 40], r8");
+                        emit!(&mut self.output, "    mov [rbp - 48], r9");
+                        env.next_offset += 48;
+                    }
                 }
 
                 self.compile_stmt(env, body)?;
@@ -626,6 +620,12 @@ _builtin_environ:
                 paren: _,
                 args,
             } => {
+                if let Expr::Variable(callee_name) = &**callee
+                    && callee_name.lexeme == "_var_arg"
+                {
+                    return self.emit_var_arg(env, &args[0]);
+                }
+
                 for arg in args {
                     self.compile_expr(env, arg)?;
                     emit!(&mut self.output, "    push rax");
@@ -794,5 +794,34 @@ _builtin_environ:
         };
 
         Ok(field.offset)
+    }
+
+    fn emit_var_arg(&mut self, env: &mut Env, index_expr: &Expr) -> Result<(), ZernError> {
+        self.compile_expr(env, index_expr)?;
+        emit!(&mut self.output, " mov r10, rax");
+
+        let stack_label = self.label();
+        let done_label = self.label();
+
+        emit!(&mut self.output, " cmp r10, 6");
+        emit!(&mut self.output, " jge {}", stack_label);
+
+        // < 6
+        emit!(&mut self.output, " mov rax, r10");
+        emit!(&mut self.output, " inc rax");
+        emit!(&mut self.output, " shl rax, 3");
+        emit!(&mut self.output, " neg rax");
+        emit!(&mut self.output, " mov rax, [rbp + rax]");
+        emit!(&mut self.output, " jmp {}", done_label);
+
+        // >= 6
+        emit!(&mut self.output, "{}:", stack_label);
+        emit!(&mut self.output, " mov rax, r10");
+        emit!(&mut self.output, " sub rax, 6");
+        emit!(&mut self.output, " shl rax, 3");
+        emit!(&mut self.output, " mov rax, [rbp + 16 + rax]");
+
+        emit!(&mut self.output, "{}:", done_label);
+        Ok(())
     }
 }

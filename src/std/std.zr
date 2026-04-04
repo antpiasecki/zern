@@ -264,24 +264,26 @@ func mem.write16be[x: ptr, d: i64] : void
 func mem.write64[x: ptr, d: any] : void
     _builtin_set64(x, d)
 
-// see emit_prologue for the io.printf wrapper
-func io._printf_impl[s: ptr, args: ptr] : void
+func io.printf[..] : void
+    let s: ptr = _var_arg(0) as ptr
+    let i: i64 = 1
+
     while s[0]
         if s[0] == '%'
             s = s + 1
 
             if s[0] == 'd'
-                io.print_i64(mem.read64(args))
-                args = args + 8
+                io.print_i64(_var_arg(i))
+                i = i + 1
             else if s[0] == 'x'
-                io.print_i64_hex(mem.read64(args))
-                args = args + 8
+                io.print_i64_hex(_var_arg(i))
+                i = i + 1
             else if s[0] == 's'
-                io.print(mem.read64(args) as str)
-                args = args + 8
+                io.print(_var_arg(i) as str)
+                i = i + 1
             else if s[0] == 'c'
-                io.print_char(mem.read64(args) as u8)
-                args = args + 8
+                io.print_char(_var_arg(i) as u8)
+                i = i + 1
             else if s[0] == '%'
                 io.print_char('%')
             else if s[0] == 0

@@ -195,7 +195,7 @@ impl<'a> TypeChecker<'a> {
                                 }
                             }
                         }
-                        Params::Variadic(_) => {
+                        Params::Variadic => {
                             return error!(&name.loc, "main function cannot be variadic");
                         }
                     }
@@ -228,9 +228,7 @@ impl<'a> TypeChecker<'a> {
                             );
                         }
                     }
-                    Params::Variadic(name) => {
-                        env.define_var(name.lexeme.clone(), "ptr".into());
-                    }
+                    Params::Variadic => {}
                 }
 
                 self.typecheck_stmt(env, body)?;

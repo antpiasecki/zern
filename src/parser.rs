@@ -9,7 +9,7 @@ pub struct Param {
 #[derive(Debug, Clone)]
 pub enum Params {
     Normal(Vec<Param>),
-    Variadic(Token),
+    Variadic,
 }
 
 #[derive(Debug, Clone)]
@@ -170,12 +170,11 @@ impl Parser {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
-        let mut variadic_param: Option<Token> = None;
+        let mut is_variadic = false;
         let mut params = vec![];
         if !self.check(&TokenType::RightBracket) {
             if self.match_token(&[TokenType::DoubleDot]) {
-                variadic_param =
-                    Some(self.consume(TokenType::Identifier, "expected variadic parameter name")?);
+                is_variadic = true;
             } else {
                 loop {
                     let var_name =
@@ -201,13 +200,13 @@ impl Parser {
         let body = Box::new(self.block()?);
         self.is_inside_function = false;
 
-        let params = match variadic_param {
-            Some(name) => Params::Variadic(name),
-            None => Params::Normal(params),
-        };
         Ok(Stmt::Function {
             name,
-            params,
+            params: if is_variadic {
+                Params::Variadic
+            } else {
+                Params::Normal(params)
+            },
             return_type,
             body,
             exported,

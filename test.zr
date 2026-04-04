@@ -4,22 +4,17 @@ func run_test[x: str] : void
 
     for i in 0..build_blacklist->size
         if str.equal(x, array.nth(build_blacklist, i))
-            io.print("Skipping ")
-            io.print(x)
-            io.println("...")
+            io.printf("Skipping %s...\n", x)
             return 0
 
-    io.print("Building ")
-    io.print(x)
-    io.print("... ")
+    io.printf("Building %s...\n", x)
 
     let build_start_time: i64 = os.time()
     if must(os.run_shell_command?(str.concat("./target/release/zern ", x))) != 0
         os.exit(1)
     let build_end_time: i64 = os.time()
 
-    io.print_i64(build_end_time - build_start_time)
-    io.println("ms")
+    io.printf("%dms\n", build_end_time - build_start_time)
 
     for i in 0..run_blacklist->size
         if str.find(x, array.nth(run_blacklist, i)) != -1
@@ -28,9 +23,7 @@ func run_test[x: str] : void
             io.println("...")
             return 0
 
-    io.print("Running ")
-    io.print(x)
-    io.println("...")
+    io.printf("Running %s...\n", x)
 
     let run_cmd: str = "./out"
     if str.equal(x, "examples/curl.zr")
@@ -43,11 +36,7 @@ func run_test[x: str] : void
         os.exit(1)
     let run_end_time: i64 = os.time()
 
-    io.print("Running ")
-    io.print(x)
-    io.print(" took ")
-    io.print_i64(run_end_time - run_start_time)
-    io.println("ms")
+    io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
 func run_directory[dir: str] : void
     let files: Array = must(os.list_directory?(dir))

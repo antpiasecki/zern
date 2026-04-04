@@ -54,8 +54,8 @@ impl SymbolTable {
                     FnType::new("void", vec!["ptr", "i64"]),
                 ),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
-                ("io.printf".into(), FnType::new_variadic("void")),
                 ("_builtin_environ".into(), FnType::new("ptr", vec![])),
+                ("_var_arg".into(), FnType::new("any", vec!["i64"])),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),
@@ -110,7 +110,7 @@ impl SymbolTable {
                             ),
                         },
                     ),
-                    Params::Variadic(name) => self.functions.insert(
+                    Params::Variadic => self.functions.insert(
                         name.lexeme.clone(),
                         FnType {
                             return_type: return_type.lexeme.clone(),
