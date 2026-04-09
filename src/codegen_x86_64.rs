@@ -67,9 +67,15 @@ macro_rules! emit {
     };
 }
 
+pub enum Target {
+    Linux,
+    Windows,
+}
+
 static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 pub struct CodegenX86_64<'a> {
+    target: Target,
     output: String,
     data_section: String,
     label_counter: usize,
@@ -78,8 +84,9 @@ pub struct CodegenX86_64<'a> {
 }
 
 impl<'a> CodegenX86_64<'a> {
-    pub fn new(symbol_table: &'a SymbolTable) -> CodegenX86_64<'a> {
+    pub fn new(target: Target, symbol_table: &'a SymbolTable) -> CodegenX86_64<'a> {
         CodegenX86_64 {
+            target,
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
@@ -97,7 +104,7 @@ impl<'a> CodegenX86_64<'a> {
         format!("section .data\n{}{}", self.data_section, self.output)
     }
 
-    pub fn emit_prologue(&mut self, use_gcc: bool) -> Result<(), ZernError> {
+    pub fn emit_prologue(&mut self, use_crt: bool) -> Result<(), ZernError> {
         emit!(
             &mut self.output,
             "section .note.GNU-stack
@@ -154,7 +161,7 @@ _builtin_syscall:
 "
         );
 
-        if !use_gcc {
+        if !use_crt {
             emit!(
                 &mut self.output,
                 "
