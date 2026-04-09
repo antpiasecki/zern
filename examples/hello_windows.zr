@@ -1,0 +1,8 @@
+// needs to be compiled with -W --no-stdlib
+extern WriteFile
+extern GetStdHandle
+
+func main[] : i64
+    let hello: str = "Hello, World!"
+    let written: i64 = 0
+    WriteFile(GetStdHandle(-11), hello, 13, ^written, 0)

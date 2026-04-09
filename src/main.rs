@@ -34,10 +34,18 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
+    let target = if args.target_windows {
+        Target::Windows
+    } else {
+        Target::Linux
+    };
+
     let mut statements = Vec::new();
 
     if args.include_stdlib {
-        parse_std_file!(statements, "std/syscalls.zr");
+        if target == Target::Linux {
+            parse_std_file!(statements, "std/syscalls.zr");
+        }
         parse_std_file!(statements, "std/std.zr");
         parse_std_file!(statements, "std/net.zr");
     }
@@ -56,12 +64,6 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let target = if args.target_windows {
-        Target::Windows
-    } else {
-        Target::Linux
-    };
-
     let mut codegen = codegen_x86_64::CodegenX86_64::new(target, &symbol_table);
     codegen.emit_prologue(args.use_crt)?;
     for stmt in statements {
@@ -73,12 +75,22 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         fs::write(format!("{}.s", out), codegen.get_output()).unwrap();
 
-        run_command(format!("nasm -f elf64 -o {}.o {}.s", out, out));
+        let nasm_format = if target == Target::Windows {
+            "win64"
+        } else {
+            "elf64"
+        };
+        run_command(format!("nasm -f {} -o {}.o {}.s", nasm_format, out, out));
 
         if args.use_crt {
             run_command(format!(
                 "cc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
                 out, out, args.cflags
+            ));
+        } else if target == Target::Windows {
+            run_command(format!(
+                "x86_64-w64-mingw32-ld -static -o {} {}.o -lkernel32 --gc-sections -e _start",
+                out, out
             ));
         } else {
             run_command(format!(

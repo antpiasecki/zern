@@ -67,12 +67,11 @@ macro_rules! emit {
     };
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Target {
     Linux,
     Windows,
 }
-
-static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
 pub struct CodegenX86_64<'a> {
     target: Target,
@@ -146,7 +145,13 @@ section .text._builtin_set64
 _builtin_set64:
     mov [rdi], rsi
     ret
+"
+        );
 
+        if self.target == Target::Linux {
+            emit!(
+                &mut self.output,
+                "
 section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -158,10 +163,45 @@ _builtin_syscall:
     mov r9, [rsp+8]
     syscall
     ret
-"
-        );
+    "
+            );
+        }
 
-        if !use_crt {
+        if self.target == Target::Windows {
+            emit!(
+                &mut self.output,
+                "
+global _start
+section .text
+_start:
+    ; shadow space
+    sub rsp, 40
+    ; save environ
+    extern GetEnvironmentStringsA
+    call GetEnvironmentStringsA
+    mov [rel _environ], rax
+    ; main()
+    add rsp, 40
+    call main
+    ; exit
+    mov rcx, rax
+    sub rsp, 40
+    extern ExitProcess
+    call ExitProcess
+"
+            );
+        } else if use_crt {
+            emit!(
+                &mut self.output,
+                "
+section .text._builtin_environ
+_builtin_environ:
+    extern environ
+    mov rax, [rel environ]
+    ret
+"
+            );
+        } else {
             emit!(
                 &mut self.output,
                 "
@@ -190,17 +230,6 @@ _start:
     mov rdi, rax
     mov rax, 60
     syscall
-"
-            );
-        } else {
-            emit!(
-                &mut self.output,
-                "
-section .text._builtin_environ
-_builtin_environ:
-    extern environ
-    mov rax, [rel environ]
-    ret
 "
             );
         }
@@ -309,6 +338,8 @@ _builtin_environ:
                 emit!(&mut self.output, "    mov rbp, rsp");
                 emit!(&mut self.output, "    sub rsp, 256"); // TODO: eww
 
+                let regs = self.registers().to_vec();
+
                 match params {
                     Params::Normal(params) => {
                         for (i, param) in params.iter().enumerate() {
@@ -316,10 +347,10 @@ _builtin_environ:
                                 param.var_name.lexeme.clone(),
                                 param.var_type.lexeme.clone(),
                             );
-                            if let Some(reg) = REGISTERS.get(i) {
+                            if let Some(reg) = regs.get(i) {
                                 emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
                             } else {
-                                let stack_offset = 16 + 8 * (i - REGISTERS.len());
+                                let stack_offset = 16 + 8 * (i - regs.len());
                                 emit!(
                                     &mut self.output,
                                     "    mov rax, QWORD [rbp+{}]",
@@ -537,7 +568,7 @@ _builtin_environ:
                             .join(",");
                         emit!(&mut self.data_section, "    {} db {},0", label, charcodes);
                     }
-                    emit!(&mut self.output, "    mov rax, {}", label);
+                    emit!(&mut self.output, "    lea rax, [rel {}]", label);
                     self.data_counter += 1;
                 }
                 TokenType::True => {
@@ -633,18 +664,56 @@ _builtin_environ:
                     return self.emit_var_arg(env, &args[0]);
                 }
 
+                // evaluate args in order
                 for arg in args {
                     self.compile_expr(env, arg)?;
                     emit!(&mut self.output, "    push rax");
                 }
 
+                // prepare the args
+                let regs = self.registers().to_vec();
                 let arg_count = args.len();
-                if arg_count <= 6 {
+
+                if self.target == Target::Windows {
+                    let num_stack_args = arg_count.saturating_sub(4);
+                    let min_space = 32 + num_stack_args * 8;
+
+                    let push_misalign = if arg_count % 2 == 0 { 0 } else { 8 };
+                    let aligned = min_space + ((push_misalign + 16 - (min_space % 16)) % 16);
+
+                    emit!(&mut self.output, "    sub rsp, {}", aligned);
+
+                    let num_reg_args = arg_count.min(regs.len());
+                    for (i, reg) in regs.iter().enumerate().take(num_reg_args) {
+                        let offset = aligned + 8 * (arg_count - 1 - i);
+                        emit!(
+                            &mut self.output,
+                            "    mov {}, QWORD [rsp + {}]",
+                            reg,
+                            offset
+                        );
+                    }
+
+                    for i in 0..num_stack_args {
+                        let src_offset = aligned + 8 * (arg_count - 1 - (4 + i));
+                        let dst_offset = 32 + 8 * i;
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, QWORD [rsp + {}]",
+                            src_offset
+                        );
+                        emit!(
+                            &mut self.output,
+                            "    mov QWORD [rsp + {}], rax",
+                            dst_offset
+                        );
+                    }
+                } else if arg_count <= regs.len() {
                     for i in (0..arg_count).rev() {
-                        emit!(&mut self.output, "    pop {}", REGISTERS[i]);
+                        emit!(&mut self.output, "    pop {}", regs[i]);
                     }
                 } else {
-                    for (i, reg) in REGISTERS.iter().enumerate() {
+                    for (i, reg) in regs.to_vec().iter().enumerate() {
                         let offset = 8 * (arg_count - 1 - i);
                         emit!(
                             &mut self.output,
@@ -655,7 +724,7 @@ _builtin_environ:
                     }
                     // TODO: since all zern values are 64bit large we currently cannot call
                     // external functions that expect a non-64bit value past the 6th argument
-                    let num_stack = arg_count - 6;
+                    let num_stack = arg_count - regs.len();
                     for i in 0..num_stack {
                         let arg_idx = arg_count - 1 - i;
                         let offset = 8 * (arg_count - 1 - arg_idx);
@@ -668,6 +737,7 @@ _builtin_environ:
                     }
                 }
 
+                // call the function
                 if let Expr::Variable(callee_name) = &**callee {
                     if self
                         .symbol_table
@@ -687,7 +757,15 @@ _builtin_environ:
                     emit!(&mut self.output, "    call rax");
                 }
 
-                if arg_count > 6 {
+                // clean up
+                if self.target == Target::Windows {
+                    let num_stack_args = arg_count.saturating_sub(4);
+                    let space = 32 + num_stack_args * 8;
+                    let aligned = (space + 15) & !15;
+                    if aligned > 0 {
+                        emit!(&mut self.output, "    add rsp, {}", aligned);
+                    }
+                } else if arg_count > 6 {
                     let num_stack = arg_count - 6;
                     emit!(&mut self.output, "    add rsp, {}", 8 * num_stack);
                     emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
@@ -830,5 +908,13 @@ _builtin_environ:
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())
+    }
+
+    fn registers(&self) -> &[&'static str] {
+        if self.target == Target::Windows {
+            &["rcx", "rdx", "r8", "r9"]
+        } else {
+            &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+        }
     }
 }
