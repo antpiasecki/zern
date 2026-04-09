@@ -201,7 +201,7 @@ func net.resolve?[domain: str] : i64
     let query: io.Buffer = net.build_dns_query(domain, DNS_TYPE_A)
 
     // TODO: this probably shouldnt be hardcoded
-    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(8, 8, 8, 8), 53)
+    let s: net.UDPSocket = net.create_udp_client?(net.pack_addr(1, 1, 1, 1), 53)
     if err.check()
         return -1
 
