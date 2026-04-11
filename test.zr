@@ -28,8 +28,6 @@ func run_test[x: str] : void
     let run_cmd: str = "./out"
     if str.equal(x, "examples/curl.zr")
         run_cmd = str.concat(run_cmd, " http://example.com")
-    else if str.equal(x, "examples/tokenizer.zr")
-        run_cmd = str.concat(run_cmd, " test.zr")
 
     let run_start_time: i64 = os.time()
     if must(os.run_shell_command?(run_cmd)) != 0

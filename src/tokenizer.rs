@@ -34,9 +34,9 @@ pub enum TokenType {
     LessEqual,
 
     Identifier,
-    String,
-    Char,
-    Number,
+    StringLiteral,
+    CharLiteral,
+    IntLiteral,
     True,
     False,
 
@@ -240,7 +240,7 @@ impl Tokenizer {
                 if !self.match_char('\'') {
                     return error!(self.loc, "expected ' after char literal");
                 }
-                self.add_token(TokenType::Char)?
+                self.add_token(TokenType::CharLiteral)?
             }
             '"' => {
                 let start_loc = self.loc.clone();
@@ -265,7 +265,7 @@ impl Tokenizer {
                 }
 
                 self.advance();
-                self.add_token(TokenType::String)?
+                self.add_token(TokenType::StringLiteral)?
             }
             ' ' | '\r' => {}
             '\n' => {
@@ -343,7 +343,7 @@ impl Tokenizer {
             }
         }
 
-        self.add_token(TokenType::Number)
+        self.add_token(TokenType::IntLiteral)
     }
 
     fn scan_identifier(&mut self) -> Result<(), ZernError> {
@@ -392,7 +392,7 @@ impl Tokenizer {
     fn add_token(&mut self, token_type: TokenType) -> Result<(), ZernError> {
         let mut lexeme: String = self.source[self.start..self.current].iter().collect();
 
-        if token_type == TokenType::Char || token_type == TokenType::String {
+        if token_type == TokenType::CharLiteral || token_type == TokenType::StringLiteral {
             lexeme = self.unescape(&lexeme)?;
         }
 

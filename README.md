@@ -45,5 +45,5 @@ func main[] : i64
 ## Quickstart
 ```
 cargo install --git https://github.com/antpiasecki/zern
-zern -m -r hello.zr
+zern -r hello.zr
 ```

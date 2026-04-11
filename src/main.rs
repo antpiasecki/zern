@@ -34,9 +34,11 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let mut statements = Vec::new();
 
-    parse_std_file!(statements, "std/syscalls.zr");
-    parse_std_file!(statements, "std/std.zr");
-    parse_std_file!(statements, "std/net.zr");
+    if args.include_stdlib {
+        parse_std_file!(statements, "std/syscalls.zr");
+        parse_std_file!(statements, "std/std.zr");
+        parse_std_file!(statements, "std/net.zr");
+    }
 
     let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
     let parser = parser::Parser::new(tokenizer.tokenize()?);
@@ -53,21 +55,21 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     }
 
     let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table);
-    codegen.emit_prologue(args.use_gcc)?;
+    codegen.emit_prologue(args.use_crt)?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
     }
 
-    if !args.output_asm {
+    if !args.emit_only {
         let out = args.out.unwrap_or_else(|| "out".into());
 
         fs::write(format!("{}.s", out), codegen.get_output()).unwrap();
 
         run_command(format!("nasm -f elf64 -o {}.o {}.s", out, out));
 
-        if args.use_gcc {
+        if args.use_crt {
             run_command(format!(
-                "gcc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
+                "cc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
                 out, out, args.cflags
             ));
         } else {
@@ -110,9 +112,10 @@ fn run_command(cmd: String) {
 struct Args {
     path: String,
     out: Option<String>,
-    output_asm: bool,
+    emit_only: bool,
+    include_stdlib: bool,
     run_exe: bool,
-    use_gcc: bool,
+    use_crt: bool,
     cflags: String,
 }
 
@@ -121,9 +124,10 @@ impl Args {
         let mut out = Args {
             path: String::new(),
             out: None,
-            output_asm: false,
+            emit_only: false,
+            include_stdlib: true,
             run_exe: false,
-            use_gcc: false,
+            use_crt: false,
             cflags: String::new(),
         };
 
@@ -132,26 +136,30 @@ impl Args {
                 match args.next() {
                     Some(s) => out.out = Some(s),
                     None => {
-                        eprintln!("\x1b[91mERROR\x1b[0m: -o option requires a name");
+                        eprintln!("\x1b[91mERROR\x1b[0m: -o option requires a path");
                         process::exit(1);
                     }
                 }
-            } else if arg == "-S" {
-                out.output_asm = true;
+            } else if arg == "--emit-only" {
+                out.emit_only = true;
+            } else if arg == "--no-stdlib" {
+                out.include_stdlib = false;
             } else if arg == "-r" {
                 out.run_exe = true;
             } else if arg == "-m" {
-                out.use_gcc = true;
+                out.use_crt = true;
             } else if arg == "-C" {
                 match args.next() {
                     Some(s) => out.cflags = s,
                     None => {
-                        eprintln!("\x1b[91mERROR\x1b[0m: -C option requires a name");
+                        eprintln!("\x1b[91mERROR\x1b[0m: -C option requires a value");
                         process::exit(1);
                     }
                 }
             } else if arg == "-h" || arg == "--help" {
-                println!("Usage: zern [-o path] [-S] [-r] [-m] [-C cflags] path");
+                println!(
+                    "Usage: zern [-o path] [-r] [-m] [-C cflags] [--emit-only] [--no-stdlib] path"
+                );
                 process::exit(0);
             } else if arg.starts_with('-') {
                 eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {}", arg);
@@ -169,9 +177,8 @@ impl Args {
             process::exit(1);
         }
 
-        if !out.use_gcc && !out.cflags.is_empty() {
-            // no "ERROR:" since its not an error
-            eprintln!("You can't set CFLAGS if you're not using gcc. Add the -m flag.");
+        if !out.use_crt && !out.cflags.is_empty() {
+            eprintln!("You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
             process::exit(1);
         }
 

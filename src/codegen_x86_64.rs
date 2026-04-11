@@ -97,7 +97,7 @@ impl<'a> CodegenX86_64<'a> {
         format!("section .data\n{}{}", self.data_section, self.output)
     }
 
-    pub fn emit_prologue(&mut self, use_gcc: bool) -> Result<(), ZernError> {
+    pub fn emit_prologue(&mut self, use_crt: bool) -> Result<(), ZernError> {
         emit!(
             &mut self.output,
             "section .note.GNU-stack
@@ -154,7 +154,7 @@ _builtin_syscall:
 "
         );
 
-        if !use_gcc {
+        if !use_crt {
             emit!(
                 &mut self.output,
                 "
@@ -220,7 +220,7 @@ _builtin_environ:
                     Some(t) => t.lexeme.clone(),
                     None => match &initializer {
                         Expr::Literal(token) => {
-                            if token.token_type == TokenType::Number {
+                            if token.token_type == TokenType::IntLiteral {
                                 "i64".into()
                             } else {
                                 return error!(&name.loc, "unable to infer variable type");
@@ -504,17 +504,17 @@ _builtin_environ:
             }
             Expr::Grouping(expr) => self.compile_expr(env, expr)?,
             Expr::Literal(token) => match token.token_type {
-                TokenType::Number => {
+                TokenType::IntLiteral => {
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
                 }
-                TokenType::Char => {
+                TokenType::CharLiteral => {
                     emit!(
                         &mut self.output,
                         "    mov rax, {}",
                         token.lexeme.chars().nth(1).unwrap() as u8
                     );
                 }
-                TokenType::String => {
+                TokenType::StringLiteral => {
                     // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 

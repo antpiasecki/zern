@@ -255,7 +255,7 @@ impl Parser {
     fn const_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected const name")?;
         self.consume(TokenType::Equal, "expected '=' after const name")?;
-        let value = self.consume(TokenType::Number, "expected a number after '='")?;
+        let value = self.consume(TokenType::IntLiteral, "expected a number after '='")?;
         Ok(Stmt::Const { name, value })
     }
 
@@ -576,9 +576,9 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, ZernError> {
         if self.match_token(&[
-            TokenType::Number,
-            TokenType::Char,
-            TokenType::String,
+            TokenType::IntLiteral,
+            TokenType::CharLiteral,
+            TokenType::StringLiteral,
             TokenType::True,
             TokenType::False,
         ]) {

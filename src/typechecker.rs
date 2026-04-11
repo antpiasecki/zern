@@ -321,9 +321,9 @@ impl<'a> TypeChecker<'a> {
             }
             Expr::Grouping(expr) => self.typecheck_expr(env, expr),
             Expr::Literal(token) => match token.token_type {
-                TokenType::Number => Ok("i64".into()),
-                TokenType::Char => Ok("u8".into()),
-                TokenType::String => Ok("str".into()),
+                TokenType::IntLiteral => Ok("i64".into()),
+                TokenType::CharLiteral => Ok("u8".into()),
+                TokenType::StringLiteral => Ok("str".into()),
                 TokenType::True => Ok("bool".into()),
                 TokenType::False => Ok("bool".into()),
                 _ => unreachable!(),
