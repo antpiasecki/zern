@@ -71,6 +71,7 @@ impl Env {
 
 pub struct TypeChecker<'a> {
     symbol_table: &'a SymbolTable,
+    pub expr_types: HashMap<usize, String>,
     current_function_return_type: String,
 }
 
@@ -78,6 +79,7 @@ impl<'a> TypeChecker<'a> {
     pub fn new(symbol_table: &'a SymbolTable) -> TypeChecker<'a> {
         TypeChecker {
             symbol_table,
+            expr_types: HashMap::new(),
             current_function_return_type: String::new(),
         }
     }
@@ -262,8 +264,8 @@ impl<'a> TypeChecker<'a> {
         Ok(())
     }
 
-    pub fn typecheck_expr(&self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
-        match &expr.kind {
+    pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
+        let expr_type = match &expr.kind {
             ExprKind::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
@@ -517,7 +519,10 @@ impl<'a> TypeChecker<'a> {
                 }
                 Ok(type_name.lexeme.clone())
             }
-        }
+        }?;
+
+        self.expr_types.insert(expr.id, expr_type.clone());
+        Ok(expr_type)
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {

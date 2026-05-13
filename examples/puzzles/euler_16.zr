@@ -1,5 +1,5 @@
 func main[] : i64
-    let n: Array = []
+    let n = []
     array.push(n, 1)
 
     for j in 0..1000

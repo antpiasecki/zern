@@ -3,7 +3,7 @@ func main[] : i64
 
     io.println("Listening on port 8000...")
     while true
-        let pkt: net.UDPPacket = net.udp_receive(s, 60000)
+        let pkt = net.udp_receive(s, 60000)
         if pkt->size <= 0
             net.UDPPacket.free(pkt)
             continue

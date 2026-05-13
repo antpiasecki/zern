@@ -5,19 +5,19 @@ A very cool language
 ## Features
 * Clean indentation-based syntax
 * Compiles to x86_64 Assembly
-* Growing [standard library](https://github.com/antpiasecki/zern/tree/main/src/std)
+* Growing [standard library](https://git.ton1.dev/toni/zern/src/branch/main/src/std)
 * Produces tiny static executables (11KB for `hello.zr`)
 * No libc required!
-* Has the pipe operator, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
+* Has type inference, pipe operator, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
 ```rust
 func main[] : i64
-    let answer: i64 = math.abs(os.urandom_i64()) % 100
+    let answer = math.abs(os.urandom_i64()) % 100
 
     while true
         io.println("Guess a number: ")
-        let guess: i64 = io.read_line() |> str.trim() |> str.parse_i64()
+        let guess = io.read_line() |> str.trim() |> str.parse_i64()
 
         if guess == answer
             io.println("You win!")
@@ -44,6 +44,6 @@ func main[] : i64
 
 ## Quickstart
 ```
-cargo install --git https://github.com/antpiasecki/zern
+cargo install --git https://git.ton1.dev/toni/zern
 zern -r hello.zr
 ```

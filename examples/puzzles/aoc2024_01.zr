@@ -17,13 +17,13 @@ func part2[l1: Array, l2: Array] : void
 func main[] : i64
     let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
 
-    let l1: Array = []
-    let l2: Array = []
+    let l1 = []
+    let l2 = []
 
     for i in 0..lines->size
         let line: str = array.nth(lines, i)
         
-        let parts: Array = str.split(line, "   ")
+        let parts = str.split(line, "   ")
 
         array.push(l1, str.parse_i64(array.nth(parts, 0)))
         array.push(l2, str.parse_i64(array.nth(parts, 1)))

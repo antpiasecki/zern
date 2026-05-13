@@ -4,8 +4,8 @@ func part1[lines: Array] : void
 
     for i in 0..lines->size
         let line: str = array.nth(lines, i)
-        let dir: u8 = line[0]
-        let n: i64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+        let dir = line[0]
+        let n = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
 
         if dir == 'L'
             dial = dial - n
@@ -27,8 +27,8 @@ func part2[lines: Array] : void
 
     for i in 0..lines->size
         let line: str = array.nth(lines, i)
-        let dir: u8 = line[0]
-        let n: i64 = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+        let dir = line[0]
+        let n = str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
 
         if dir == 'L'
             for i in 0..n
@@ -47,7 +47,7 @@ func part2[lines: Array] : void
     io.println_i64(password)
 
 func main[] : i64
-    let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    let lines = must(io.read_text_file?("input.txt")) |> str.split("\n")
 
     part1(lines)
     part2(lines)

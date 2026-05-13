@@ -75,16 +75,21 @@ pub struct CodegenX86_64<'a> {
     label_counter: usize,
     data_counter: usize,
     pub symbol_table: &'a SymbolTable,
+    pub expr_types: &'a HashMap<usize, String>,
 }
 
 impl<'a> CodegenX86_64<'a> {
-    pub fn new(symbol_table: &'a SymbolTable) -> CodegenX86_64<'a> {
+    pub fn new(
+        symbol_table: &'a SymbolTable,
+        expr_types: &'a HashMap<usize, String>,
+    ) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
             data_section: String::new(),
             label_counter: 0,
             data_counter: 1,
             symbol_table,
+            expr_types,
         }
     }
 
@@ -218,11 +223,9 @@ _builtin_environ:
 
                 let var_type: String = match var_type {
                     Some(t) => t.lexeme.clone(),
-                    None => match &initializer.kind {
-                        ExprKind::Literal(token) if token.token_type == TokenType::IntLiteral => {
-                            "i64".into()
-                        }
-                        _ => return error!(&name.loc, "unable to infer variable type"),
+                    None => match self.expr_types[&initializer.id].as_str() {
+                        "any" => return error!(name.loc, "cannot infer type from any"),
+                        t => t.into(),
                     },
                 };
 
@@ -557,10 +560,8 @@ _builtin_environ:
                         self.symbol_table.constants[&name.lexeme]
                     );
                 } else {
-                    let var = match env.get_var(&name.lexeme) {
-                        Some(x) => x,
-                        None => unreachable!("this should be caught in the typechecker"),
-                    };
+                    // already ensured by the typechecker
+                    let var = env.get_var(&name.lexeme).unwrap();
                     emit!(
                         &mut self.output,
                         "    mov rax, QWORD [rbp-{}]",
@@ -573,10 +574,8 @@ _builtin_environ:
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
-                        let var = match env.get_var(&name.lexeme) {
-                            Some(x) => x,
-                            None => unreachable!(),
-                        };
+                        // already ensured by the typechecker
+                        let var = env.get_var(&name.lexeme).unwrap();
                         emit!(
                             &mut self.output,
                             "    mov QWORD [rbp-{}], rax",

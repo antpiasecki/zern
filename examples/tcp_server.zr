@@ -2,12 +2,12 @@ func main[] : i64
     let s: i64 = must(net.listen?(net.pack_addr(127, 0, 0, 1), 8000))
 
     io.println("Listening on port 8000...")
-    let resp: ptr = mem.alloc(60000)
+    let resp = mem.alloc(60000)
     while true
-        let conn: i64 = net.accept(s)
+        let conn = net.accept(s)
         if conn < 0
             continue
 
-        let n: i64 = net.read(conn, resp, 60000)
+        let n = net.read(conn, resp, 60000)
         net.send(conn, resp, n)
         net.close(conn)

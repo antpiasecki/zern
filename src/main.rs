@@ -54,7 +54,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types);
     codegen.emit_prologue(args.use_crt)?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;

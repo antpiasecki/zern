@@ -6,7 +6,7 @@ func main[] : i64
     while a < 4000000
         if a % 2 == 0
             sum = sum + a
-        let temp: i64 = b
+        let temp = b
         b = a + b
         a = temp
 

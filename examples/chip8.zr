@@ -22,7 +22,7 @@ struct CHIP8
     keyboard_map: Array
 
 func chip8_create[] : CHIP8
-    let c: CHIP8 = new CHIP8
+    let c = new CHIP8
     c->memory = mem.alloc(4096)
     mem.zero(c->memory, 4096)
     c->display = mem.alloc(64*32)
@@ -33,7 +33,7 @@ func chip8_create[] : CHIP8
     c->stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     c->keyboard = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    let fonts: Array = [0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0, 0x10, 0xf0, 0x10, 0xf0, 0x90, 0x90, 0xf0, 0x10, 0x10, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80, 0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0, 0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80, 0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80]
+    let fonts = [0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0, 0x10, 0xf0, 0x10, 0xf0, 0x90, 0x90, 0xf0, 0x10, 0x10, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80, 0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0, 0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80, 0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80]
     for i in 0..80
         c->memory[i] = array.nth(fonts, i)
     mem.free(fonts)
@@ -58,18 +58,18 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
     for i in 0..ins_count
         io.printf("0x%x: ", c->pc)
 
-        let high: i64 = c->memory[c->pc] as i64
-        let low: i64 = c->memory[c->pc + 1] as i64
+        let high = c->memory[c->pc] as i64
+        let low = c->memory[c->pc + 1] as i64
         c->pc = c->pc + 2
 
-        let ins: i64 = (high << 8) | low
-        let nnn: i64 = ins & 0x0fff
-        let kk: i64 = ins & 0x00ff
-        let n: i64 = ins & 0x000f
-        let x: i64 = (ins >> 8) & 0x0f
-        let y: i64 = (ins >> 4) & 0x0f
+        let ins = (high << 8) | low
+        let nnn = ins & 0x0fff
+        let kk = ins & 0x00ff
+        let n = ins & 0x000f
+        let x = (ins >> 8) & 0x0f
+        let y = (ins >> 4) & 0x0f
 
-        let op: i64 = (ins >> 12) & 0x0f
+        let op = (ins >> 12) & 0x0f
         if op == 0x0
             if nnn == 0x0e0
                 io.println("CLS")
@@ -154,18 +154,18 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
             io.printf("??? (%x)\n", ins)
 
 func chip8_step[c: CHIP8] : void
-    let high: i64 = c->memory[c->pc] as i64
-    let low: i64 = c->memory[c->pc + 1] as i64
+    let high = c->memory[c->pc] as i64
+    let low = c->memory[c->pc + 1] as i64
     c->pc = c->pc + 2
 
-    let ins: i64 = (high << 8) | low
-    let nnn: i64 = ins & 0x0fff
-    let kk: i64 = ins & 0x00ff
-    let n: i64 = ins & 0x000f
-    let x: i64 = (ins >> 8) & 0x0f
-    let y: i64 = (ins >> 4) & 0x0f
+    let ins = (high << 8) | low
+    let nnn = ins & 0x0fff
+    let kk = ins & 0x00ff
+    let n = ins & 0x000f
+    let x = (ins >> 8) & 0x0f
+    let y = (ins >> 4) & 0x0f
 
-    let op: i64 = (ins >> 12) & 0x0f
+    let op = (ins >> 12) & 0x0f
     if op == 0x0
         if nnn == 0x0e0
             mem.zero(c->display, 64 * 32)
@@ -232,7 +232,7 @@ func chip8_step[c: CHIP8] : void
                 if (c->memory[c->I + row] & (0x80 >> col)) != 0
                     let pixel_x: u8 = (c->reg[x] + col) % 64
                     let pixel_y: u8 = (c->reg[y] + row) % 32
-                    let offset: i64 = pixel_x as i64 + (pixel_y * 64)
+                    let offset = pixel_x as i64 + (pixel_y * 64)
 
                     if c->display[offset] == 1
                         c->reg[0xf] = 1
@@ -248,7 +248,7 @@ func chip8_step[c: CHIP8] : void
         if kk == 0x07
             c->reg[x] = c->delay_timer
         else if kk == 0x0A
-            let key_pressed: bool = false
+            let key_pressed = false
             while !key_pressed && !WindowShouldClose()
                 for i in 0..16
                     if IsKeyDown(array.nth(c->keyboard_map, i))
@@ -274,11 +274,11 @@ func chip8_step[c: CHIP8] : void
                 c->reg[i] = c->memory[c->I + i]
 
 func main[argc: i64, argv: ptr] : i64
-    let path: str = 0 as str
-    let disassemble: bool = false
+    let path = 0 as str
+    let disassemble = false
 
     for i in 1..argc
-        let arg: str = mem.read64(argv + i * 8) as str
+        let arg = mem.read64(argv + i * 8) as str
         if str.equal(arg, "-d")
             disassemble = true
         else
@@ -288,7 +288,7 @@ func main[argc: i64, argv: ptr] : i64
         io.println("Usage: chip8 -d <path>")
         return 1
     
-    let c: CHIP8 = chip8_create()
+    let c = chip8_create()
 
     let buffer: io.Buffer = must(io.read_binary_file?(path))
 

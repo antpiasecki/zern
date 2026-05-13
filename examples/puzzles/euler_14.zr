@@ -15,7 +15,7 @@ func main[] : i64
     let max_index = 0
 
     for i in 1..1000000
-        let seq: i64 = collatz_seq(i)
+        let seq = collatz_seq(i)
         if seq > max
             max = seq
             max_index = i

@@ -30,7 +30,7 @@ func main[] : i64
         io.println("0. Quit")
         io.print("\n> ")
 
-        let choice: i64 = io.read_line() |> str.parse_i64()
+        let choice = io.read_line() |> str.parse_i64()
 
         if choice == 0
             break
@@ -39,8 +39,8 @@ func main[] : i64
             sqlite3_prepare_v2(db, "SELECT * FROM todo", -1, ^stmt, 0)
 
             while sqlite3_step(stmt) == 100
-                let id: i64 = sqlite3_column_int(stmt, 0)
-                let task: str = sqlite3_column_text(stmt, 1)
+                let id = sqlite3_column_int(stmt, 0)
+                let task = sqlite3_column_text(stmt, 1)
                 
                 io.print_i64(id)
                 io.print(" - ")
@@ -49,7 +49,7 @@ func main[] : i64
             io.println("============")
         else if choice == 2
             io.print("\nEnter new task: ")
-            let task: str = io.read_line() |> str.trim()
+            let task = io.read_line() |> str.trim()
 
             sqlite3_prepare_v2(db, "INSERT INTO todo(task) VALUES (?);", -1, ^stmt, 0)
             sqlite3_bind_text(stmt, 1, task, -1, 0)
@@ -59,7 +59,7 @@ func main[] : i64
             io.println("\nTask added\n")
         else if choice == 3
             io.print("\nEnter task id: ")
-            let id: i64 = io.read_line() |> str.parse_i64()
+            let id = io.read_line() |> str.parse_i64()
 
             sqlite3_prepare_v2(db, "DELETE FROM todo WHERE id = ?;", -1, ^stmt, 0)
             sqlite3_bind_int(stmt, 1, id, -1, 0)

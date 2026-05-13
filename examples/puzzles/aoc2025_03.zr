@@ -7,11 +7,11 @@ func part1[lines: Array] : void
         let largest = 0
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
-                let s: str = mem.alloc(3) as str
+                let s = mem.alloc(3) as str
                 s[0] = line[j]
                 s[1] = line[k]
                 s[2] = 0
-                let n: i64 = str.parse_i64(s)
+                let n = str.parse_i64(s)
                 if n > largest
                     largest = n
 
@@ -21,11 +21,11 @@ func part1[lines: Array] : void
 // had to cheat this one
 func part2_rec[bank: str, start: i64, remaining: i64] : i64
     let largest = 0
-    let largest_idx: i64 = start
-    let len: i64 = str.len(bank)
+    let largest_idx = start
+    let len = str.len(bank)
 
     for i in (start)..(len-remaining+1)
-        let v: i64 = (bank[i] - '0') as i64
+        let v = (bank[i] - '0') as i64
         if v > largest
             largest = v
             largest_idx = i
@@ -45,7 +45,7 @@ func part2[lines: Array] : void
     io.println_i64(sum)
 
 func main[] : i64
-    let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    let lines = must(io.read_text_file?("input.txt")) |> str.split("\n")
 
     part1(lines)
     part2(lines)

@@ -1,15 +1,15 @@
 func main[] : i64
     // https://brainfuck.org/sierpinski.b
-    let src: str = "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
-    let src_len: i64 = str.len(src)
+    let src = "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
+    let src_len = str.len(src)
     let i = 0
 
-    let memory: ptr = mem.alloc(30000)
+    let memory = mem.alloc(30000)
     mem.zero(memory, 30000)
     let p = 0
 
     while i < src_len
-        let op: u8 = src[i]
+        let op = src[i]
 
         if op == '>'
             p = p + 1
