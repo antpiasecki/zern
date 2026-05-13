@@ -55,8 +55,7 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
         new_blk->prev = blk
 
         if blk->next as ptr
-            let next = blk->next
-            next->prev = new_blk
+            blk->next->prev = new_blk
         else
             mem.write64(_builtin_heap_tail(), new_blk)
 
@@ -133,8 +132,7 @@ func mem.free[x: any] : void
             blk->size = blk->size + MEM_BLOCK_SIZE + next->size
             blk->next = next->next
             if next->next as ptr
-                let b = next->next
-                b->prev = blk
+                next->next->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
                 mem.write64(_builtin_heap_tail(), blk)
 
@@ -145,8 +143,7 @@ func mem.free[x: any] : void
             prev->size = prev->size + MEM_BLOCK_SIZE + blk->size
             prev->next = blk->next
             if blk->next as ptr
-                let b = blk->next
-                b->prev = prev
+                blk->next->prev = prev
             if mem.read64(_builtin_heap_tail()) == blk as ptr
                 mem.write64(_builtin_heap_tail(), prev)
             blk = prev
@@ -154,13 +151,11 @@ func mem.free[x: any] : void
     let block_total = blk->size + MEM_BLOCK_SIZE
     if (blk as i64 & 4095) == 0 && (block_total & 4095) == 0
         if blk->prev as ptr
-            let b = blk->prev
-            b->next = blk->next
+            blk->prev->next = blk->next
         else
             mem.write64(_builtin_heap_head(), blk->next)
         if blk->next as ptr
-            let b = blk->next
-            b->prev = blk->prev
+            blk->next->prev = blk->prev
         else
             mem.write64(_builtin_heap_tail(), blk->prev)
         _builtin_syscall(SYS_munmap, blk, block_total)
@@ -194,8 +189,7 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
             blk->size = combined
             blk->next = next->next
             if next->next as ptr
-                let b = next->next
-                b->prev = blk
+                next->next->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
                 mem.write64(_builtin_heap_tail(), blk)
             mem._split_block(blk, new_size)

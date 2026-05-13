@@ -8,6 +8,7 @@ use crate::{
 
 struct Var {
     pub stack_offset: usize,
+    #[allow(unused)]
     pub var_type: String,
 }
 
@@ -599,7 +600,7 @@ _builtin_environ:
                     ExprKind::MemberAccess { left, field } => {
                         emit!(&mut self.output, "    push rax");
 
-                        let offset = self.get_field_offset(env, left, field)?;
+                        let offset = self.get_field_offset(left, field)?;
 
                         self.compile_expr(env, left)?;
                         emit!(&mut self.output, "    pop rbx");
@@ -742,7 +743,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    pop rax");
             }
             ExprKind::MemberAccess { left, field } => {
-                let offset = self.get_field_offset(env, left, field)?;
+                let offset = self.get_field_offset(left, field)?;
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    mov rax, QWORD [rax+{}]", offset);
             }
@@ -753,28 +754,10 @@ _builtin_environ:
         Ok(())
     }
 
-    fn get_field_offset(
-        &self,
-        env: &mut Env,
-        left: &Expr,
-        field: &Token,
-    ) -> Result<usize, ZernError> {
-        let struct_name = match &left.kind {
-            ExprKind::Variable(name) => match env.get_var(&name.lexeme) {
-                Some(v) => v.var_type.clone(),
-                None => {
-                    return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
-                }
-            },
-            _ => {
-                return error!(
-                    &field.loc,
-                    "cannot determine struct type for member assignment"
-                );
-            }
-        };
+    fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {
+        let struct_name = &self.expr_types[&left.id];
 
-        let fields = match self.symbol_table.structs.get(&struct_name) {
+        let fields = match self.symbol_table.structs.get(struct_name) {
             Some(f) => f,
             None => {
                 return error!(&field.loc, format!("unknown struct type: {}", struct_name));
