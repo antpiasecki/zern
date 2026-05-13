@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{Expr, Params, Stmt},
+    parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::{SymbolTable, Type},
     tokenizer::{TokenType, ZernError, error},
 };
@@ -263,8 +263,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub fn typecheck_expr(&self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
-        match expr {
-            Expr::Binary { left, op, right } => {
+        match &expr.kind {
+            ExprKind::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
                 match op.token_type {
@@ -306,7 +306,7 @@ impl<'a> TypeChecker<'a> {
                     _ => unreachable!(),
                 }
             }
-            Expr::Logical { left, op, right } => {
+            ExprKind::Logical { left, op, right } => {
                 expect_types!(
                     self.typecheck_expr(env, left)?,
                     ["bool", "i64", "ptr"],
@@ -319,8 +319,8 @@ impl<'a> TypeChecker<'a> {
                 );
                 Ok("bool".into())
             }
-            Expr::Grouping(expr) => self.typecheck_expr(env, expr),
-            Expr::Literal(token) => match token.token_type {
+            ExprKind::Grouping(expr) => self.typecheck_expr(env, expr),
+            ExprKind::Literal(token) => match token.token_type {
                 TokenType::IntLiteral => Ok("i64".into()),
                 TokenType::CharLiteral => Ok("u8".into()),
                 TokenType::StringLiteral => Ok("str".into()),
@@ -328,7 +328,7 @@ impl<'a> TypeChecker<'a> {
                 TokenType::False => Ok("bool".into()),
                 _ => unreachable!(),
             },
-            Expr::Unary { op, right } => {
+            ExprKind::Unary { op, right } => {
                 let right_type = self.typecheck_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
@@ -342,7 +342,7 @@ impl<'a> TypeChecker<'a> {
                     _ => unreachable!(),
                 }
             }
-            Expr::Variable(name) => {
+            ExprKind::Variable(name) => {
                 if self.symbol_table.constants.contains_key(&name.lexeme) {
                     Ok("i64".into())
                 } else {
@@ -352,11 +352,11 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            Expr::Assign { left, op, value } => {
+            ExprKind::Assign { left, op, value } => {
                 let value_type = self.typecheck_expr(env, value)?;
 
-                match left.as_ref() {
-                    Expr::Variable(name) => {
+                match &left.kind {
+                    ExprKind::Variable(name) => {
                         let existing_var_type = match env.get_var_type(&name.lexeme) {
                             Some(x) => x,
                             None => {
@@ -368,7 +368,7 @@ impl<'a> TypeChecker<'a> {
                         };
                         expect_type!(value_type.clone(), *existing_var_type, name.loc);
                     }
-                    Expr::Index {
+                    ExprKind::Index {
                         expr,
                         bracket,
                         index,
@@ -377,7 +377,7 @@ impl<'a> TypeChecker<'a> {
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
                     }
-                    Expr::MemberAccess { left, field } => {
+                    ExprKind::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
 
                         let fields = match self.symbol_table.structs.get(&left_type) {
@@ -406,12 +406,12 @@ impl<'a> TypeChecker<'a> {
                 }
                 Ok(value_type)
             }
-            Expr::Call {
+            ExprKind::Call {
                 callee,
                 paren,
                 args,
             } => {
-                if let Expr::Variable(callee_name) = &**callee {
+                if let ExprKind::Variable(callee_name) = &callee.kind {
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         if let Some(params) = fn_type.params.clone() {
@@ -454,13 +454,13 @@ impl<'a> TypeChecker<'a> {
                     Ok("any".into())
                 }
             }
-            Expr::ArrayLiteral(exprs) => {
+            ExprKind::ArrayLiteral(exprs) => {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
                 Ok("Array".into())
             }
-            Expr::Index {
+            ExprKind::Index {
                 expr,
                 bracket,
                 index,
@@ -469,8 +469,8 @@ impl<'a> TypeChecker<'a> {
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                 Ok("u8".into())
             }
-            Expr::AddrOf { op, expr } => match expr.as_ref() {
-                Expr::Variable(name) => {
+            ExprKind::AddrOf { op, expr } => match &expr.kind {
+                ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
                         Ok("fnptr".into())
                     } else {
@@ -481,7 +481,7 @@ impl<'a> TypeChecker<'a> {
                     error!(&op.loc, "can only take address of variables and functions")
                 }
             },
-            Expr::New(struct_name) => {
+            ExprKind::New(struct_name) => {
                 if !self.symbol_table.structs.contains_key(&struct_name.lexeme) {
                     return error!(
                         &struct_name.loc,
@@ -490,7 +490,7 @@ impl<'a> TypeChecker<'a> {
                 }
                 Ok(struct_name.lexeme.clone())
             }
-            Expr::MemberAccess { left, field } => {
+            ExprKind::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
                 let fields = match self.symbol_table.structs.get(&left_type) {
@@ -507,7 +507,7 @@ impl<'a> TypeChecker<'a> {
 
                 Ok(field.field_type.clone())
             }
-            Expr::Cast { expr, type_name } => {
+            ExprKind::Cast { expr, type_name } => {
                 self.typecheck_expr(env, expr)?;
                 if !self.is_valid_type_name(&type_name.lexeme) {
                     return error!(

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
-    parser::{Expr, Params, Stmt},
+    parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
 };
@@ -218,13 +218,9 @@ _builtin_environ:
 
                 let var_type: String = match var_type {
                     Some(t) => t.lexeme.clone(),
-                    None => match &initializer {
-                        Expr::Literal(token) => {
-                            if token.token_type == TokenType::IntLiteral {
-                                "i64".into()
-                            } else {
-                                return error!(&name.loc, "unable to infer variable type");
-                            }
+                    None => match &initializer.kind {
+                        ExprKind::Literal(token) if token.token_type == TokenType::IntLiteral => {
+                            "i64".into()
                         }
                         _ => return error!(&name.loc, "unable to infer variable type"),
                     },
@@ -406,8 +402,8 @@ _builtin_environ:
     }
 
     pub fn compile_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<(), ZernError> {
-        match expr {
-            Expr::Binary { left, op, right } => {
+        match &expr.kind {
+            ExprKind::Binary { left, op, right } => {
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    push rax");
                 self.compile_expr(env, right)?;
@@ -483,7 +479,7 @@ _builtin_environ:
                     _ => unreachable!(),
                 }
             }
-            Expr::Logical { left, op, right } => {
+            ExprKind::Logical { left, op, right } => {
                 let end_label = self.label();
                 match op.token_type {
                     TokenType::LogicalAnd => {
@@ -502,8 +498,8 @@ _builtin_environ:
                 }
                 emit!(&mut self.output, "{}:", end_label);
             }
-            Expr::Grouping(expr) => self.compile_expr(env, expr)?,
-            Expr::Literal(token) => match token.token_type {
+            ExprKind::Grouping(expr) => self.compile_expr(env, expr)?,
+            ExprKind::Literal(token) => match token.token_type {
                 TokenType::IntLiteral => {
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
                 }
@@ -520,18 +516,16 @@ _builtin_environ:
 
                     let label = format!("str_{:03}", self.data_counter);
 
-                    if value.is_empty() {
-                        emit!(&mut self.data_section, "    {} db 0", label);
-                    } else {
-                        let charcodes = value
-                            .chars()
-                            .map(|x| (x as u8).to_string())
-                            .collect::<Vec<String>>()
-                            .join(",");
-                        emit!(&mut self.data_section, "    {} db {},0", label, charcodes);
-                    }
-                    emit!(&mut self.output, "    mov rax, {}", label);
+                    let charcodes = value
+                        .chars()
+                        .map(|x| (x as u8).to_string())
+                        .chain(std::iter::once("0".into()))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    emit!(&mut self.data_section, "    {} db {}", label, charcodes);
                     self.data_counter += 1;
+
+                    emit!(&mut self.output, "    mov rax, {}", label);
                 }
                 TokenType::True => {
                     emit!(&mut self.output, "    mov rax, 1");
@@ -541,7 +535,7 @@ _builtin_environ:
                 }
                 _ => unreachable!(),
             },
-            Expr::Unary { op, right } => {
+            ExprKind::Unary { op, right } => {
                 self.compile_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
@@ -555,7 +549,7 @@ _builtin_environ:
                     _ => unreachable!(),
                 }
             }
-            Expr::Variable(name) => {
+            ExprKind::Variable(name) => {
                 if self.symbol_table.constants.contains_key(&name.lexeme) {
                     emit!(
                         &mut self.output,
@@ -574,11 +568,11 @@ _builtin_environ:
                     );
                 }
             }
-            Expr::Assign { left, op, value } => {
+            ExprKind::Assign { left, op, value } => {
                 self.compile_expr(env, value)?;
 
-                match left.as_ref() {
-                    Expr::Variable(name) => {
+                match &left.kind {
+                    ExprKind::Variable(name) => {
                         let var = match env.get_var(&name.lexeme) {
                             Some(x) => x,
                             None => unreachable!(),
@@ -589,7 +583,7 @@ _builtin_environ:
                             var.stack_offset,
                         );
                     }
-                    Expr::Index {
+                    ExprKind::Index {
                         expr,
                         bracket: _,
                         index,
@@ -603,7 +597,7 @@ _builtin_environ:
                         emit!(&mut self.output, "    pop rax");
                         emit!(&mut self.output, "    mov BYTE [rbx], al");
                     }
-                    Expr::MemberAccess { left, field } => {
+                    ExprKind::MemberAccess { left, field } => {
                         emit!(&mut self.output, "    push rax");
 
                         let offset = self.get_field_offset(env, left, field)?;
@@ -615,12 +609,12 @@ _builtin_environ:
                     _ => return error!(&op.loc, "invalid assignment target"),
                 };
             }
-            Expr::Call {
+            ExprKind::Call {
                 callee,
                 paren: _,
                 args,
             } => {
-                if let Expr::Variable(callee_name) = &**callee
+                if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {
                     return self.emit_var_arg(env, &args[0]);
@@ -661,7 +655,7 @@ _builtin_environ:
                     }
                 }
 
-                if let Expr::Variable(callee_name) = &**callee {
+                if let ExprKind::Variable(callee_name) = &callee.kind {
                     if self
                         .symbol_table
                         .functions
@@ -686,7 +680,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
                 }
             }
-            Expr::ArrayLiteral(exprs) => {
+            ExprKind::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    call array.new");
                 emit!(&mut self.output, "    push rax");
 
@@ -699,7 +693,7 @@ _builtin_environ:
                 }
                 emit!(&mut self.output, "    pop rax");
             }
-            Expr::Index {
+            ExprKind::Index {
                 expr,
                 bracket: _,
                 index,
@@ -711,8 +705,8 @@ _builtin_environ:
                 emit!(&mut self.output, "    add rax, rbx");
                 emit!(&mut self.output, "    movzx rax, BYTE [rax]");
             }
-            Expr::AddrOf { op, expr } => match *expr.clone() {
-                Expr::Variable(name) => {
+            ExprKind::AddrOf { op, expr } => match &expr.kind {
+                ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    mov rax, {}", name.lexeme);
                     } else {
@@ -736,7 +730,7 @@ _builtin_environ:
                     return error!(&op.loc, "can only take address of variables and functions");
                 }
             },
-            Expr::New(struct_name) => {
+            ExprKind::New(struct_name) => {
                 let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
 
                 let memory_size = struct_fields.len() * 8;
@@ -748,12 +742,12 @@ _builtin_environ:
                 emit!(&mut self.output, "    call mem.zero");
                 emit!(&mut self.output, "    pop rax");
             }
-            Expr::MemberAccess { left, field } => {
+            ExprKind::MemberAccess { left, field } => {
                 let offset = self.get_field_offset(env, left, field)?;
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    mov rax, QWORD [rax+{}]", offset);
             }
-            Expr::Cast { expr, type_name: _ } => {
+            ExprKind::Cast { expr, type_name: _ } => {
                 self.compile_expr(env, expr)?;
             }
         }
@@ -766,8 +760,8 @@ _builtin_environ:
         left: &Expr,
         field: &Token,
     ) -> Result<usize, ZernError> {
-        let struct_name = match left {
-            Expr::Variable(name) => match env.get_var(&name.lexeme) {
+        let struct_name = match &left.kind {
+            ExprKind::Variable(name) => match env.get_var(&name.lexeme) {
                 Some(v) => v.var_type.clone(),
                 None => {
                     return error!(name.loc, format!("undefined variable: {}", &name.lexeme));

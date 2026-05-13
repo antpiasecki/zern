@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use crate::tokenizer::{Token, TokenType, ZernError, error};
 
 #[derive(Debug, Clone)]
@@ -62,8 +64,26 @@ pub enum Stmt {
     },
 }
 
+pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
+
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr {
+    pub id: usize,
+    pub kind: ExprKind,
+}
+
+impl Expr {
+    pub fn new(kind: ExprKind) -> Expr {
+        NEXT_EXPR_ID.fetch_add(1, Ordering::SeqCst);
+        Expr {
+            id: NEXT_EXPR_ID.load(Ordering::SeqCst),
+            kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
     Binary {
         left: Box<Expr>,
         op: Token,
@@ -357,11 +377,11 @@ impl Parser {
             let equals = self.previous().clone();
             let value = self.assignment()?;
 
-            return Ok(Expr::Assign {
+            return Ok(Expr::new(ExprKind::Assign {
                 left: Box::new(expr),
                 op: equals,
                 value: Box::new(value),
-            });
+            }));
         }
 
         Ok(expr)
@@ -374,19 +394,19 @@ impl Parser {
             let pipe = self.previous().clone();
             let right = self.equality()?;
 
-            match right {
-                Expr::Call {
+            match right.kind {
+                ExprKind::Call {
                     callee,
                     paren,
                     args,
                 } => {
                     let mut new_args = args;
                     new_args.insert(0, expr);
-                    expr = Expr::Call {
+                    expr = Expr::new(ExprKind::Call {
                         callee,
                         paren,
                         args: new_args,
-                    }
+                    })
                 }
                 _ => {
                     return error!(pipe.loc, "tried to pipe into a non-call expression");
@@ -403,11 +423,11 @@ impl Parser {
         while self.match_token(&[TokenType::LogicalOr, TokenType::LogicalAnd]) {
             let op = self.previous().clone();
             let right = self.equality()?;
-            expr = Expr::Logical {
+            expr = Expr::new(ExprKind::Logical {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
-            }
+            })
         }
 
         Ok(expr)
@@ -419,11 +439,11 @@ impl Parser {
         while self.match_token(&[TokenType::DoubleEqual, TokenType::NotEqual]) {
             let op = self.previous().clone();
             let right = self.comparison()?;
-            expr = Expr::Binary {
+            expr = Expr::new(ExprKind::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
-            }
+            })
         }
 
         Ok(expr)
@@ -440,11 +460,11 @@ impl Parser {
         ]) {
             let op = self.previous().clone();
             let right = self.term()?;
-            expr = Expr::Binary {
+            expr = Expr::new(ExprKind::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
-            }
+            })
         }
 
         Ok(expr)
@@ -462,11 +482,11 @@ impl Parser {
         ]) {
             let op = self.previous().clone();
             let right = self.factor()?;
-            expr = Expr::Binary {
+            expr = Expr::new(ExprKind::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
-            }
+            })
         }
 
         Ok(expr)
@@ -484,11 +504,11 @@ impl Parser {
         ]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            expr = Expr::Binary {
+            expr = Expr::new(ExprKind::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
-            }
+            })
         }
 
         Ok(expr)
@@ -499,10 +519,10 @@ impl Parser {
 
         while self.match_token(&[TokenType::KeywordAs]) {
             let type_name = self.consume(TokenType::Identifier, "expected type after 'as'")?;
-            expr = Expr::Cast {
+            expr = Expr::new(ExprKind::Cast {
                 expr: Box::new(expr),
                 type_name,
-            };
+            })
         }
 
         Ok(expr)
@@ -512,18 +532,18 @@ impl Parser {
         if self.match_token(&[TokenType::Xor]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Expr::AddrOf {
+            return Ok(Expr::new(ExprKind::AddrOf {
                 op,
                 expr: Box::new(right),
-            });
+            }));
         }
         if self.match_token(&[TokenType::Bang, TokenType::Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Expr::Unary {
+            return Ok(Expr::new(ExprKind::Unary {
                 op,
                 right: Box::new(right),
-            });
+            }));
         }
 
         self.call()
@@ -546,26 +566,26 @@ impl Parser {
 
                 let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
 
-                expr = Expr::Call {
+                expr = Expr::new(ExprKind::Call {
                     callee: Box::new(expr),
                     paren,
                     args,
-                };
+                })
             } else if self.match_token(&[TokenType::LeftBracket]) {
                 let index = self.expression()?;
                 let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
-                expr = Expr::Index {
+                expr = Expr::new(ExprKind::Index {
                     expr: Box::new(expr),
                     bracket,
                     index: Box::new(index),
-                }
+                })
             } else if self.match_token(&[TokenType::Arrow]) {
                 let field =
                     self.consume(TokenType::Identifier, "expected field name after '->'")?;
-                expr = Expr::MemberAccess {
+                expr = Expr::new(ExprKind::MemberAccess {
                     left: Box::new(expr),
                     field,
-                };
+                })
             } else {
                 break;
             }
@@ -582,11 +602,11 @@ impl Parser {
             TokenType::True,
             TokenType::False,
         ]) {
-            Ok(Expr::Literal(self.previous().clone()))
+            Ok(Expr::new(ExprKind::Literal(self.previous().clone())))
         } else if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "expected ')' after expression")?;
-            Ok(Expr::Grouping(Box::new(expr)))
+            Ok(Expr::new(ExprKind::Grouping(Box::new(expr))))
         } else if self.match_token(&[TokenType::LeftBracket]) {
             let mut xs = vec![];
             if !self.check(&TokenType::RightBracket) {
@@ -599,13 +619,13 @@ impl Parser {
             }
             self.consume(TokenType::RightBracket, "expected ']' after values")?;
 
-            Ok(Expr::ArrayLiteral(xs))
+            Ok(Expr::new(ExprKind::ArrayLiteral(xs)))
         } else if self.match_token(&[TokenType::KeywordNew]) {
             let struct_name =
                 self.consume(TokenType::Identifier, "expected struct name after 'new'")?;
-            Ok(Expr::New(struct_name))
+            Ok(Expr::new(ExprKind::New(struct_name)))
         } else if self.match_token(&[TokenType::Identifier]) {
-            Ok(Expr::Variable(self.previous().clone()))
+            Ok(Expr::new(ExprKind::Variable(self.previous().clone())))
         } else {
             error!(
                 self.peek().loc,

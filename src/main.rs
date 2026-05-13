@@ -121,6 +121,8 @@ struct Args {
 
 impl Args {
     fn parse(mut args: std::env::Args) -> Args {
+        _ = args.next(); // skip the program name
+
         let mut out = Args {
             path: String::new(),
             out: None,
@@ -187,9 +189,7 @@ impl Args {
 }
 
 fn main() {
-    let mut raw_args = std::env::args();
-    _ = raw_args.next();
-    let args = Args::parse(raw_args);
+    let args = Args::parse(std::env::args());
 
     if let Err(err) = compile_file(args) {
         eprintln!("{}", err);
