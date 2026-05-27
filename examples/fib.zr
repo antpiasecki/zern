@@ -1,9 +1,9 @@
 func main[] : i64
-    let a = 0
-    let b = 1
+    a := 0
+    b := 1
 
     while a < 100000
         io.println_i64(a)
-        let temp = b
+        temp := b
         b = a + b
         a = temp

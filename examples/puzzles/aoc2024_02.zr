@@ -1,5 +1,5 @@
 func check[report: Array] : bool
-    let increasing = array.nth(report, 0) < array.nth(report, 1)
+    increasing := array.nth(report, 0) < array.nth(report, 1)
 
     for i in 0..report->size-1
         if array.nth(report, i) > array.nth(report, i + 1) && increasing
@@ -7,14 +7,14 @@ func check[report: Array] : bool
         if array.nth(report, i) < array.nth(report, i + 1) && !increasing
             return false
 
-        let diff = math.abs(array.nth(report, i) - array.nth(report, i + 1))
+        diff := math.abs(array.nth(report, i) - array.nth(report, i + 1))
         if diff < 1 || diff > 3
             return false
 
     return true
 
 func part1[data: Array] : void
-    let out = 0
+    out := 0
 
     for i in 0..data->size
         if check(array.nth(data, i))
@@ -23,15 +23,15 @@ func part1[data: Array] : void
     io.println_i64(out)
 
 func part2[data: Array] : void
-    let out = 0
+    out := 0
 
     for i in 0..data->size
         if check(array.nth(data, i))
             out = out + 1
         else
-            let arr: Array = array.nth(data, i)
+            arr : Array = array.nth(data, i)
             for j in 0..arr->size
-                let sliced = array.concat(array.slice(arr, 0, j), array.slice(arr, j + 1, arr->size - (j + 1)))
+                sliced := array.concat(array.slice(arr, 0, j), array.slice(arr, j + 1, arr->size - (j + 1)))
                 
                 if check(sliced)
                     out = out + 1
@@ -40,13 +40,13 @@ func part2[data: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let lines = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    lines := must(io.read_text_file?("input.txt")) |> str.split("\n")
 
-    let data = []
+    data := []
     for i in 0..lines->size
-        let line: str = array.nth(lines, i)
+        line : str = array.nth(lines, i)
 
-        let report = str.split(line, " ")
+        report := str.split(line, " ")
         for i in 0..report->size
             array.set(report, i, str.parse_i64(array.nth(report, i)))
         array.push(data, report)

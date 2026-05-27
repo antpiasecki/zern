@@ -1,9 +1,9 @@
 func main[] : i64
-    let s: net.UDPSocket = must(net.create_udp_server?(net.pack_addr(127, 0, 0, 1), 8000))
+    s : net.UDPSocket = must(net.create_udp_server?(net.pack_addr(127, 0, 0, 1), 8000))
 
     io.println("Listening on port 8000...")
     while true
-        let pkt = net.udp_receive(s, 60000)
+        pkt := net.udp_receive(s, 60000)
         if pkt->size <= 0
             net.UDPPacket.free(pkt)
             continue

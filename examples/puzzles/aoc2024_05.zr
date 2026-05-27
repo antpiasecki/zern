@@ -12,34 +12,34 @@ func check[update: Array, rules_left: Array, rules_right: Array] : bool
     return true
 
 func sort_by_rules[update: Array, rules_left: Array, rules_right: Array] : void
-    let swapped = true
+    swapped := true
 
     while swapped
         swapped = false
         for i in 0..update->size-1
-            let a: i64 = array.nth(update, i)
-            let b: i64 = array.nth(update, i+1)
+            a : i64 = array.nth(update, i)
+            b : i64 = array.nth(update, i+1)
             if rule_exists(rules_left, rules_right, b, a)
-                let tmp = a
+                tmp := a
                 array.set(update, i, b)
                 array.set(update, i+1, tmp)
                 swapped = true
 
 func part1[updates: Array, rules_left: Array, rules_right: Array] : void
-    let out = 0
+    out := 0
 
     for i in 0..updates->size
-        let update: Array = array.nth(updates, i)
+        update : Array = array.nth(updates, i)
         if check(update, rules_left, rules_right)
             out = out + array.nth(update, update->size / 2)
 
     io.println_i64(out)
 
 func part2[updates: Array, rules_left: Array, rules_right: Array] : void
-    let out = 0
+    out := 0
 
     for i in 0..updates->size
-        let update: Array = array.nth(updates, i)
+        update : Array = array.nth(updates, i)
         if !check(update, rules_left, rules_right)
             sort_by_rules(update, rules_left, rules_right)
             out = out + array.nth(update, update->size / 2)
@@ -47,23 +47,23 @@ func part2[updates: Array, rules_left: Array, rules_right: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let data = must(io.read_text_file?("input.txt")) |> str.split("\n\n")
+    data := must(io.read_text_file?("input.txt")) |> str.split("\n\n")
 
-    let rules_left = []
-    let rules_right = []
-    let rules_lines = str.split(array.nth(data, 0), "\n")
+    rules_left := []
+    rules_right := []
+    rules_lines := str.split(array.nth(data, 0), "\n")
     for i in 0..rules_lines->size
-        let line: str = array.nth(rules_lines, i)
-        let parts = str.split(line, "|")
+        line : str = array.nth(rules_lines, i)
+        parts := str.split(line, "|")
 
         array.push(rules_left, str.parse_i64(array.nth(parts, 0)))
         array.push(rules_right, str.parse_i64(array.nth(parts, 1)))
 
-    let updates = []
-    let updates_lines = str.split(array.nth(data, 1), "\n")
+    updates := []
+    updates_lines := str.split(array.nth(data, 1), "\n")
     for i in 0..updates_lines->size
-        let line: str = array.nth(updates_lines, i)
-        let xs = str.split(line, ",")
+        line : str = array.nth(updates_lines, i)
+        xs := str.split(line, ",")
 
         for i in 0..xs->size
             array.set(xs, i, str.parse_i64(array.nth(xs, i)))

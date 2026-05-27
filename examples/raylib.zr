@@ -18,8 +18,8 @@ const WHITE = 0xffffffff
 const RED = 0xff0000ff
 
 func main[] : i64
-    let x = 200
-    let y = 200
+    x := 200
+    y := 200
 
     InitWindow(800, 600, "Hello, World!")
     SetTargetFPS(60)

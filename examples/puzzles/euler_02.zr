@@ -1,12 +1,12 @@
 func main[] : i64
-    let sum = 0
-    let a = 0
-    let b = 1
+    sum := 0
+    a := 0
+    b := 1
 
     while a < 4000000
         if a % 2 == 0
             sum = sum + a
-        let temp = b
+        temp := b
         b = a + b
         a = temp
 

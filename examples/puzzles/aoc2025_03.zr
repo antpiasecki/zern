@@ -1,17 +1,17 @@
 func part1[lines: Array] : void
-    let sum = 0
+    sum := 0
 
     for i in 0..lines->size
-        let line: str = array.nth(lines, i)
+        line : str = array.nth(lines, i)
 
-        let largest = 0
+        largest := 0
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
-                let s = mem.alloc(3) as str
+                s := mem.alloc(3) as str
                 s[0] = line[j]
                 s[1] = line[k]
                 s[2] = 0
-                let n = str.parse_i64(s)
+                n := str.parse_i64(s)
                 if n > largest
                     largest = n
 
@@ -20,12 +20,12 @@ func part1[lines: Array] : void
 
 // had to cheat this one
 func part2_rec[bank: str, start: i64, remaining: i64] : i64
-    let largest = 0
-    let largest_idx = start
-    let len = str.len(bank)
+    largest := 0
+    largest_idx := start
+    len := str.len(bank)
 
     for i in (start)..(len-remaining+1)
-        let v = (bank[i] - '0') as i64
+        v := (bank[i] - '0') as i64
         if v > largest
             largest = v
             largest_idx = i
@@ -36,16 +36,16 @@ func part2_rec[bank: str, start: i64, remaining: i64] : i64
         return largest
 
 func part2[lines: Array] : void
-    let sum = 0
+    sum := 0
 
     for i in 0..lines->size
-        let line: str = array.nth(lines, i)
+        line : str = array.nth(lines, i)
 
         sum = sum + part2_rec(line, 0, 12)
     io.println_i64(sum)
 
 func main[] : i64
-    let lines = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    lines := must(io.read_text_file?("input.txt")) |> str.split("\n")
 
     part1(lines)
     part2(lines)

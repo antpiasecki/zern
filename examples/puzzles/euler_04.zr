@@ -1,11 +1,11 @@
 func main[] : i64
-    let out = 0
+    out := 0
 
     for a in 500..1000
         for b in 500..1000
             if a * b > out
-                let s = str.from_i64(a * b)
-                let s_rev = str.reverse(s)
+                s := str.from_i64(a * b)
+                s_rev := str.reverse(s)
                 if str.equal(s, s_rev)
                     out = a * b
                 mem.free(s)

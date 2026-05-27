@@ -1,5 +1,5 @@
 func part1[l1: Array, l2: Array] : void
-    let out = 0
+    out := 0
     
     for i in 0..l1->size
         out = out + math.abs(array.nth(l1, i) - array.nth(l2, i))
@@ -7,7 +7,7 @@ func part1[l1: Array, l2: Array] : void
     io.println_i64(out)
 
 func part2[l1: Array, l2: Array] : void
-    let out = 0
+    out := 0
 
     for i in 0..l1->size
         out = out + array.nth(l1, i) * alg.count(l2, array.nth(l1, i))
@@ -15,15 +15,15 @@ func part2[l1: Array, l2: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    lines : Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
 
-    let l1 = []
-    let l2 = []
+    l1 := []
+    l2 := []
 
     for i in 0..lines->size
-        let line: str = array.nth(lines, i)
+        line : str = array.nth(lines, i)
         
-        let parts = str.split(line, "   ")
+        parts := str.split(line, "   ")
 
         array.push(l1, str.parse_i64(array.nth(parts, 0)))
         array.push(l2, str.parse_i64(array.nth(parts, 1)))

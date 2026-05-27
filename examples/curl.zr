@@ -3,7 +3,7 @@ func main[argc: i64, argv: ptr] : i64
         io.println("ERROR: url is missing")
         return 1
 
-    let url = mem.read64(argv + 8) as str
+    url := mem.read64(argv + 8) as str
 
     if str.len(url) <= 7
         io.println("ERROR: invalid url (Did you forget \"http://\"?)")
@@ -13,25 +13,25 @@ func main[argc: i64, argv: ptr] : i64
         io.println("ERROR: only http scheme is supported")
         return 1
     
-    let url_len = str.len(url)
-    let host_start = 7
-    let i = host_start
+    url_len := str.len(url)
+    host_start := 7
+    i := host_start
     while i < url_len
         if url[i] == '/'
             break
         i = i + 1
 
-    let host = str.substr(url, host_start, i - host_start)
-    let path = "/"
+    host := str.substr(url, host_start, i - host_start)
+    path := "/"
     if i < url_len
         path = str.substr(url, i, url_len - i)
     
-    let addr: i64 = must(net.resolve?(host))
+    addr : i64 = must(net.resolve?(host))
 
-    let s: i64 = must(net.connect?(addr, 80))
+    s : i64 = must(net.connect?(addr, 80))
 
     // TODO: add string builder to std
-    let req = "GET "
+    req := "GET "
     req = str.concat(req, path)
     req = str.concat(req, " HTTP/1.0\r\nHost: ")
     req = str.concat(req, host)
@@ -39,16 +39,16 @@ func main[argc: i64, argv: ptr] : i64
     net.send(s, req as ptr, str.len(req))
     mem.free(req)
 
-    let header_buf = mem.alloc(8192) as str
-    let header_size = 0
-    let found = false
-    let end_index = -1
+    header_buf := mem.alloc(8192) as str
+    header_size := 0
+    found := false
+    end_index := -1
 
     while !found && header_size < 8192
-        let n = net.read(s, header_buf as ptr + header_size, 8192 - header_size)
+        n := net.read(s, header_buf as ptr + header_size, 8192 - header_size)
         if n <= 0
             break
-        let current_size = header_size + n
+        current_size := header_size + n
         i = 0
         while i <= current_size - 4
             if header_buf[i] == '\r' && header_buf[i + 1] == '\n' && header_buf[i + 2] == '\r' && header_buf[i + 3] == '\n'
@@ -62,9 +62,9 @@ func main[argc: i64, argv: ptr] : i64
         io.print_sized(header_buf as ptr + end_index, header_size as i64 - end_index)
     mem.free(header_buf)
 
-    let buffer = mem.alloc(4096)
+    buffer := mem.alloc(4096)
     while true
-        let n = net.read(s, buffer, 4096)
+        n := net.read(s, buffer, 4096)
         if n <= 0
             break
         io.print_sized(buffer, n)

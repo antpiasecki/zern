@@ -209,7 +209,7 @@ _builtin_environ:
     pub fn compile_stmt(&mut self, env: &mut Env, stmt: &Stmt) -> Result<(), ZernError> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
-            Stmt::Let {
+            Stmt::Declare {
                 name,
                 var_type,
                 initializer,

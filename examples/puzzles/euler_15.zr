@@ -1,7 +1,7 @@
 func main[] : i64
-    let n = 40
-    let r = 20
-    let out = 1
+    n := 40
+    r := 20
+    out := 1
 
     for i in 1..r+1
         out = out * (n - (r - i)) / i

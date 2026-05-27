@@ -17,7 +17,7 @@ pub enum Params {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
-    Let {
+    Declare {
         name: Token,
         var_type: Option<Token>,
         initializer: Expr,
@@ -179,11 +179,7 @@ impl Parser {
             );
         }
 
-        if self.match_token(&[TokenType::KeywordLet]) {
-            self.let_declaration()
-        } else {
-            self.statement()
-        }
+        self.statement()
     }
 
     fn func_declaration(&mut self, exported: bool) -> Result<Stmt, ZernError> {
@@ -253,25 +249,6 @@ impl Parser {
         Ok(Stmt::Struct { name, fields })
     }
 
-    fn let_declaration(&mut self) -> Result<Stmt, ZernError> {
-        let name = self.consume(TokenType::Identifier, "expected variable name")?;
-
-        let var_type = if self.match_token(&[TokenType::Colon]) {
-            let token = self.consume(TokenType::Identifier, "expected variable type")?;
-            Some(token)
-        } else {
-            None
-        };
-
-        self.consume(TokenType::Equal, "expected '=' after variable type")?;
-        let initializer = self.expression()?;
-        Ok(Stmt::Let {
-            name,
-            var_type,
-            initializer,
-        })
-    }
-
     fn const_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected const name")?;
         self.consume(TokenType::Equal, "expected '=' after const name")?;
@@ -297,7 +274,25 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, ZernError> {
-        if self.match_token(&[TokenType::KeywordIf]) {
+        if self.check_ahead(&TokenType::Colon) {
+            let name = self.consume(TokenType::Identifier, "expected variable name")?;
+            self.consume(TokenType::Colon, "expected ':'")?;
+
+            let var_type = if self.match_token(&[TokenType::Equal]) {
+                None
+            } else {
+                let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
+                self.consume(TokenType::Equal, "expected '=' after varaible type")?;
+                Some(var_type)
+            };
+
+            let initializer = self.expression()?;
+            Ok(Stmt::Declare {
+                name,
+                var_type,
+                initializer,
+            })
+        } else if self.match_token(&[TokenType::KeywordIf]) {
             self.if_statement()
         } else if self.match_token(&[TokenType::KeywordWhile]) {
             self.while_statement()
@@ -651,6 +646,14 @@ impl Parser {
             }
         }
         false
+    }
+
+    fn check_ahead(&self, token_type: &TokenType) -> bool {
+        if self.current + 1 >= self.tokens.len() {
+            false
+        } else {
+            self.tokens[self.current + 1].token_type == *token_type
+        }
     }
 
     fn check(&self, token_type: &TokenType) -> bool {

@@ -89,7 +89,7 @@ impl<'a> TypeChecker<'a> {
             Stmt::Expression(expr) => {
                 self.typecheck_expr(env, expr)?;
             }
-            Stmt::Let {
+            Stmt::Declare {
                 name,
                 var_type,
                 initializer,

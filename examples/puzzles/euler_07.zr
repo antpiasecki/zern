@@ -1,7 +1,7 @@
 func main[] : i64
-    let found = 0
+    found := 0
 
-    let i = 1
+    i := 1
     while true
         if math.is_prime(i)
             found = found + 1

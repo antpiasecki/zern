@@ -14,7 +14,7 @@ func check[lines: Array, x: i64, y: i64, dx: i64, dy: i64] : bool
     return true
 
 func part1[lines: Array] : void
-    let out = 0
+    out := 0
 
     for x in 0..lines->size
         for y in 0..str.len(array.nth(lines, x))
@@ -38,12 +38,12 @@ func part1[lines: Array] : void
     io.println_i64(out)
 
 func part2[lines: Array] : void
-    let out = 0
+    out := 0
 
     for x in 1..lines->size-1
         for y in 1..str.len(array.nth(lines, x))-1
             if array.nth(lines, x)[y] == 'A'
-                let s = mem.alloc(5) as str
+                s := mem.alloc(5) as str
                 s[0] = array.nth(lines, x - 1)[y - 1]
                 s[1] = array.nth(lines, x + 1)[y - 1]
                 s[2] = array.nth(lines, x + 1)[y + 1]
@@ -56,7 +56,7 @@ func part2[lines: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    let lines: Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
+    lines : Array = must(io.read_text_file?("input.txt")) |> str.split("\n")
 
     part1(lines)
     part2(lines)

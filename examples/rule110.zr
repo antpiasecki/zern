@@ -1,12 +1,12 @@
 func rule110_step[state: Array] : Array
-    let new_state = []
+    new_state := []
 
     for i in 0..state->size
-        let left = false
+        left := false
         if i - 1 >= 0
             left = array.nth(state, i - 1)
-        let center: bool = array.nth(state, i)
-        let right = false
+        center : bool = array.nth(state, i)
+        right := false
         if i + 1 < state->size
             right = array.nth(state, i + 1)
 
@@ -23,9 +23,9 @@ func print_state[state: Array]: void
     io.println("")
 
 func main[] : i64
-    let SIZE = 60
+    SIZE := 60
 
-    let state = []
+    state := []
     for i in 0..SIZE
         array.push(state, false)
     array.push(state, true)
