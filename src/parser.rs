@@ -121,7 +121,10 @@ pub enum ExprKind {
         op: Token,
         expr: Box<Expr>,
     },
-    New(Token),
+    New {
+        struct_name: Token,
+        use_heap: bool,
+    },
     MemberAccess {
         left: Box<Expr>,
         field: Token,
@@ -616,9 +619,13 @@ impl Parser {
 
             Ok(Expr::new(ExprKind::ArrayLiteral(xs)))
         } else if self.match_token(&[TokenType::KeywordNew]) {
+            let use_heap = self.match_token(&[TokenType::Star]);
             let struct_name =
                 self.consume(TokenType::Identifier, "expected struct name after 'new'")?;
-            Ok(Expr::new(ExprKind::New(struct_name)))
+            Ok(Expr::new(ExprKind::New {
+                struct_name,
+                use_heap,
+            }))
         } else if self.match_token(&[TokenType::Identifier]) {
             Ok(Expr::new(ExprKind::Variable(self.previous().clone())))
         } else {

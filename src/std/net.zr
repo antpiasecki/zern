@@ -69,8 +69,9 @@ func net.connect?[packed_host: i64, port: i64] : i64
     mem.free(sa)
     return s
 
-func net.accept[s: i64] : i64
-    return _builtin_syscall(SYS_accept, s, 0, 0)
+func net.accept[s: i64, addr: ptr] : i64
+    addrlen := 16
+    return _builtin_syscall(SYS_accept, s, addr, ^addrlen)
 
 func net.send[s: i64, data: ptr, size: i64] : void
     _builtin_syscall(SYS_sendto, s, data, size, 0, 0, 0)
@@ -88,14 +89,9 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-struct net.UDPPacket
-    data: ptr
-    source_addr: ptr
-    size: i64
-
 func net.create_udp_client?[packed_host: i64, port: i64] : net.UDPSocket
     err.clear()
-    s := new net.UDPSocket
+    s := new* net.UDPSocket
 
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
@@ -131,8 +127,18 @@ func net.create_udp_server?[packed_host: i64, port: i64] : net.UDPSocket
 func net.udp_send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : void
     _builtin_syscall(SYS_sendto, s->fd, data, size, 0, addr, 16)
 
+struct net.UDPPacket
+    data: ptr
+    source_addr: ptr
+    size: i64
+
+func net.UDPPacket.free[pkt: net.UDPPacket] : void
+    mem.free(pkt->data)
+    mem.free(pkt->source_addr)
+    mem.free(pkt)
+
 func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
-    pkt := new net.UDPPacket
+    pkt := new* net.UDPPacket
     pkt->data = mem.alloc(size)
     pkt->source_addr = mem.alloc(16)
     mem.zero(pkt->source_addr, 16)
@@ -145,11 +151,6 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     _builtin_syscall(SYS_close, s->fd)
     mem.free(s->addr)
     mem.free(s)
-
-func net.UDPPacket.free[pkt: net.UDPPacket] : void
-    mem.free(pkt->data)
-    mem.free(pkt->source_addr)
-    mem.free(pkt)
 
 const DNS_TYPE_A = 1
 const DNS_CLASS_IN = 1
@@ -195,7 +196,7 @@ func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
     io.Buffer.free(name)
     return out
 
-// TODO: dont resolve IPs
+// TODO: dont resolve if its already an IP
 func net.resolve?[domain: str] : i64
     err.clear()
     query := net.build_dns_query(domain, DNS_TYPE_A)

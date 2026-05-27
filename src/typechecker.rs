@@ -483,7 +483,10 @@ impl<'a> TypeChecker<'a> {
                     error!(&op.loc, "can only take address of variables and functions")
                 }
             },
-            ExprKind::New(struct_name) => {
+            ExprKind::New {
+                struct_name,
+                use_heap: _,
+            } => {
                 if !self.symbol_table.structs.contains_key(&struct_name.lexeme) {
                     return error!(
                         &struct_name.loc,

@@ -8,5 +8,10 @@ func main[] : i64
             net.UDPPacket.free(pkt)
             continue
 
+        io.printf("%d.%d.%d.%d:%d\n", pkt->source_addr[4], pkt->source_addr[5], pkt->source_addr[6], pkt->source_addr[7], mem.read16be(pkt->source_addr + 2))
+
+        io.print_sized(pkt->data, pkt->size)
+        io.println("")
+
         net.udp_send_to(s, pkt->source_addr, pkt->data, pkt->size)
         net.UDPPacket.free(pkt)

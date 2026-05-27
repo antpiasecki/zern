@@ -12,6 +12,8 @@ struct Var {
     pub var_type: String,
 }
 
+const STACK_SIZE: usize = 256; // TODO: eww
+
 pub struct Env {
     scopes: Vec<HashMap<String, Var>>,
     next_offset: usize,
@@ -300,7 +302,8 @@ _builtin_environ:
                 emit!(&mut self.output, "{}:", name.lexeme);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
-                emit!(&mut self.output, "    sub rsp, 256"); // TODO: eww
+                let stack_size = (STACK_SIZE + 15) & !15;
+                emit!(&mut self.output, "    sub rsp, {}", stack_size);
 
                 match params {
                     Params::Normal(params) => {
@@ -730,16 +733,28 @@ _builtin_environ:
                     return error!(&op.loc, "can only take address of variables and functions");
                 }
             },
-            ExprKind::New(struct_name) => {
+            ExprKind::New {
+                struct_name,
+                use_heap,
+            } => {
                 let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
-
                 let memory_size = struct_fields.len() * 8;
-                emit!(&mut self.output, "    mov rdi, {}", memory_size);
-                emit!(&mut self.output, "    call mem.alloc");
+
+                if *use_heap {
+                    emit!(&mut self.output, "    mov rdi, {}", memory_size);
+                    emit!(&mut self.output, "    call mem.alloc");
+                    emit!(&mut self.output, "    push rax");
+                } else {
+                    let aligned_size = (memory_size + 15) & !15;
+                    emit!(&mut self.output, "    sub rsp, {}", aligned_size);
+                    emit!(&mut self.output, "    mov rax, rsp");
+                }
                 emit!(&mut self.output, "    push rax");
+                emit!(&mut self.output, "    sub rsp, 8");
                 emit!(&mut self.output, "    mov rdi, rax");
                 emit!(&mut self.output, "    mov rsi, {}", memory_size);
                 emit!(&mut self.output, "    call mem.zero");
+                emit!(&mut self.output, "    add rsp, 8");
                 emit!(&mut self.output, "    pop rax");
             }
             ExprKind::MemberAccess { left, field } => {

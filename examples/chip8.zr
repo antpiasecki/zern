@@ -22,7 +22,7 @@ struct CHIP8
     keyboard_map: Array
 
 func chip8_create[] : CHIP8
-    c := new CHIP8
+    c := new* CHIP8
     c->memory = mem.alloc(4096)
     mem.zero(c->memory, 4096)
     c->display = mem.alloc(64*32)

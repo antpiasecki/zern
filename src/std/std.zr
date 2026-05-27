@@ -339,7 +339,7 @@ struct io.Buffer
 
 func io.Buffer.alloc?[size: i64] : io.Buffer
     err.clear()
-    buffer := new io.Buffer
+    buffer := new* io.Buffer
     buffer->size = size
     buffer->data = mem.alloc?(size)
     if err.check()
@@ -403,7 +403,7 @@ func io.read_binary_file?[path: str] : io.Buffer
         err.set(ERR_OPEN_FAILED, "io.read_binary_file?: failed to open file")
         return 0 as io.Buffer
     
-    buf := new io.Buffer
+    buf := new* io.Buffer
     buf->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
@@ -777,10 +777,10 @@ struct Array
     capacity: i64
 
 func array.new[] : Array
-    return new Array
+    return new* Array
 
 func array.new_preallocated_and_zeroed[size: i64] : Array
-    xs := new Array
+    xs := new* Array
     if size > 0
         xs->data = must(mem.realloc?(xs->data, size * 8)) as ptr
         mem.zero(xs->data, size * 8)
@@ -849,7 +849,7 @@ struct HashMap._Node
     next: HashMap._Node
 
 func HashMap.new[] : HashMap
-    map := new HashMap
+    map := new* HashMap
     map->table = array.new_preallocated_and_zeroed(HashMap._TABLE_SIZE)
     return map
 
@@ -863,7 +863,7 @@ func HashMap.insert[map: HashMap, key: str, value: any] : void
             return 0
         current = current->next
 
-    new_node := new HashMap._Node
+    new_node := new* HashMap._Node
     new_node->key = str.make_copy(key)
     new_node->value = value
     new_node->next = array.nth(map->table, index)
@@ -982,12 +982,10 @@ struct os.Timespec
 func os.sleep[ms: i64] : void
     if ms < 0
         panic("negative time passed to os.sleep")
-    // TODO: we really shouldnt need a heap allocation to sleep
     req := new os.Timespec
     req->tv_sec = ms / 1000
     req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
-    mem.free(req)
 
 func os.urandom?[n: i64]: ptr
     err.clear()
@@ -1022,11 +1020,9 @@ struct os.Timeval
     tv_usec: i64
 
 func os.time[] : i64
-    // TODO: we really shouldnt need a heap allocation to check the time
     tv := new os.Timeval
     _builtin_syscall(SYS_gettimeofday, tv, 0)
     out := tv->tv_sec * 1000 + tv->tv_usec / 1000
-    mem.free(tv)
     return out
 
 // voodoo magic
