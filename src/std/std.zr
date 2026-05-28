@@ -1,33 +1,3 @@
-const ERR_NONE              = 0
-const ERR_SYSCALL_FAILED    = 1
-const ERR_OPEN_FAILED       = 2
-const ERR_READ_FAILED       = 3
-const ERR_WRITE_FAILED      = 4
-const ERR_ALLOC_FAILED      = 5
-const ERR_CONNECTION_FAILED = 6
-const ERR_KEY_ERROR         = 7
-
-func err.code[] : i64
-    return mem.read64(_builtin_err_code())
-
-func err.msg[] : str
-    return mem.read64(_builtin_err_msg()) as str
-
-func err.check[] : bool
-    return err.code() != 0
-
-func err.clear[] : void
-    err.set(0, 0 as str)
-
-func err.set[code: i64, msg: str] : void
-    mem.write64(_builtin_err_code(), code)
-    mem.write64(_builtin_err_msg(), msg)
-
-func must[x: any] : any
-    if err.check()
-        panic(err.msg())
-    return x
-
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
@@ -62,8 +32,7 @@ func mem._split_block[blk: mem.Block, needed: i64] : void
         blk->size = needed
         blk->next = new_blk
 
-func mem._request_space?[size: i64] : mem.Block
-    err.clear()
+func mem._request_space[size: i64] : mem.Block
     needed := size + MEM_BLOCK_SIZE
     alloc_size := (needed + 4095) & -4096
 
@@ -72,8 +41,7 @@ func mem._request_space?[size: i64] : mem.Block
     // fd = -1, offset = 0
     blk := _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0) as mem.Block
     if (blk as ptr as i64) == -1
-        err.set(ERR_ALLOC_FAILED, "mem._request_space: mmap failed")
-        return 0 as mem.Block
+        panic("mem._request_space: failed to mmap")
 
     blk->size = alloc_size - MEM_BLOCK_SIZE
     blk->free = false
@@ -88,11 +56,9 @@ func mem._request_space?[size: i64] : mem.Block
     mem.write64(_builtin_heap_tail(), blk)
     return blk
 
-func mem.alloc?[size: i64] : ptr
-    err.clear()
+func mem.alloc[size: i64] : ptr
     if size <= 0
-        err.set(ERR_ALLOC_FAILED, "mem.alloc? called with non-positive size")
-        return 0 as ptr
+        panic("mem.alloc: called with nonpositive size")
 
     size = mem._align(size)
 
@@ -104,9 +70,7 @@ func mem.alloc?[size: i64] : ptr
             return cur as ptr + MEM_BLOCK_SIZE
         cur = cur->next
     
-    blk := mem._request_space?(size)
-    if err.check()
-        return 0 as ptr
+    blk := mem._request_space(size)
     
     if !mem.read64(_builtin_heap_head())
         mem.write64(_builtin_heap_head(), blk)
@@ -114,9 +78,6 @@ func mem.alloc?[size: i64] : ptr
     mem._split_block(blk, size)
     
     return blk as ptr + MEM_BLOCK_SIZE
-
-func mem.alloc[size: i64] : ptr
-    return must(mem.alloc?(size))
 
 func mem.free[x: any] : void
     if x == 0
@@ -163,14 +124,12 @@ func mem.free[x: any] : void
             mem.write64(_builtin_heap_tail(), blk->prev)
         _builtin_syscall(SYS_munmap, blk, block_total)
 
-func mem.realloc?[x: ptr, new_size: i64] : ptr
-    err.clear()
+func mem.realloc[x: ptr, new_size: i64] : ptr
     if !x
-        return mem.alloc?(new_size)
+        return mem.alloc(new_size)
     
     if new_size < 0
-        err.set(ERR_ALLOC_FAILED, "mem.realloc? called with negative size")
-        return 0 as ptr
+        panic("mem.realloc: called with negative new_size")
 
     if new_size == 0
         mem.free(x)
@@ -198,9 +157,7 @@ func mem.realloc?[x: ptr, new_size: i64] : ptr
             mem._split_block(blk, new_size)
             return x
 
-    new_ptr := mem.alloc?(new_size)
-    if err.check()
-        return 0 as ptr
+    new_ptr := mem.alloc(new_size)
 
     mem.copy(x, new_ptr, math.min(blk->size, new_size))
     mem.free(x)
@@ -333,21 +290,17 @@ func io.read_line[]: str
     if n < 0
         n = 0
     buffer[n] = 0
-    buffer = must(mem.realloc?(buffer as ptr, n + 1))
+    buffer = mem.realloc(buffer as ptr, n + 1) as str
     return buffer
 
 struct Blob
     data: ptr
     size: i64
 
-func Blob.alloc?[size: i64] : Blob
-    err.clear()
+func Blob.alloc[size: i64] : Blob
     buffer := new* Blob
     buffer->size = size
-    buffer->data = mem.alloc?(size)
-    if err.check()
-        mem.free(buffer)
-        return 0 as Blob
+    buffer->data = mem.alloc(size)
     return buffer
 
 func Blob.free[buf: Blob] : void
@@ -373,74 +326,58 @@ func io.is_a_directory[path: str] : bool
     mem.free(st)
     return out
 
-func io.read_text_file?[path: str] : str
-    err.clear()
+func io.read_text_file[path: str] : str, bool
     fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        err.set(ERR_OPEN_FAILED, "io.read_text_file?: failed to open file")
-        return 0 as str
+        return 0 as str, false
 
     size := _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
-    buffer := mem.alloc?(size + 1) as str
-    if err.check()
-        _builtin_syscall(SYS_close, fd)
-        return 0 as str
-
+    buffer := mem.alloc(size + 1)
     n := _builtin_syscall(SYS_read, fd, buffer, size)
     _builtin_syscall(SYS_close, fd)
 
     if n != size
         mem.free(buffer)
-        err.set(ERR_READ_FAILED, "io.read_text_file?: failed to read file")
-        return 0 as str
+        return 0 as str, false
 
     buffer[n] = 0
-    return buffer
+    return buffer as str, true
 
-func io.read_binary_file?[path: str] : Blob
-    err.clear()
+func io.read_binary_file[path: str] : Blob, bool
     fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        err.set(ERR_OPEN_FAILED, "io.read_binary_file?: failed to open file")
-        return 0 as Blob
+        return 0 as Blob, false
     
     buf := new* Blob
     buf->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
-    buf->data = mem.alloc?(buf->size)
-    if err.check()
-        Blob.free(buf)
-        _builtin_syscall(SYS_close, fd)
-        return 0 as Blob
+    buf->data = mem.alloc(buf->size)
 
     n := _builtin_syscall(SYS_read, fd, buf->data, buf->size)
     _builtin_syscall(SYS_close, fd)
 
     if n != buf->size
         Blob.free(buf)
-        err.set(ERR_READ_FAILED, "io.read_binary_file?: failed to read file")
-        return 0 as Blob
+        return 0 as Blob, false
 
-    return buf
+    return buf, true
 
-func io.write_file?[path: str, content: str] : void
-    io.write_binary_file?(path, content as ptr, str.len(content))
+func io.write_file[path: str, content: str] : bool
+    return io.write_binary_file(path, content as ptr, str.len(content))
 
-func io.write_binary_file?[path: str, content: ptr, size: i64] : void
-    err.clear()
+func io.write_binary_file[path: str, content: ptr, size: i64] : bool
     fd := _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
     if fd < 0
-        err.set(ERR_OPEN_FAILED, "io.write_binary_file?: failed to open file")
-        return 0
+        return false
 
     n := _builtin_syscall(SYS_write, fd, content, size)
     _builtin_syscall(SYS_close, fd)
     if n != size
-        err.set(ERR_WRITE_FAILED, "io.write_binary_file?: failed to write file")
-        return 0
+        return false
+    return true
 
 func str.len[s: str] : i64
     i := 0
@@ -785,7 +722,7 @@ func array.new[] : Array
 func array.new_preallocated_and_zeroed[size: i64] : Array
     xs := new* Array
     if size > 0
-        xs->data = must(mem.realloc?(xs->data, size * 8)) as ptr
+        xs->data = mem.realloc(xs->data, size * 8)
         mem.zero(xs->data, size * 8)
         xs->size = size
         xs->capacity = size
@@ -806,7 +743,7 @@ func array.push[xs: Array, x: any] : void
         new_capacity := 4
         if xs->capacity != 0
             new_capacity = xs->capacity * 2
-        xs->data = must(mem.realloc?(xs->data, new_capacity * 8))
+        xs->data = mem.realloc(xs->data, new_capacity * 8)
         xs->capacity = new_capacity
 
     mem.write64(xs->data + xs->size * 8, x)
@@ -872,18 +809,16 @@ func HashMap.insert[map: HashMap, key: str, value: any] : void
     new_node->next = array.nth(map->table, index)
     array.set(map->table, index, new_node)
 
-func HashMap.get?[map: HashMap, key: str] : any
-    err.clear()
+func HashMap.get[map: HashMap, key: str] : any, bool
     index := HashMap._djb2(key)
     current : HashMap._Node = array.nth(map->table, index)
 
     while current as ptr
         if str.equal(current->key, key)
-            return current->value
+            return current->value, true
         current = current->next
     
-    err.set(ERR_KEY_ERROR, "key not found")
-    return 0
+    return 0 as any, false
 
 func HashMap.delete[map: HashMap, key: str] : void
     index := HashMap._djb2(key)
@@ -990,30 +925,23 @@ func os.sleep[ms: i64] : void
     req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
 
-func os.urandom?[n: i64]: ptr
-    err.clear()
+func os.urandom[n: i64]: ptr
     buffer := mem.alloc(n)
-    if err.check()
-        return 0 as ptr
 
     fd := _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
     if fd < 0
-        mem.free(buffer)
-        err.set(ERR_OPEN_FAILED, "os.urandom?: failed to open /dev/urandom")
-        return 0 as ptr
+        panic("os.urandom: failed to open /dev/urandom")
 
     bytes_read := _builtin_syscall(SYS_read, fd, buffer, n)
     _builtin_syscall(SYS_close, fd)
 
     if n != bytes_read
-        mem.free(buffer)
-        err.set(ERR_READ_FAILED, "os.urandom?: failed to read /dev/urandom")
-        return 0 as ptr
+        panic("os.urandom: failed to read /dev/urandom")
     
     return buffer
 
 func os.urandom_i64[]: i64
-    buffer : ptr = must(os.urandom?(8))
+    buffer := os.urandom(8)
     n := mem.read64(buffer)
     mem.free(buffer)
     return n
@@ -1029,12 +957,10 @@ func os.time[] : i64
     return out
 
 // voodoo magic
-func os.run_shell_command?[command: str] : i64
-    err.clear()
+func os.run_shell_command[command: str] : i64, bool
     pid := _builtin_syscall(SYS_fork)
     if pid < 0
-        err.set(ERR_SYSCALL_FAILED, "os.run_shell_command?: failed to fork")
-        return -1
+        return -1, false
 
     if pid == 0
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
@@ -1044,21 +970,18 @@ func os.run_shell_command?[command: str] : i64
         status := 0
         wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, 0)
         if wp < 0
-            err.set(ERR_SYSCALL_FAILED, "os.run_shell_command?: wait() failed")
-            return -1
+            return -1, false
         st := status & 0xffffffff
         
         if (st & 0x7f) == 0
-            return (st >> 8) & 0xff
+            return (st >> 8) & 0xff, true
         else
-            return -(st & 0x7f)
+            return -(st & 0x7f), true
 
-func os.list_directory?[path: str] : Array
-    err.clear()
+func os.list_directory[path: str] : Array, bool
     fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
-        err.set(ERR_OPEN_FAILED, "os.list_directory?: failed to open dir")
-        return 0 as Array
+        return 0 as Array, false
 
     files := []
     buf := mem.alloc(1024)
@@ -1072,8 +995,7 @@ func os.list_directory?[path: str] : Array
             array.free(files)
 
             _builtin_syscall(SYS_close, fd)
-            err.set(ERR_SYSCALL_FAILED, "os.list_directory?: getdents64() failed")
-            return 0 as Array
+            return 0 as Array, false
         else if n == 0
             break
 
@@ -1096,4 +1018,4 @@ func os.list_directory?[path: str] : Array
 
     mem.free(buf)
     _builtin_syscall(SYS_close, fd)
-    return files
+    return files, true

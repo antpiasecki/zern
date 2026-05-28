@@ -47,7 +47,11 @@ func part2[updates: Array, rules_left: Array, rules_right: Array] : void
     io.println_i64(out)
 
 func main[] : i64
-    data := must(io.read_text_file?("input.txt")) |> str.split("\n\n")
+    ~input, ok := io.read_text_file("input.txt")
+    if !ok
+        panic("failed to open input.txt")
+    
+    data := str.split(input, "\n\n")
 
     rules_left := []
     rules_right := []

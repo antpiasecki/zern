@@ -348,11 +348,7 @@ impl Tokenizer {
     }
 
     fn scan_identifier(&mut self) -> Result<(), ZernError> {
-        while self.peek().is_alphanumeric()
-            || self.peek() == '_'
-            || self.peek() == '.'
-            || self.peek() == '?'
-        {
+        while self.peek().is_alphanumeric() || self.peek() == '_' || self.peek() == '.' {
             self.advance();
         }
 

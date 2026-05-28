@@ -290,7 +290,9 @@ func main[argc: i64, argv: ptr] : i64
     
     c := chip8_create()
 
-    buffer : Blob = must(io.read_binary_file?(path))
+    ~buffer, ok := io.read_binary_file(path)
+    if !ok
+        panic("failed to read file")
 
     for i in 0..buffer->size
         c->memory[0x200 + i] = buffer->data[i]

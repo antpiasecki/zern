@@ -26,9 +26,13 @@ func main[argc: i64, argv: ptr] : i64
     if i < url_len
         path = str.substr(url, i, url_len - i)
     
-    addr : i64 = must(net.resolve?(host))
+    ~addr, ok := net.resolve(host)
+    if !ok
+        panic("failed to resolve host")
 
-    s : i64 = must(net.connect?(addr, 80))
+    ~s, ok := net.connect(addr, 80)
+    if !ok
+        panic("failed to connect")
 
     // TODO: add string builder to std
     req := "GET "

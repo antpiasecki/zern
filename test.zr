@@ -10,7 +10,8 @@ func run_test[x: str] : void
     io.printf("Building %s...\n", x)
 
     build_start_time := os.time()
-    if must(os.run_shell_command?(str.concat("./target/release/zern ", x))) != 0
+    ~status, ok := os.run_shell_command(str.concat("./target/release/zern ", x))
+    if !ok || status != 0
         os.exit(1)
     build_end_time := os.time()
 
@@ -30,21 +31,26 @@ func run_test[x: str] : void
         run_cmd = str.concat(run_cmd, " http://example.com")
 
     run_start_time := os.time()
-    if must(os.run_shell_command?(run_cmd)) != 0
+    ~status, ok := os.run_shell_command(run_cmd)
+    if !ok || status != 0
         os.exit(1)
     run_end_time := os.time()
 
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
 func run_directory[dir: str] : void
-    files : Array = must(os.list_directory?(dir))
+    ~files, ok := os.list_directory(dir)
+    if !ok
+        panic("failed to open test directory")
     for i in 0..files->size
         run_test(str.concat(dir, array.nth(files, i)))
     
     array.free(files)
 
 func main[] : i64
-    must(os.run_shell_command?("cargo build --release"))
+    ~status, ok := os.run_shell_command("cargo build --release")
+    if !ok || status != 0
+        os.exit(1)
 
     run_directory("examples/")
     run_directory("examples/puzzles/")
