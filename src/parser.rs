@@ -52,13 +52,13 @@ pub enum Stmt {
     Function {
         name: Token,
         params: Params,
-        return_type: Token,
+        return_types: Vec<Token>,
         body: Box<Stmt>,
         exported: bool,
     },
     Return {
-        expr: Expr,
         keyword: Token,
+        exprs: Vec<Expr>,
     },
     Break,
     Continue,
@@ -213,7 +213,14 @@ impl Parser {
 
         self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
         self.consume(TokenType::Colon, "expected ':' after '['")?;
-        let return_type = self.consume(TokenType::Identifier, "expected return type")?;
+
+        let mut return_types = vec![];
+        loop {
+            return_types.push(self.consume(TokenType::Identifier, "expected return type")?);
+            if !self.match_token(&[TokenType::Comma]) {
+                break;
+            }
+        }
 
         self.is_inside_function = true;
         let body = Box::new(self.block()?);
@@ -226,7 +233,7 @@ impl Parser {
             } else {
                 Params::Normal(params)
             },
-            return_type,
+            return_types,
             body,
             exported,
         })
@@ -303,10 +310,14 @@ impl Parser {
             self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             let keyword = self.previous().clone();
-            Ok(Stmt::Return {
-                expr: self.expression()?,
-                keyword,
-            })
+            let mut exprs = vec![];
+            loop {
+                exprs.push(self.expression()?);
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            Ok(Stmt::Return { keyword, exprs })
         } else if self.match_token(&[TokenType::KeywordBreak]) {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {

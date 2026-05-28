@@ -95,6 +95,12 @@ impl<'a> TypeChecker<'a> {
                 initializer,
             } => {
                 let mut actual_type = self.typecheck_expr(env, initializer)?;
+                if actual_type.contains(',') {
+                    return error!(
+                        &name.loc,
+                        "cannot assign multi-return call to a single variable"
+                    );
+                }
                 if let Some(var_type) = var_type {
                     if !self.is_valid_type_name(&var_type.lexeme) {
                         return error!(
@@ -113,6 +119,12 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Assign { left, op, value } => {
                 let value_type = self.typecheck_expr(env, value)?;
+                if value_type.contains(',') {
+                    return error!(
+                        &op.loc,
+                        "cannot assign multi-return call to a single variable"
+                    );
+                }
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
@@ -217,12 +229,18 @@ impl<'a> TypeChecker<'a> {
             Stmt::Function {
                 name,
                 params,
-                return_type,
+                return_types,
                 body,
                 exported: _,
             } => {
+                let return_type = return_types
+                    .iter()
+                    .map(|t| t.lexeme.clone())
+                    .collect::<Vec<_>>()
+                    .join(",");
+
                 if name.lexeme == "main" {
-                    if return_type.lexeme != "i64" {
+                    if return_type != "i64" {
                         return error!(&name.loc, "main function must return i64");
                     }
 
@@ -256,14 +274,14 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
 
-                if !self.is_valid_type_name(&return_type.lexeme) {
+                if !self.is_valid_type_name(&return_type) {
                     return error!(
-                        &return_type.loc,
-                        "unrecognized type: ".to_owned() + &return_type.lexeme
+                        &return_types[0].loc,
+                        "unrecognized type: ".to_owned() + &return_type
                     );
                 }
 
-                self.current_function_return_type = return_type.lexeme.clone();
+                self.current_function_return_type = return_type.clone();
 
                 env.push_scope();
 
@@ -290,13 +308,18 @@ impl<'a> TypeChecker<'a> {
 
                 env.pop_scope();
             }
-            Stmt::Return { expr, keyword } => {
+            Stmt::Return { keyword, exprs } => {
                 let expected = if self.current_function_return_type == "void" {
                     "i64".into()
                 } else {
                     self.current_function_return_type.clone()
                 };
-                expect_type!(self.typecheck_expr(env, expr)?, expected, keyword.loc);
+                let joined_type = exprs
+                    .iter()
+                    .map(|e| self.typecheck_expr(env, e))
+                    .collect::<Result<Vec<String>, _>>()?
+                    .join(",");
+                expect_type!(joined_type, expected, keyword.loc);
             }
             Stmt::Break => {}
             Stmt::Continue => {}
@@ -528,6 +551,9 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {
+        if name.contains(',') {
+            return name.split(',').all(|part| self.is_valid_type_name(part));
+        }
         if BUILTIN_TYPES.contains(&name) {
             return true;
         }

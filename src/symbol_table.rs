@@ -93,18 +93,23 @@ impl SymbolTable {
             Stmt::Function {
                 name,
                 params,
-                return_type,
+                return_types,
                 body: _,
                 exported: _,
             } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
+                let return_type = return_types
+                    .iter()
+                    .map(|t| t.lexeme.clone())
+                    .collect::<Vec<_>>()
+                    .join(",");
                 match params {
                     Params::Normal(params) => self.functions.insert(
                         name.lexeme.clone(),
                         FnType {
-                            return_type: return_type.lexeme.clone(),
+                            return_type,
                             params: Some(
                                 params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
                             ),
@@ -113,7 +118,7 @@ impl SymbolTable {
                     Params::Variadic => self.functions.insert(
                         name.lexeme.clone(),
                         FnType {
-                            return_type: return_type.lexeme.clone(),
+                            return_type,
                             params: None,
                         },
                     ),

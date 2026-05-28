@@ -330,7 +330,7 @@ _builtin_environ:
             Stmt::Function {
                 name,
                 params,
-                return_type: _,
+                return_types: _,
                 body,
                 exported,
             } => {
@@ -387,8 +387,17 @@ _builtin_environ:
                     emit!(&mut self.output, "    ret");
                 }
             }
-            Stmt::Return { expr, keyword: _ } => {
-                self.compile_expr(env, expr)?;
+            Stmt::Return { keyword: _, exprs } => {
+                if exprs.len() == 2 {
+                    self.compile_expr(env, &exprs[1])?;
+                    emit!(&mut self.output, "    push rax");
+                    self.compile_expr(env, &exprs[0])?;
+                    emit!(&mut self.output, "    pop rdx");
+                } else if exprs.len() == 1 {
+                    self.compile_expr(env, &exprs[0])?;
+                } else {
+                    todo!();
+                }
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
