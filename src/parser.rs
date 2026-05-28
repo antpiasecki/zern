@@ -1,6 +1,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::tokenizer::{Token, TokenType, ZernError, error};
+use crate::tokenizer::{
+    Token,
+    TokenType::{self, Identifier},
+    ZernError, error,
+};
 
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -24,6 +28,11 @@ pub enum Stmt {
     },
     Assign {
         left: Expr,
+        op: Token,
+        value: Expr,
+    },
+    Destructure {
+        targets: Vec<Token>,
         op: Token,
         value: Expr,
     },
@@ -322,6 +331,18 @@ impl Parser {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
+        } else if self.match_token(&[TokenType::Tilde]) {
+            let mut targets = vec![];
+            loop {
+                targets.push(self.consume(Identifier, "expected an identifier")?);
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            let op = self.consume(TokenType::Colon, "expected ':'")?;
+            self.consume(TokenType::Equal, "expected '=' after ':'")?;
+            let value = self.expression()?;
+            Ok(Stmt::Destructure { targets, op, value })
         } else {
             let expr = self.expression()?;
             if self.match_token(&[TokenType::Equal]) {

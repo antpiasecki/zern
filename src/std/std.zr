@@ -123,6 +123,9 @@ func mem.free[x: any] : void
         return 0
 
     blk := (x as ptr - MEM_BLOCK_SIZE) as mem.Block
+    if blk->free
+        return 0
+
     blk->free = true
 
     next := blk->next

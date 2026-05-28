@@ -176,6 +176,26 @@ impl<'a> TypeChecker<'a> {
                     _ => return error!(&op.loc, "invalid assignment target"),
                 }
             }
+            Stmt::Destructure { targets, op, value } => {
+                let value_type = self.typecheck_expr(env, value)?;
+                let types: Vec<&str> = value_type.split(',').collect();
+                if types.len() != targets.len() {
+                    return error!(
+                        &op.loc,
+                        "destructure target count does not match return count"
+                    );
+                }
+                for (target, ty) in targets.iter().zip(types.iter()) {
+                    match env.get_var_type(&target.lexeme) {
+                        Some(existing) => {
+                            expect_type!(ty.to_string(), *existing, target.loc);
+                        }
+                        None => {
+                            env.define_var(target.lexeme.clone(), ty.to_string());
+                        }
+                    }
+                }
+            }
             Stmt::Const { name: _, value: _ } => {
                 // handled in SymbolTable
             }
@@ -257,7 +277,7 @@ impl<'a> TypeChecker<'a> {
                                 if params[0].var_type.lexeme != "i64" {
                                     return error!(
                                         &name.loc,
-                                        "first parameter of the main function must be a i64"
+                                        "first parameter of the main function must be an i64"
                                     );
                                 }
                                 if params[1].var_type.lexeme != "ptr" {

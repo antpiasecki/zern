@@ -275,6 +275,31 @@ _builtin_environ:
                     _ => return error!(&op.loc, "invalid assignment target"),
                 };
             }
+            Stmt::Destructure { targets, op, value } => {
+                self.compile_expr(env, value)?;
+
+                for (i, target) in targets.iter().enumerate() {
+                    let reg = match i {
+                        0 => "rax",
+                        1 => "rdx",
+                        _ => {
+                            return error!(
+                                &op.loc,
+                                "destructuring more than 2 values not implemented yet"
+                            );
+                        }
+                    };
+
+                    let offset = match env.get_var(&target.lexeme) {
+                        Some(var) => var.stack_offset,
+                        None => {
+                            let types: Vec<&str> = self.expr_types[&value.id].split(',').collect();
+                            env.define_var(target.lexeme.clone(), types[i].to_string())
+                        }
+                    };
+                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                }
+            }
             Stmt::Const { name: _, value: _ } => {
                 // handled in SymbolTable
             }
