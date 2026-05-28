@@ -111,6 +111,59 @@ impl<'a> TypeChecker<'a> {
 
                 env.define_var(name.lexeme.clone(), actual_type);
             }
+            Stmt::Assign { left, op, value } => {
+                let value_type = self.typecheck_expr(env, value)?;
+
+                match &left.kind {
+                    ExprKind::Variable(name) => {
+                        let existing_var_type = match env.get_var_type(&name.lexeme) {
+                            Some(x) => x,
+                            None => {
+                                return error!(
+                                    name.loc,
+                                    format!("undefined variable: {}", &name.lexeme)
+                                );
+                            }
+                        };
+                        expect_type!(value_type.clone(), *existing_var_type, name.loc);
+                    }
+                    ExprKind::Index {
+                        expr,
+                        bracket,
+                        index,
+                    } => {
+                        expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
+                        expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
+                        expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
+                    }
+                    ExprKind::MemberAccess { left, field } => {
+                        let left_type = self.typecheck_expr(env, left)?;
+
+                        let fields = match self.symbol_table.structs.get(&left_type) {
+                            Some(f) => f,
+                            None => {
+                                return error!(
+                                    &field.loc,
+                                    format!("unknown struct type: {}", left_type)
+                                );
+                            }
+                        };
+
+                        let f = match fields.get(&field.lexeme) {
+                            Some(o) => o,
+                            None => {
+                                return error!(
+                                    &field.loc,
+                                    format!("unknown field: {}", &field.lexeme)
+                                );
+                            }
+                        };
+
+                        expect_type!(value_type.clone(), f.field_type, field.loc);
+                    }
+                    _ => return error!(&op.loc, "invalid assignment target"),
+                }
+            }
             Stmt::Const { name: _, value: _ } => {
                 // handled in SymbolTable
             }
@@ -353,60 +406,6 @@ impl<'a> TypeChecker<'a> {
                         None => error!(name.loc, format!("undefined variable: {}", &name.lexeme)),
                     }
                 }
-            }
-            ExprKind::Assign { left, op, value } => {
-                let value_type = self.typecheck_expr(env, value)?;
-
-                match &left.kind {
-                    ExprKind::Variable(name) => {
-                        let existing_var_type = match env.get_var_type(&name.lexeme) {
-                            Some(x) => x,
-                            None => {
-                                return error!(
-                                    name.loc,
-                                    format!("undefined variable: {}", &name.lexeme)
-                                );
-                            }
-                        };
-                        expect_type!(value_type.clone(), *existing_var_type, name.loc);
-                    }
-                    ExprKind::Index {
-                        expr,
-                        bracket,
-                        index,
-                    } => {
-                        expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
-                        expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
-                        expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
-                    }
-                    ExprKind::MemberAccess { left, field } => {
-                        let left_type = self.typecheck_expr(env, left)?;
-
-                        let fields = match self.symbol_table.structs.get(&left_type) {
-                            Some(f) => f,
-                            None => {
-                                return error!(
-                                    &field.loc,
-                                    format!("unknown struct type: {}", left_type)
-                                );
-                            }
-                        };
-
-                        let f = match fields.get(&field.lexeme) {
-                            Some(o) => o,
-                            None => {
-                                return error!(
-                                    &field.loc,
-                                    format!("unknown field: {}", &field.lexeme)
-                                );
-                            }
-                        };
-
-                        expect_type!(value_type.clone(), f.field_type, field.loc);
-                    }
-                    _ => return error!(&op.loc, "invalid assignment target"),
-                }
-                Ok(value_type)
             }
             ExprKind::Call {
                 callee,

@@ -156,9 +156,9 @@ const DNS_TYPE_A = 1
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
 
-func net.encode_dns_name[domain: str] : io.Buffer
+func net.encode_dns_name[domain: str] : Blob
     domain_len := str.len(domain)
-    buf : io.Buffer = must(io.Buffer.alloc?(domain_len + 2))
+    buf : Blob = must(Blob.alloc?(domain_len + 2))
     out_pos := 0
     part_start := 0
     i := 0
@@ -175,9 +175,9 @@ func net.encode_dns_name[domain: str] : io.Buffer
     buf->data[out_pos] = 0
     return buf
 
-func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
+func net.build_dns_query[domain_name: str, record_type: i64] : Blob
     name := net.encode_dns_name(domain_name)
-    out : io.Buffer = must(io.Buffer.alloc?(12 + name->size + 4))
+    out : Blob = must(Blob.alloc?(12 + name->size + 4))
 
     // header
     id := math.abs(os.urandom_i64() % 65536)
@@ -193,7 +193,7 @@ func net.build_dns_query[domain_name: str, record_type: i64] : io.Buffer
     mem.write16be(out->data + 12 + name->size, record_type)
     mem.write16be(out->data + 12 + name->size + 2, DNS_CLASS_IN)
 
-    io.Buffer.free(name)
+    Blob.free(name)
     return out
 
 // TODO: dont resolve if its already an IP
@@ -207,7 +207,7 @@ func net.resolve?[domain: str] : i64
         return -1
 
     net.udp_send_to(s, s->addr, query->data, query->size)
-    io.Buffer.free(query)
+    Blob.free(query)
     pkt := net.udp_receive(s, 1024)
     net.UDPSocket.close_and_free(s)
 

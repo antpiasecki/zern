@@ -333,21 +333,21 @@ func io.read_line[]: str
     buffer = must(mem.realloc?(buffer as ptr, n + 1))
     return buffer
 
-struct io.Buffer
+struct Blob
     data: ptr
     size: i64
 
-func io.Buffer.alloc?[size: i64] : io.Buffer
+func Blob.alloc?[size: i64] : Blob
     err.clear()
-    buffer := new* io.Buffer
+    buffer := new* Blob
     buffer->size = size
     buffer->data = mem.alloc?(size)
     if err.check()
         mem.free(buffer)
-        return 0 as io.Buffer
+        return 0 as Blob
     return buffer
 
-func io.Buffer.free[buf: io.Buffer] : void
+func Blob.free[buf: Blob] : void
     mem.free(buf->data)
     mem.free(buf)
 
@@ -396,30 +396,30 @@ func io.read_text_file?[path: str] : str
     buffer[n] = 0
     return buffer
 
-func io.read_binary_file?[path: str] : io.Buffer
+func io.read_binary_file?[path: str] : Blob
     err.clear()
     fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
     if fd < 0
         err.set(ERR_OPEN_FAILED, "io.read_binary_file?: failed to open file")
-        return 0 as io.Buffer
+        return 0 as Blob
     
-    buf := new* io.Buffer
+    buf := new* Blob
     buf->size = _builtin_syscall(SYS_lseek, fd, 0, 2)
     _builtin_syscall(SYS_lseek, fd, 0, 0)
 
     buf->data = mem.alloc?(buf->size)
     if err.check()
-        io.Buffer.free(buf)
+        Blob.free(buf)
         _builtin_syscall(SYS_close, fd)
-        return 0 as io.Buffer
+        return 0 as Blob
 
     n := _builtin_syscall(SYS_read, fd, buf->data, buf->size)
     _builtin_syscall(SYS_close, fd)
 
     if n != buf->size
-        io.Buffer.free(buf)
+        Blob.free(buf)
         err.set(ERR_READ_FAILED, "io.read_binary_file?: failed to read file")
-        return 0 as io.Buffer
+        return 0 as Blob
 
     return buf
 

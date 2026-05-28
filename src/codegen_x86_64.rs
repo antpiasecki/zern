@@ -236,6 +236,45 @@ _builtin_environ:
                 let offset = env.define_var(name.lexeme.clone(), var_type);
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
             }
+            Stmt::Assign { left, op, value } => {
+                self.compile_expr(env, value)?;
+
+                match &left.kind {
+                    ExprKind::Variable(name) => {
+                        // already ensured by the typechecker
+                        let var = env.get_var(&name.lexeme).unwrap();
+                        emit!(
+                            &mut self.output,
+                            "    mov QWORD [rbp-{}], rax",
+                            var.stack_offset,
+                        );
+                    }
+                    ExprKind::Index {
+                        expr,
+                        bracket: _,
+                        index,
+                    } => {
+                        emit!(&mut self.output, "    push rax");
+                        self.compile_expr(env, expr)?;
+                        emit!(&mut self.output, "    push rax");
+                        self.compile_expr(env, index)?;
+                        emit!(&mut self.output, "    pop rbx");
+                        emit!(&mut self.output, "    add rbx, rax");
+                        emit!(&mut self.output, "    pop rax");
+                        emit!(&mut self.output, "    mov BYTE [rbx], al");
+                    }
+                    ExprKind::MemberAccess { left, field } => {
+                        emit!(&mut self.output, "    push rax");
+
+                        let offset = self.get_field_offset(left, field)?;
+
+                        self.compile_expr(env, left)?;
+                        emit!(&mut self.output, "    pop rbx");
+                        emit!(&mut self.output, "    mov QWORD [rax+{}], rbx", offset);
+                    }
+                    _ => return error!(&op.loc, "invalid assignment target"),
+                };
+            }
             Stmt::Const { name: _, value: _ } => {
                 // handled in SymbolTable
             }
@@ -572,45 +611,6 @@ _builtin_environ:
                         var.stack_offset,
                     );
                 }
-            }
-            ExprKind::Assign { left, op, value } => {
-                self.compile_expr(env, value)?;
-
-                match &left.kind {
-                    ExprKind::Variable(name) => {
-                        // already ensured by the typechecker
-                        let var = env.get_var(&name.lexeme).unwrap();
-                        emit!(
-                            &mut self.output,
-                            "    mov QWORD [rbp-{}], rax",
-                            var.stack_offset,
-                        );
-                    }
-                    ExprKind::Index {
-                        expr,
-                        bracket: _,
-                        index,
-                    } => {
-                        emit!(&mut self.output, "    push rax");
-                        self.compile_expr(env, expr)?;
-                        emit!(&mut self.output, "    push rax");
-                        self.compile_expr(env, index)?;
-                        emit!(&mut self.output, "    pop rbx");
-                        emit!(&mut self.output, "    add rbx, rax");
-                        emit!(&mut self.output, "    pop rax");
-                        emit!(&mut self.output, "    mov BYTE [rbx], al");
-                    }
-                    ExprKind::MemberAccess { left, field } => {
-                        emit!(&mut self.output, "    push rax");
-
-                        let offset = self.get_field_offset(left, field)?;
-
-                        self.compile_expr(env, left)?;
-                        emit!(&mut self.output, "    pop rbx");
-                        emit!(&mut self.output, "    mov QWORD [rax+{}], rbx", offset);
-                    }
-                    _ => return error!(&op.loc, "invalid assignment target"),
-                };
             }
             ExprKind::Call {
                 callee,

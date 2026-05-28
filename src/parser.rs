@@ -22,6 +22,11 @@ pub enum Stmt {
         var_type: Option<Token>,
         initializer: Expr,
     },
+    Assign {
+        left: Expr,
+        op: Token,
+        value: Expr,
+    },
     Const {
         name: Token,
         value: Token,
@@ -101,11 +106,6 @@ pub enum ExprKind {
         right: Box<Expr>,
     },
     Variable(Token),
-    Assign {
-        left: Box<Expr>,
-        op: Token,
-        value: Box<Expr>,
-    },
     Call {
         callee: Box<Expr>,
         paren: Token,
@@ -312,7 +312,18 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
         } else {
-            Ok(Stmt::Expression(self.expression()?))
+            let expr = self.expression()?;
+            if self.match_token(&[TokenType::Equal]) {
+                let op = self.previous().clone();
+                let value = self.expression()?;
+                Ok(Stmt::Assign {
+                    left: expr,
+                    op,
+                    value,
+                })
+            } else {
+                Ok(Stmt::Expression(expr))
+            }
         }
     }
 
@@ -365,24 +376,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ZernError> {
-        self.assignment()
-    }
-
-    fn assignment(&mut self) -> Result<Expr, ZernError> {
-        let expr = self.pipe()?;
-
-        if self.match_token(&[TokenType::Equal]) {
-            let equals = self.previous().clone();
-            let value = self.assignment()?;
-
-            return Ok(Expr::new(ExprKind::Assign {
-                left: Box::new(expr),
-                op: equals,
-                value: Box::new(value),
-            }));
-        }
-
-        Ok(expr)
+        self.pipe()
     }
 
     fn pipe(&mut self) -> Result<Expr, ZernError> {
