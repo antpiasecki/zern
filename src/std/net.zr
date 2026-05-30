@@ -4,6 +4,10 @@ const SOCK_DGRAM = 2
 const SOL_SOCKET = 1
 const SO_REUSEADDR = 2
 
+const DNS_TYPE_A = 1
+const DNS_CLASS_IN = 1
+const DNS_RECURSION_DESIRED = 256
+
 func net.listen[packed_host: i64, port: i64] : i64, bool
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
@@ -14,7 +18,7 @@ func net.listen[packed_host: i64, port: i64] : i64, bool
         _builtin_syscall(SYS_close, s)
         return -1, false
 
-    sa := mem.alloc(16)
+    sa := _stackalloc(16)
     mem.zero(sa, 16)
     sa[0] = 2
     sa[1] = 0
@@ -27,9 +31,7 @@ func net.listen[packed_host: i64, port: i64] : i64, bool
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         _builtin_syscall(SYS_close, s)
-        mem.free(sa)
         return -1, false
-    mem.free(sa)
 
     if _builtin_syscall(SYS_listen, s, 128) < 0
         _builtin_syscall(SYS_close, s)
@@ -42,7 +44,7 @@ func net.connect[packed_host: i64, port: i64] : i64, bool
     if s < 0
         return -1, false
 
-    sa := mem.alloc(16)
+    sa := _stackalloc(16)
     mem.zero(sa, 16)
     sa[0] = AF_INET
     sa[1] = 0
@@ -54,11 +56,9 @@ func net.connect[packed_host: i64, port: i64] : i64, bool
     sa[7] = packed_host & 255
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
-        mem.free(sa)
         _builtin_syscall(SYS_close, s)
         return -1, false
 
-    mem.free(sa)
     return s, true
 
 func net.accept[s: i64, addr: ptr] : i64
@@ -139,10 +139,6 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     _builtin_syscall(SYS_close, s->fd)
     mem.free(s->addr)
     mem.free(s)
-
-const DNS_TYPE_A = 1
-const DNS_CLASS_IN = 1
-const DNS_RECURSION_DESIRED = 256
 
 func net.encode_dns_name[domain: str] : Blob
     domain_len := str.len(domain)

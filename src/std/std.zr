@@ -1,3 +1,16 @@
+const S_IFDIR = 0o040000
+const S_IFMT = 0o170000
+const PROT_READ = 1
+const PROT_WRITE = 2
+const MAP_PRIVATE = 2
+const MAP_ANONYMOUS = 32
+const O_RDONLY = 0
+const O_WRONLY = 1
+const O_CREAT = 64
+const O_TRUNC = 512
+const SEEK_SET = 0
+const SEEK_END = 2
+
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
@@ -36,10 +49,7 @@ func mem._request_space[size: i64] : mem.Block
     needed := size + MEM_BLOCK_SIZE
     alloc_size := (needed + 4095) & -4096
 
-    // PROT_READ | PROT_WRITE = 3
-    // MAP_PRIVATE | MAP_ANONYMOUS = 34
-    // fd = -1, offset = 0
-    blk := _builtin_syscall(SYS_mmap, 0, alloc_size, 3, 34, -1, 0) as mem.Block
+    blk := _builtin_syscall(SYS_mmap, 0, alloc_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
     if (blk as ptr as i64) == -1
         panic("mem._request_space: failed to mmap")
 
@@ -310,29 +320,22 @@ func Blob.free[buf: Blob] : void
 func io.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
-const S_IFDIR = 0o040000
-const S_IFMT = 0o170000
-
 func io.is_a_directory[path: str] : bool
-    st := mem.alloc(256) // it has 21 mixed-size fields so no struct for now
+    st := _stackalloc(256) // it has 21 mixed-size fields so no struct for now
 
     rc := _builtin_syscall(SYS_newfstatat, -100, path, st, 0)
     if rc != 0
-        mem.free(st)
         return false
 
-    out : bool = (mem.read32(st + 24) & S_IFMT) == S_IFDIR
-
-    mem.free(st)
-    return out
+    return (mem.read32(st + 24) & S_IFMT) == S_IFDIR
 
 func io.read_text_file[path: str] : str, bool
-    fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
+    fd := _builtin_syscall(SYS_openat, -100, path, O_RDONLY, 0)
     if fd < 0
         return 0 as str, false
 
-    size := _builtin_syscall(SYS_lseek, fd, 0, 2)
-    _builtin_syscall(SYS_lseek, fd, 0, 0)
+    size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
     buffer := mem.alloc(size + 1)
     n := _builtin_syscall(SYS_read, fd, buffer, size)
@@ -369,7 +372,7 @@ func io.write_file[path: str, content: str] : bool
     return io.write_binary_file(path, content as ptr, str.len(content))
 
 func io.write_binary_file[path: str, content: ptr, size: i64] : bool
-    fd := _builtin_syscall(SYS_openat, -100, path, 0x241, 0o644)
+    fd := _builtin_syscall(SYS_openat, -100, path, O_WRONLY|O_CREAT|O_TRUNC, 0o644)
     if fd < 0
         return false
 
@@ -533,7 +536,7 @@ func str.from_i64[n: i64] : str
         if n == -9223372036854775808
             return str.make_copy("-9223372036854775808")
         n = -n
-    buf := mem.alloc(21) as str // enough to fit -MAX_I64
+    buf := _stackalloc(21) as str // enough to fit -MAX_I64
     end := 20
     buf[end] = 0
     end = end - 1
@@ -545,7 +548,6 @@ func str.from_i64[n: i64] : str
         buf[end] = '-'
         end = end - 1
     s := str.make_copy((buf as ptr + end + 1) as str)
-    mem.free(buf)
     return s
 
 func str.hex_from_i64[n: i64] : str
@@ -558,7 +560,7 @@ func str.hex_from_i64[n: i64] : str
         return out
 
     mask := (1 << 60) - 1
-    buf := mem.alloc(17) as str
+    buf := _stackalloc(17) as str
     len := 0
 
     while n != 0
@@ -573,7 +575,6 @@ func str.hex_from_i64[n: i64] : str
         j = j + 1
 
     out[len] = 0
-    mem.free(buf)
     return out
 
 func str.from_char[c: u8] : str
@@ -928,7 +929,7 @@ func os.sleep[ms: i64] : void
 func os.urandom[n: i64]: ptr
     buffer := mem.alloc(n)
 
-    fd := _builtin_syscall(SYS_openat, -100, "/dev/urandom", 0, 0)
+    fd := _builtin_syscall(SYS_openat, -100, "/dev/urandom", O_RDONLY, 0)
     if fd < 0
         panic("os.urandom: failed to open /dev/urandom")
 
@@ -979,7 +980,7 @@ func os.run_shell_command[command: str] : i64, bool
             return -(st & 0x7f), true
 
 func os.list_directory[path: str] : Array, bool
-    fd := _builtin_syscall(SYS_openat, -100, path, 0, 0)
+    fd := _builtin_syscall(SYS_openat, -100, path, O_RDONLY, 0)
     if fd < 0
         return 0 as Array, false
 

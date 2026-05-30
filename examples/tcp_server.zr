@@ -6,7 +6,7 @@ func main[] : i64
     io.println("Listening on port 8000...")
 
     resp := mem.alloc(60000)
-    addr := mem.alloc(16)
+    addr := _stackalloc(16)
     while true
         conn := net.accept(s, addr)
         if conn < 0

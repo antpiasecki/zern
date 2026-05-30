@@ -645,6 +645,17 @@ _builtin_environ:
                     return self.emit_var_arg(env, &args[0]);
                 }
 
+                if let ExprKind::Variable(callee_name) = &callee.kind
+                    && callee_name.lexeme == "_stackalloc"
+                {
+                    self.compile_expr(env, &args[0])?;
+                    emit!(&mut self.output, "    add rax, 15");
+                    emit!(&mut self.output, "    and rax, -16");
+                    emit!(&mut self.output, "    sub rsp, rax");
+                    emit!(&mut self.output, "    mov rax, rsp");
+                    return Ok(());
+                }
+
                 for arg in args {
                     self.compile_expr(env, arg)?;
                     emit!(&mut self.output, "    push rax");

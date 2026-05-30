@@ -54,6 +54,7 @@ impl SymbolTable {
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("_builtin_environ".into(), FnType::new("ptr", vec![])),
                 ("_var_arg".into(), FnType::new("any", vec!["i64"])),
+                ("_stackalloc".into(), FnType::new("ptr", vec!["i64"])),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),
