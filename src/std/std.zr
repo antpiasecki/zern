@@ -293,15 +293,16 @@ func io.read_char[] : u8
     _builtin_syscall(SYS_read, 0, ^c, 1)
     return c
 
-func io.read_line[]: str
-    MAX_SIZE := 60000
-    buffer := mem.alloc(MAX_SIZE + 1) as str
-    n := _builtin_syscall(SYS_read, 0, buffer, MAX_SIZE)
-    if n < 0
-        n = 0
-    buffer[n] = 0
-    buffer = mem.realloc(buffer as ptr, n + 1) as str
-    return buffer
+func io.read_line[] : str
+    b := new str.Builder
+    while true
+        c := io.read_char()
+        if c == '\n'
+            break
+        str.Builder.append_char(b, c)
+    s := str.Builder.build(b)
+    str.Builder.free(b)
+    return s
 
 struct Blob
     data: ptr
@@ -636,6 +637,43 @@ func str.hex_decode[s: str] : str
 
     out[out_len] = 0
     return out
+
+struct str.Builder
+    data: ptr
+    size: i64
+    capacity: i64
+
+func str.Builder._grow[b: str.Builder, needed: i64] : void
+    if b->size + needed > b->capacity
+        new_capacity := 64
+        if b->capacity != 0
+            new_capacity = b->capacity * 2
+        while new_capacity < b->size + needed
+            new_capacity = new_capacity * 2
+        b->data = mem.realloc(b->data, new_capacity)
+        b->capacity = new_capacity
+
+func str.Builder.append_char[b: str.Builder, c: u8] : void
+    str.Builder._grow(b, 1)
+    b->data[b->size] = c
+    b->size = b->size + 1
+
+func str.Builder.append[b: str.Builder, s: str] : void
+    len := str.len(s)
+    str.Builder._grow(b, len)
+    for i in 0..len
+        b->data[b->size + i] = s[i]
+    b->size = b->size + len
+
+func str.Builder.build[b: str.Builder] : str
+    s := mem.alloc(b->size + 1) as str
+    for i in 0..b->size
+        s[i] = b->data[i]
+    s[b->size] = 0
+    return s
+
+func str.Builder.free[b: str.Builder] : void
+    mem.free(b->data)
 
 func math.gcd[a: i64, b: i64] : i64
     a = math.abs(a)
