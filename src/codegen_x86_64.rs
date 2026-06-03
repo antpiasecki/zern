@@ -717,7 +717,13 @@ _builtin_environ:
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
-                emit!(&mut self.output, "    call array.new");
+                emit!(&mut self.output, "    mov rdi, 24");
+                emit!(&mut self.output, "    call mem.alloc");
+                emit!(&mut self.output, "    push rax");
+                emit!(&mut self.output, "    mov rdi, rax");
+                emit!(&mut self.output, "    mov rsi, 24");
+                emit!(&mut self.output, "    call mem.zero");
+                emit!(&mut self.output, "    pop rax");
                 emit!(&mut self.output, "    push rax");
 
                 for expr in exprs {

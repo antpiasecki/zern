@@ -178,18 +178,31 @@ func mem.zero_and_free[x: ptr, size: i64] : void
     mem.free(x)
 
 func mem.zero[x: ptr, size: i64] : void
-    for i in 0..size
+    i := 0
+    while i + 8 <= size
+        mem.write64(x + i, 0)
+        i = i + 8
+    while i < size
         x[i] = 0 as u8
+        i = i + 1
 
 func mem.copy[src: ptr, dst: ptr, n: i64] : void
-    if dst > src
-        i := n - 1
-        while i >= 0
-            dst[i] = src[i]
+    if dst > src && dst < src + n
+        i := n
+        while i - 8 >= 0
+            i = i - 8
+            mem.write64(dst + i, mem.read64(src + i))
+        while i > 0
             i = i - 1
-    else
-        for i in 0..n
             dst[i] = src[i]
+    else
+        i := 0
+        while i + 8 <= n
+            mem.write64(dst + i, mem.read64(src + i))
+            i = i + 8
+        while i < n
+            dst[i] = src[i]
+            i = i + 1
 
 func mem.read8[x: ptr] : u8
     return x[0]
@@ -250,6 +263,8 @@ func io.printf[..] : void
                 io.print_char('%')
             else if s[0] == 0
                 break
+            else
+                panic("io.printf: unrecognized format")
         else
             io.print_char(s[0])
         s = s + 1
@@ -447,8 +462,12 @@ func str.find[haystack: str, needle: str] : i64
         return -1
 
     for i in 0..(haystack_len - needle_len + 1)
+        if haystack[i] != needle[0]
+            continue
+        if needle_len == 1
+            return i
         match := true
-        for j in 0..needle_len
+        for j in 1..needle_len
             if haystack[i + j] != needle[j]
                 match = false
                 break
@@ -661,14 +680,12 @@ func str.Builder.append_char[b: str.Builder, c: u8] : void
 func str.Builder.append[b: str.Builder, s: str] : void
     len := str.len(s)
     str.Builder._grow(b, len)
-    for i in 0..len
-        b->data[b->size + i] = s[i]
+    mem.copy(s as ptr, b->data + b->size, len)
     b->size = b->size + len
 
 func str.Builder.build[b: str.Builder] : str
     s := mem.alloc(b->size + 1) as str
-    for i in 0..b->size
-        s[i] = b->data[i]
+    mem.copy(b->data, s as ptr, b->size)
     s[b->size] = 0
     return s
 
@@ -713,8 +730,11 @@ func math.pow[b: i64, e: i64] : i64
     if e < 0
         panic("negative exponent passed to math.pow")
     out := 1
-    for i in 0..e
-        out = out * b
+    while e > 0
+        if e & 1
+            out = out * b
+        b = b * b
+        e = e >> 1
     return out
 
 func math.lcm[a: i64, b: i64] : i64
@@ -755,13 +775,10 @@ struct Array
     size: i64
     capacity: i64
 
-func array.new[] : Array
-    return new* Array
-
 func array.new_preallocated_and_zeroed[size: i64] : Array
     xs := new* Array
     if size > 0
-        xs->data = mem.realloc(xs->data, size * 8)
+        xs->data = mem.alloc(size * 8)
         mem.zero(xs->data, size * 8)
         xs->size = size
         xs->capacity = size
@@ -805,16 +822,13 @@ func array.slice[xs: Array, start: i64, length: i64] : Array
         panic("array.slice out of bounds")
 
     new_array := array.new_preallocated_and_zeroed(length)
-    for i in 0..length
-        array.set(new_array, i, array.nth(xs, start + i))
+    mem.copy(xs->data + start * 8, new_array->data, length * 8)
     return new_array
 
 func array.concat[a: Array, b: Array] : Array
     new_array := array.new_preallocated_and_zeroed(a->size + b->size)
-    for i in 0..a->size
-        array.set(new_array, i, array.nth(a, i))
-    for i in 0..b->size
-        array.set(new_array, a->size + i, array.nth(b, i))
+    mem.copy(a->data, new_array->data, a->size * 8)
+    mem.copy(b->data, new_array->data + a->size * 8, b->size * 8)
     return new_array
 
 const HashMap._TABLE_SIZE = 100
@@ -964,25 +978,22 @@ func os.sleep[ms: i64] : void
     req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
 
+func os.urandom_buf[buf: ptr, n: i64] : void
+    pos := 0
+    while pos < n
+        ret := _builtin_syscall(SYS_getrandom, buf + pos, n - pos, 0)
+        if ret <= 0
+            panic("os.urandom_buf: syscall failed")
+        pos = pos + ret
+
 func os.urandom[n: i64]: ptr
-    buffer := mem.alloc(n)
+    buf := mem.alloc(n)
+    os.urandom_buf(buf, n)
+    return buf
 
-    fd := _builtin_syscall(SYS_openat, -100, "/dev/urandom", O_RDONLY, 0)
-    if fd < 0
-        panic("os.urandom: failed to open /dev/urandom")
-
-    bytes_read := _builtin_syscall(SYS_read, fd, buffer, n)
-    _builtin_syscall(SYS_close, fd)
-
-    if n != bytes_read
-        panic("os.urandom: failed to read /dev/urandom")
-    
-    return buffer
-
-func os.urandom_i64[]: i64
-    buffer := os.urandom(8)
-    n := mem.read64(buffer)
-    mem.free(buffer)
+func os.urandom_i64[] : i64
+    n := 0
+    os.urandom_buf(^n, 8)
     return n
 
 struct os.Timeval
