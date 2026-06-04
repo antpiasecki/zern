@@ -34,14 +34,14 @@ func main[argc: i64, argv: ptr] : i64
     if !ok
         panic("failed to connect")
 
-    // TODO: add string builder to std
-    req := "GET "
-    req = str.concat(req, path)
-    req = str.concat(req, " HTTP/1.0\r\nHost: ")
-    req = str.concat(req, host)
-    req = str.concat(req, "\r\nConnection: close\r\n\r\n")
-    net.send(s, req as ptr, str.len(req))
-    mem.free(req)
+    req := new str.Builder
+    str.Builder.append(req, "GET ")
+    str.Builder.append(req, path)
+    str.Builder.append(req, " HTTP/1.0\r\nHost: ")
+    str.Builder.append(req, host)
+    str.Builder.append(req, "\r\nConnection: close\r\n\r\n")
+    net.send(s, req->data, req->size)
+    mem.free(req->data)
 
     header_buf := mem.alloc(8192) as str
     header_size := 0

@@ -239,6 +239,20 @@ func mem.write16be[x: ptr, d: i64] : void
 func mem.write64[x: ptr, d: any] : void
     _builtin_set64(x, d)
 
+struct Blob
+    data: ptr
+    size: i64
+
+func Blob.alloc[size: i64] : Blob
+    buffer := new* Blob
+    buffer->size = size
+    buffer->data = mem.alloc(size)
+    return buffer
+
+func Blob.free[buf: Blob] : void
+    mem.free(buf->data)
+    mem.free(buf)
+
 func io.printf[..] : void
     s := _var_arg(0) as ptr
     i := 1
@@ -289,19 +303,19 @@ func io.print_bool[x: bool] : void
         io.print("false")
 
 func io.print_i64[x: i64] : void
-    s := str.from_i64(x)
-    io.print(s)
-    mem.free(s)
+    s := _stackalloc(21)
+    str.from_i64_buf(s, x)
+    io.print(s as str)
 
 func io.print_i64_hex[x: i64] : void
-    s := str.hex_from_i64(x)
-    io.print(s)
-    mem.free(s)
+    s := _stackalloc(17)
+    str.hex_from_i64_buf(s, x)
+    io.print(s as str)
 
 func io.println_i64[x: i64] : void
-    s := str.from_i64(x)
-    io.println(s)
-    mem.free(s)
+    s := _stackalloc(21)
+    str.from_i64_buf(s, x)
+    io.println(s as str)
 
 func io.read_char[] : u8
     c := 0 as u8
@@ -316,28 +330,14 @@ func io.read_line[] : str
             break
         str.Builder.append_char(b, c)
     s := str.Builder.build(b)
-    str.Builder.free(b)
+    mem.free(b->data)
     return s
-
-struct Blob
-    data: ptr
-    size: i64
-
-func Blob.alloc[size: i64] : Blob
-    buffer := new* Blob
-    buffer->size = size
-    buffer->data = mem.alloc(size)
-    return buffer
-
-func Blob.free[buf: Blob] : void
-    mem.free(buf->data)
-    mem.free(buf)
 
 func io.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, -100, path, 0, 0) == 0
 
 func io.is_a_directory[path: str] : bool
-    st := _stackalloc(256) // it has 21 mixed-size fields so no struct for now
+    st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := _builtin_syscall(SYS_newfstatat, -100, path, st, 0)
     if rc != 0
@@ -419,7 +419,7 @@ func str.equal[a: str, b: str] : bool
     return a[i] == b[i]
 
 func str.is_whitespace[x: u8] : bool
-    return x == ' ' || x == 10 || x == 13 || x == 9
+    return x == ' ' || x == '\n' || x == '\t' || x == '\r'
 
 func str.is_digit[x: u8] : bool
     return x >= '0' && x <= '9'
@@ -544,58 +544,66 @@ func str.reverse[s: str] : str
     return out
 
 func str.from_i64[n: i64] : str
+    out := mem.alloc(21)
+    str.from_i64_buf(out, n)
+    return out as str
+
+func str.from_i64_buf[buf: ptr, n: i64] : void
     if n == 0
-        out := mem.alloc(2) as str
-        out[0] = '0'
-        out[1] = 0
-        return out
+        buf[0] = '0'
+        buf[1] = 0
+        return 0
 
     neg : bool = n < 0
     if neg
-        // negating MIN_I64 causes overflow
-        if n == -9223372036854775808
-            return str.make_copy("-9223372036854775808")
+        // MIN_I64 will fail but i so dont care
         n = -n
-    buf := _stackalloc(21) as str // enough to fit -MAX_I64
+    tmp := _stackalloc(21)
     end := 20
-    buf[end] = 0
+    tmp[end] = 0
     end = end - 1
-    while n > 0
-        buf[end] = '0' + (n % 10)
+    for i in 0..19
+        if n == 0
+            break
+        tmp[end] = '0' + (n % 10)
         n = n / 10
         end = end - 1
     if neg
-        buf[end] = '-'
+        tmp[end] = '-'
         end = end - 1
-    s := str.make_copy((buf as ptr + end + 1) as str)
-    return s
+    len := 19 - end
+    for i in 0..len
+        buf[i] = tmp[end + 1 + i]
+    buf[len] = 0
 
 func str.hex_from_i64[n: i64] : str
+    out := mem.alloc(17)
+    str.hex_from_i64_buf(out, n)
+    return out as str
+
+func str.hex_from_i64_buf[buf: ptr, n: i64] : void
     hex_chars := "0123456789abcdef"
 
     if n == 0
-        out := mem.alloc(2) as str
-        out[0] = '0'
-        out[1] = 0
-        return out
+        buf[0] = '0'
+        buf[1] = 0
+        return 0
 
     mask := (1 << 60) - 1
-    buf := _stackalloc(17) as str
+    tmp := _stackalloc(17)
     len := 0
 
-    while n != 0
-        buf[len] = hex_chars[n & 15]
+    for i in 0..16
+        if n == 0
+            break
+        tmp[len] = hex_chars[n & 15]
         n = (n >> 4) & mask
         len = len + 1
 
-    out := mem.alloc(len + 1) as str
-    j := 0
-    while j < len
-        out[j] = buf[len - 1 - j]
-        j = j + 1
+    for j in 0..len
+        buf[j] = tmp[len - 1 - j]
 
-    out[len] = 0
-    return out
+    buf[len] = 0
 
 func str.from_char[c: u8] : str
     s := mem.alloc(2) as str
@@ -688,9 +696,6 @@ func str.Builder.build[b: str.Builder] : str
     mem.copy(b->data, s as ptr, b->size)
     s[b->size] = 0
     return s
-
-func str.Builder.free[b: str.Builder] : void
-    mem.free(b->data)
 
 func math.gcd[a: i64, b: i64] : i64
     a = math.abs(a)
@@ -1034,12 +1039,10 @@ func os.list_directory[path: str] : Array, bool
         return 0 as Array, false
 
     files := []
-    buf := mem.alloc(1024)
+    buf := _stackalloc(1024)
     while true
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
-            mem.free(buf)
-
             for i in 0..files->size
                 mem.free(array.nth(files, i))
             array.free(files)
@@ -1066,6 +1069,5 @@ func os.list_directory[path: str] : Array, bool
                     array.push(files, str.make_copy(name as str))
             pos = pos + len
 
-    mem.free(buf)
     _builtin_syscall(SYS_close, fd)
     return files, true

@@ -19,15 +19,7 @@ func net.listen[packed_host: i64, port: i64] : i64, bool
         return -1, false
 
     sa := _stackalloc(16)
-    mem.zero(sa, 16)
-    sa[0] = 2
-    sa[1] = 0
-    sa[2] = (port >> 8) & 255
-    sa[3] = port & 255
-    sa[4] = (packed_host >> 24) & 255
-    sa[5] = (packed_host >> 16) & 255
-    sa[6] = (packed_host >> 8) & 255
-    sa[7] = packed_host & 255
+    net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         _builtin_syscall(SYS_close, s)
@@ -45,15 +37,7 @@ func net.connect[packed_host: i64, port: i64] : i64, bool
         return -1, false
 
     sa := _stackalloc(16)
-    mem.zero(sa, 16)
-    sa[0] = AF_INET
-    sa[1] = 0
-    sa[2] = (port >> 8) & 255
-    sa[3] = port & 255
-    sa[4] = (packed_host >> 24) & 255
-    sa[5] = (packed_host >> 16) & 255
-    sa[6] = (packed_host >> 8) & 255
-    sa[7] = packed_host & 255
+    net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         _builtin_syscall(SYS_close, s)
@@ -77,6 +61,17 @@ func net.close[s: i64] : void
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
 
+func net._build_sa[sa: ptr, packed_host: i64, port: i64] : void
+    mem.zero(sa, 16)
+    sa[0] = AF_INET
+    sa[1] = 0
+    sa[2] = (port >> 8) & 255
+    sa[3] = port & 255
+    sa[4] = (packed_host >> 24) & 255
+    sa[5] = (packed_host >> 16) & 255
+    sa[6] = (packed_host >> 8) & 255
+    sa[7] = packed_host & 255
+
 struct net.UDPSocket
     fd: i64
     addr: ptr
@@ -90,15 +85,7 @@ func net.create_udp_client[packed_host: i64, port: i64] : net.UDPSocket, bool
         return 0 as net.UDPSocket, false
 
     s->addr = mem.alloc(16)
-    mem.zero(s->addr, 16)
-    s->addr[0] = AF_INET
-    s->addr[1] = 0
-    s->addr[2] = (port >> 8) & 255
-    s->addr[3] = port & 255
-    s->addr[4] = (packed_host >> 24) & 255
-    s->addr[5] = (packed_host >> 16) & 255
-    s->addr[6] = (packed_host >> 8) & 255
-    s->addr[7] = packed_host & 255
+    net._build_sa(s->addr, packed_host, port)
     return s, true
 
 func net.create_udp_server[packed_host: i64, port: i64] : net.UDPSocket, bool
