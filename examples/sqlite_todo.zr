@@ -41,10 +41,7 @@ func main[] : i64
             while sqlite3_step(stmt) == 100
                 id := sqlite3_column_int(stmt, 0)
                 task := sqlite3_column_text(stmt, 1)
-                
-                io.print_i64(id)
-                io.print(" - ")
-                io.println(task)
+                io.printf("%d - %s\n", id, task)
 
             io.println("============")
         else if choice == 2

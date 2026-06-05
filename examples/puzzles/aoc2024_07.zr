@@ -1,13 +1,7 @@
 func concat[a: i64, b: i64] : i64
-    a_str := str.from_i64(a)
-    b_str := str.from_i64(b)
-    ab_str := str.concat(a_str, b_str)
-    out := str.parse_i64(ab_str)
-    // without freeing the program works but leaks 2GB of memory :p
-    mem.free(a_str)
-    mem.free(b_str)
-    mem.free(ab_str)
-    return out
+    ab_str := _stackalloc(50)
+    io.snprintf(ab_str, 50, "%d%d", a, b)
+    return str.parse_i64(ab_str)
 
 func solve[ops: Array, e: Array] : i64
     e_1 : Array = array.nth(e, 1)

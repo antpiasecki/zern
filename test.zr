@@ -19,9 +19,7 @@ func run_test[x: str] : void
 
     for i in 0..run_blacklist->size
         if str.find(x, array.nth(run_blacklist, i)) != -1
-            io.print("Skipping ")
-            io.print(x)
-            io.println("...")
+            io.printf("Skipping %s...\n", x)
             return 0
 
     io.printf("Running %s...\n", x)
@@ -45,8 +43,6 @@ func run_directory[dir: str] : void
     for i in 0..files->size
         run_test(str.concat(dir, array.nth(files, i)))
     
-    array.free(files)
-
 func main[] : i64
     ~status, ok := os.run_shell_command("cargo build --release")
     if !ok || status != 0
