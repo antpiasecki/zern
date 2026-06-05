@@ -12,8 +12,6 @@ struct Var {
     pub var_type: String,
 }
 
-const STACK_SIZE: usize = 256; // TODO: eww
-
 pub struct Env {
     scopes: Vec<HashMap<String, Var>>,
     next_offset: usize,
@@ -173,9 +171,8 @@ _start:
     mov [rax], rdx
     ; align stack
     and rsp, -16
-    ; main()
+    ; exit(main())
     call main
-    ; exit
     mov rdi, rax
     mov rax, 60
     syscall
@@ -354,8 +351,9 @@ _builtin_environ:
                 emit!(&mut self.output, "{}:", name.lexeme);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
-                let stack_size = (STACK_SIZE + 15) & !15;
-                emit!(&mut self.output, "    sub rsp, {}", stack_size);
+
+                let prologue_offset = self.output.len();
+                emit!(&mut self.output, "    sub rsp, {:<10}", 0);
 
                 match params {
                     Params::Normal(params) => {
@@ -399,6 +397,11 @@ _builtin_environ:
                     emit!(&mut self.output, "    pop rbp");
                     emit!(&mut self.output, "    ret");
                 }
+
+                // patch the stack size after we know how much we actually need
+                let patch = format!("    sub rsp, {:<10}", (env.next_offset + 15) & !15);
+                self.output
+                    .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
                 if exprs.len() == 2 {

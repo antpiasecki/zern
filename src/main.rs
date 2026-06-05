@@ -35,9 +35,9 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let mut statements = Vec::new();
 
     if args.include_stdlib {
-        parse_std_file!(statements, "std/syscalls.zr");
         parse_std_file!(statements, "std/std.zr");
         parse_std_file!(statements, "std/net.zr");
+        parse_std_file!(statements, "std/linux_constants.zr");
     }
 
     let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);

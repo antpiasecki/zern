@@ -1,16 +1,3 @@
-const S_IFDIR = 0o040000
-const S_IFMT = 0o170000
-const PROT_READ = 1
-const PROT_WRITE = 2
-const MAP_PRIVATE = 2
-const MAP_ANONYMOUS = 32
-const O_RDONLY = 0
-const O_WRONLY = 1
-const O_CREAT = 64
-const O_TRUNC = 512
-const SEEK_SET = 0
-const SEEK_END = 2
-
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)
@@ -26,7 +13,7 @@ struct mem.Block
     next: mem.Block
     prev: mem.Block
 
-func mem._align[x: i64] : i64
+func mem.align[x: i64] : i64
     return (x + 7) & -8
 
 func mem._split_block[blk: mem.Block, needed: i64] : void
@@ -70,7 +57,7 @@ func mem.alloc[size: i64] : ptr
     if size <= 0
         panic("mem.alloc: called with nonpositive size")
 
-    size = mem._align(size)
+    size = mem.align(size)
 
     cur := mem.read64(_builtin_heap_head()) as mem.Block
     while cur as ptr
@@ -145,7 +132,7 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
         mem.free(x)
         return 0 as ptr
 
-    new_size = mem._align(new_size)
+    new_size = mem.align(new_size)
 
     blk := (x - MEM_BLOCK_SIZE) as mem.Block
     if blk->size >= new_size
@@ -1081,7 +1068,7 @@ func os.run_shell_command[command: str] : i64, bool
     if pid == 0
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
         _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
-        _builtin_syscall(SYS_exit, 1)
+        os.exit(1)
     else
         status := 0
         wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, 0)

@@ -1,5 +1,5 @@
 func concat[a: i64, b: i64] : i64
-    ab_str := _stackalloc(50)
+    ab_str := _stackalloc(50) as str
     io.snprintf(ab_str, 50, "%d%d", a, b)
     return str.parse_i64(ab_str)
 

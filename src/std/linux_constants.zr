@@ -1,4 +1,16 @@
-// https://github.com/torvalds/linux/blob/19272b37aa4f83ca52bdf9c16d5d81bdd1354494/arch/x86/entry/syscalls/syscall_64.tbl
+const S_IFDIR = 0o040000
+const S_IFMT = 0o170000
+const PROT_READ = 1
+const PROT_WRITE = 2
+const MAP_PRIVATE = 2
+const MAP_ANONYMOUS = 32
+const O_RDONLY = 0
+const O_WRONLY = 1
+const O_CREAT = 64
+const O_TRUNC = 512
+const SEEK_SET = 0
+const SEEK_END = 2
+
 const SYS_read = 0
 const SYS_write = 1
 const SYS_open = 2
