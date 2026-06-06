@@ -35,8 +35,8 @@ func chip8_create[] : CHIP8
 
     fonts := [0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0, 0x10, 0xf0, 0x10, 0xf0, 0x90, 0x90, 0xf0, 0x10, 0x10, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80, 0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0, 0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80, 0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80]
     for i in 0..80
-        c->memory[i] = array.nth(fonts, i)
-    array.free(fonts)
+        c->memory[i] = fonts->nth(i)
+    fonts->free()
 
     c->pc = 0x200
 
@@ -47,11 +47,11 @@ func chip8_create[] : CHIP8
 
 func chip8_free[c: CHIP8] : void
     mem.free(c->memory)
-    array.free(c->stack)
+    c->stack->free()
     mem.free(c->reg)
-    array.free(c->keyboard)
+    c->keyboard->free()
     mem.free(c->display)
-    array.free(c->keyboard_map)
+    c->keyboard_map->free()
     mem.free(c)
 
 func chip8_disassemble[c: CHIP8, ins_count: i64] : void
@@ -170,13 +170,13 @@ func chip8_step[c: CHIP8] : void
         if nnn == 0x0e0
             mem.zero(c->display, 64 * 32)
         else if nnn == 0x0ee
-            c->pc = array.nth(c->stack, c->sp)
+            c->pc = c->stack->nth(c->sp)
             c->sp = c->sp - 1
     else if op == 0x1
         c->pc = nnn
     else if op == 0x2
         c->sp += 1
-        array.set(c->stack, c->sp, c->pc)
+        c->stack->set(c->sp, c->pc)
         c->pc = nnn
     else if op == 0x3
         if c->reg[x] == kk
@@ -224,7 +224,7 @@ func chip8_step[c: CHIP8] : void
     else if op == 0xb
         c->pc = nnn + c->reg[0]
     else if op == 0xc
-        c->reg[x] = (math.abs(os.urandom_i64()) % 256) & kk
+        c->reg[x] = (os.urandom_i64()->abs() % 256) & kk
     else if op == 0xd
         c->reg[0xf] = 0
         for row in 0..n
@@ -239,10 +239,10 @@ func chip8_step[c: CHIP8] : void
                     c->display[offset] = c->display[offset] ^ 1
     else if op == 0xe
         if kk == 0x9e
-            if IsKeyDown(array.nth(c->keyboard_map, c->reg[x] as i64))
+            if IsKeyDown(c->keyboard_map->nth(c->reg[x] as i64))
                 c->pc += 2
         else if kk == 0xa1
-            if !IsKeyDown(array.nth(c->keyboard_map, c->reg[x] as i64))
+            if !IsKeyDown(c->keyboard_map->nth(c->reg[x] as i64))
                 c->pc += 2
     else if op == 0xf
         if kk == 0x07
@@ -251,7 +251,7 @@ func chip8_step[c: CHIP8] : void
             key_pressed := false
             while !key_pressed && !WindowShouldClose()
                 for i in 0..16
-                    if IsKeyDown(array.nth(c->keyboard_map, i))
+                    if IsKeyDown(c->keyboard_map->nth(i))
                         key_pressed = true
                         break
         else if kk == 0x15
@@ -279,7 +279,7 @@ func main[argc: i64, argv: ptr] : i64
 
     for i in 1..argc
         arg := mem.read64(argv + i * 8) as str
-        if str.equal(arg, "-d")
+        if arg->equal("-d")
             disassemble = true
         else
             path = arg

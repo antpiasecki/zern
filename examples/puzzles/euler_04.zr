@@ -4,9 +4,9 @@ func main[] : i64
     for a in 500..1000
         for b in 500..1000
             if a * b > out
-                s := str.from_i64(a * b)
-                s_rev := str.reverse(s)
-                if str.equal(s, s_rev)
+                s := (a * b)->to_str()
+                s_rev := s->reverse()
+                if s->equal(s_rev)
                     out = a * b
                 mem.free(s)
                 mem.free(s_rev)

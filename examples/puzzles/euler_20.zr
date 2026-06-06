@@ -1,11 +1,11 @@
 func multiply[n: Array, x: i64] : void
     carry := 0
     for i in 0..n->size
-        prod : i64 = array.nth(n, i) * x + carry
-        array.set(n, i, prod % 10)
+        prod : i64 = n->nth(i) * x + carry
+        n->set(i, prod % 10)
         carry = prod / 10
     while carry > 0
-        array.push(n, carry % 10)
+        n->push(carry % 10)
         carry = carry / 10
 
 func main[] : i64
@@ -16,6 +16,6 @@ func main[] : i64
 
     sum := 0
     for i in 0..n->size
-        sum += array.nth(n, i)
+        sum += n->nth(i)
     
     io.println_i64(sum)

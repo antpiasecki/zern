@@ -4,20 +4,20 @@ func rule110_step[state: Array] : void
     for i in 0..state->size
         left := false
         if i - 1 >= 0
-            left = array.nth(state, i - 1)
-        center : bool = array.nth(state, i)
+            left = state->nth(i - 1)
+        center : bool = state->nth(i)
         right := false
         if i + 1 < state->size
-            right = array.nth(state, i + 1)
+            right = state->nth(i + 1)
 
-        array.push(new_state, !((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
+        new_state->push(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
 
     mem.copy(new_state->data, state->data, state->size * 8)
-    array.free(new_state)
+    new_state->free()
 
 func print_state[state: Array]: void
     for i in 0..state->size
-        if array.nth(state, i)
+        if state->nth(i)
             io.print_char('#')
         else
             io.print_char(' ')
@@ -28,12 +28,12 @@ func main[] : i64
 
     state := []
     for i in 0..SIZE
-        array.push(state, false)
-    array.push(state, true)
+        state->push(false)
+    state->push(true)
 
     print_state(state)
     for i in 0..SIZE
         rule110_step(state)
         print_state(state)
 
-    array.free(state)
+    state->free()

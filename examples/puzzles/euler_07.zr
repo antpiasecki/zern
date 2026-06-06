@@ -3,7 +3,7 @@ func main[] : i64
 
     i := 1
     while true
-        if math.is_prime(i)
+        if i->is_prime()
             found += 1
             if found == 10001
                 io.println_i64(i)

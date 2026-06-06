@@ -564,6 +564,54 @@ impl<'a> TypeChecker<'a> {
                 }
                 Ok(type_name.lexeme.clone())
             }
+            ExprKind::MethodCall { expr, method, args } => {
+                let receiver_type = self.typecheck_expr(env, expr)?;
+                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+
+                let func_type = match self.symbol_table.functions.get(&func_name) {
+                    Some(f) => f,
+                    None => {
+                        return error!(
+                            method.loc,
+                            format!(
+                                "method {} not found on on type {}",
+                                method.lexeme, receiver_type
+                            )
+                        );
+                    }
+                };
+
+                if let Some(params) = &func_type.params {
+                    if params.len() != args.len() + 1 {
+                        return error!(
+                            method.loc,
+                            format!(
+                                "expected {} arguments, got {}",
+                                params.len() - 1,
+                                args.len()
+                            )
+                        );
+                    }
+                    if params[0] != receiver_type {
+                        return error!(
+                            method.loc,
+                            format!(
+                                "first parameter of the method must be of type {}",
+                                receiver_type
+                            )
+                        );
+                    }
+                    for (i, arg) in args.iter().enumerate() {
+                        expect_type!(self.typecheck_expr(env, arg)?, params[i + 1], method.loc);
+                    }
+                    Ok(func_type.return_type.clone())
+                } else {
+                    for arg in args {
+                        self.typecheck_expr(env, arg)?;
+                    }
+                    Ok(func_type.return_type.clone())
+                }
+            }
         }?;
 
         self.expr_types.insert(expr.id, expr_type.clone());

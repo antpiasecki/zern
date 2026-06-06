@@ -143,6 +143,11 @@ pub enum ExprKind {
         expr: Box<Expr>,
         type_name: Token,
     },
+    MethodCall {
+        expr: Box<Expr>,
+        method: Token,
+        args: Vec<Expr>,
+    },
 }
 
 pub struct Parser {
@@ -605,12 +610,32 @@ impl Parser {
                     index: Box::new(index),
                 })
             } else if self.match_token(&[TokenType::Arrow]) {
-                let field =
-                    self.consume(TokenType::Identifier, "expected field name after '->'")?;
-                expr = Expr::new(ExprKind::MemberAccess {
-                    left: Box::new(expr),
-                    field,
-                })
+                if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::LeftParen) {
+                    let method = self.consume(TokenType::Identifier, "expected method name")?;
+                    self.consume(TokenType::LeftParen, "expected '('")?;
+                    let mut args = vec![];
+                    if !self.check(&TokenType::RightParen) {
+                        loop {
+                            args.push(self.expression()?);
+                            if !self.match_token(&[TokenType::Comma]) {
+                                break;
+                            }
+                        }
+                    }
+                    self.consume(TokenType::RightParen, "expected ')'")?;
+                    expr = Expr::new(ExprKind::MethodCall {
+                        expr: Box::new(expr),
+                        method,
+                        args,
+                    });
+                } else {
+                    let field =
+                        self.consume(TokenType::Identifier, "expected field name after '->'")?;
+                    expr = Expr::new(ExprKind::MemberAccess {
+                        left: Box::new(expr),
+                        field,
+                    });
+                }
             } else {
                 break;
             }

@@ -667,41 +667,10 @@ _builtin_environ:
                 }
 
                 let arg_count = args.len();
-                if arg_count <= 6 {
-                    for i in (0..arg_count).rev() {
-                        emit!(&mut self.output, "    pop {}", REGISTERS[i]);
-                    }
-                } else {
-                    for (i, reg) in REGISTERS.iter().enumerate() {
-                        let offset = 8 * (arg_count - 1 - i);
-                        emit!(
-                            &mut self.output,
-                            "    mov {}, QWORD [rsp + {}]",
-                            reg,
-                            offset
-                        );
-                    }
-                    // TODO: since all zern values are 64bit large we currently cannot call
-                    // external functions that expect a non-64bit value past the 6th argument
-                    let num_stack = arg_count - 6;
-                    for i in 0..num_stack {
-                        let arg_idx = arg_count - 1 - i;
-                        let offset = 8 * (arg_count - 1 - arg_idx);
-                        emit!(
-                            &mut self.output,
-                            "    mov rax, QWORD [rsp + {}]",
-                            offset + 8 * i
-                        );
-                        emit!(&mut self.output, "    push rax");
-                    }
-                }
+                self.emit_call_setup(arg_count);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
-                    if self
-                        .symbol_table
-                        .functions
-                        .contains_key(&callee_name.lexeme)
-                    {
+                    if self.symbol_table.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
@@ -715,11 +684,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    call rax");
                 }
 
-                if arg_count > 6 {
-                    let num_stack = arg_count - 6;
-                    emit!(&mut self.output, "    add rsp, {}", 8 * num_stack);
-                    emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
-                }
+                self.emit_call_cleanup(arg_count);
             }
             ExprKind::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    mov rdi, 24");
@@ -736,7 +701,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    mov rsi, rax");
                     emit!(&mut self.output, "    pop rdi");
                     emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call array.push");
+                    emit!(&mut self.output, "    call Array.push");
                 }
                 emit!(&mut self.output, "    pop rax");
             }
@@ -809,8 +774,62 @@ _builtin_environ:
             ExprKind::Cast { expr, type_name: _ } => {
                 self.compile_expr(env, expr)?;
             }
+            ExprKind::MethodCall { expr, method, args } => {
+                let receiver_type = &self.expr_types[&expr.id];
+                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+
+                self.compile_expr(env, expr)?;
+                emit!(&mut self.output, "    push rax");
+                for arg in args {
+                    self.compile_expr(env, arg)?;
+                    emit!(&mut self.output, "    push rax");
+                }
+
+                let arg_count = 1 + args.len();
+                self.emit_call_setup(arg_count);
+                emit!(&mut self.output, "    call {}", func_name);
+                self.emit_call_cleanup(arg_count);
+            }
         }
         Ok(())
+    }
+
+    fn emit_call_setup(&mut self, arg_count: usize) {
+        if arg_count <= 6 {
+            for i in (0..arg_count).rev() {
+                emit!(&mut self.output, "    pop {}", REGISTERS[i]);
+            }
+        } else {
+            for (i, reg) in REGISTERS.iter().enumerate() {
+                let offset = 8 * (arg_count - 1 - i);
+                emit!(
+                    &mut self.output,
+                    "    mov {}, QWORD [rsp + {}]",
+                    reg,
+                    offset
+                );
+            }
+            // TODO: since all zern values are 64bit large we currently cannot call
+            // external functions that expect a non-64bit value past the 6th argument
+            let num_stack = arg_count - 6;
+            for i in 0..num_stack {
+                let arg_idx = arg_count - 1 - i;
+                let offset = 8 * (arg_count - 1 - arg_idx);
+                emit!(
+                    &mut self.output,
+                    "    mov rax, QWORD [rsp + {}]",
+                    offset + 8 * i
+                );
+                emit!(&mut self.output, "    push rax");
+            }
+        }
+    }
+
+    fn emit_call_cleanup(&mut self, arg_count: usize) {
+        if arg_count > 6 {
+            emit!(&mut self.output, "    add rsp, {}", 8 * (arg_count - 6));
+            emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
+        }
     }
 
     fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {

@@ -3,15 +3,15 @@ func part1[lines: Array] : void
     s := _stackalloc(3) as str
 
     for i in 0..lines->size
-        line : str = array.nth(lines, i)
+        line : str = lines->nth(i)
 
         largest := 0
-        for j in 0..str.len(line)
-            for k in (j+1)..str.len(line)
+        for j in 0..line->len()
+            for k in (j+1)..line->len()
                 s[0] = line[j]
                 s[1] = line[k]
                 s[2] = 0
-                n := str.parse_i64(s)
+                n := s->parse_i64()
                 if n > largest
                     largest = n
 
@@ -22,7 +22,7 @@ func part1[lines: Array] : void
 func part2_rec[bank: str, start: i64, remaining: i64] : i64
     largest := 0
     largest_idx := start
-    len := str.len(bank)
+    len := bank->len()
 
     for i in (start)..(len-remaining+1)
         v := (bank[i] - '0') as i64
@@ -39,7 +39,7 @@ func part2[lines: Array] : void
     sum := 0
 
     for i in 0..lines->size
-        line : str = array.nth(lines, i)
+        line : str = lines->nth(i)
 
         sum += part2_rec(line, 0, 12)
     io.println_i64(sum)
@@ -49,7 +49,7 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    lines := str.split(input, "\n")
+    lines := input->split("\n")
 
     part1(lines)
     part2(lines)

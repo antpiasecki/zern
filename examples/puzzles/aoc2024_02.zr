@@ -1,13 +1,13 @@
 func check[report: Array] : bool
-    increasing := array.nth(report, 0) < array.nth(report, 1)
+    increasing := report->nth(0) < report->nth(1)
 
     for i in 0..report->size-1
-        if array.nth(report, i) > array.nth(report, i + 1) && increasing
+        if report->nth(i) > report->nth(i + 1) && increasing
             return false
-        if array.nth(report, i) < array.nth(report, i + 1) && !increasing
+        if report->nth(i) < report->nth(i + 1) && !increasing
             return false
 
-        diff := math.abs(array.nth(report, i) - array.nth(report, i + 1))
+        diff := (report->nth(i) as i64 - report->nth(i + 1) as i64)->abs()
         if diff < 1 || diff > 3
             return false
 
@@ -17,7 +17,7 @@ func part1[data: Array] : void
     out := 0
 
     for i in 0..data->size
-        if check(array.nth(data, i))
+        if check(data->nth(i))
             out += 1
 
     io.println_i64(out)
@@ -26,12 +26,12 @@ func part2[data: Array] : void
     out := 0
 
     for i in 0..data->size
-        if check(array.nth(data, i))
+        if check(data->nth(i))
             out += 1
         else
-            arr : Array = array.nth(data, i)
+            arr : Array = data->nth(i)
             for j in 0..arr->size
-                sliced := array.concat(array.slice(arr, 0, j), array.slice(arr, j + 1, arr->size - (j + 1)))
+                sliced := arr->slice(0, j)->concat(arr->slice(j + 1, arr->size - (j + 1)))
                 
                 if check(sliced)
                     out += 1
@@ -44,16 +44,16 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    lines := str.split(input, "\n")
+    lines := input->split("\n")
 
     data := []
     for i in 0..lines->size
-        line : str = array.nth(lines, i)
+        line : str = lines->nth(i)
 
-        report := str.split(line, " ")
+        report := line->split(" ")
         for i in 0..report->size
-            array.set(report, i, str.parse_i64(array.nth(report, i)))
-        array.push(data, report)
+            report->set(i, (report->nth(i) as str)->parse_i64())
+        data->push(report)
 
     part1(data)
     part2(data)

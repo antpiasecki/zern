@@ -5,15 +5,15 @@ func main[argc: i64, argv: ptr] : i64
 
     url := mem.read64(argv + 8) as str
 
-    if str.len(url) <= 7
+    if url->len() <= 7
         io.println("ERROR: invalid url (Did you forget \"http://\"?)")
         return 1
 
-    if !str.equal(str.substr(url, 0, 7), "http://")
+    if !url->substr(0, 7)->equal("http://")
         io.println("ERROR: only http scheme is supported")
         return 1
     
-    url_len := str.len(url)
+    url_len := url->len()
     host_start := 7
     i := host_start
     while i < url_len
@@ -21,10 +21,10 @@ func main[argc: i64, argv: ptr] : i64
             break
         i += 1
 
-    host := str.substr(url, host_start, i - host_start)
+    host := url->substr(host_start, i - host_start)
     path := "/"
     if i < url_len
-        path = str.substr(url, i, url_len - i)
+        path = url->substr(i, url_len - i)
     
     ~addr, ok := net.resolve(host)
     if !ok
@@ -35,11 +35,11 @@ func main[argc: i64, argv: ptr] : i64
         panic("failed to connect")
 
     req := new str.Builder
-    str.Builder.append(req, "GET ")
-    str.Builder.append(req, path)
-    str.Builder.append(req, " HTTP/1.0\r\nHost: ")
-    str.Builder.append(req, host)
-    str.Builder.append(req, "\r\nConnection: close\r\n\r\n")
+    req->append("GET ")
+    req->append(path)
+    req->append(" HTTP/1.0\r\nHost: ")
+    req->append(host)
+    req->append("\r\nConnection: close\r\n\r\n")
     net.send(s, req->data, req->size)
     mem.free(req->data)
 

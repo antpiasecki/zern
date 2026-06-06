@@ -1,39 +1,39 @@
 func part1_is_invalid_id[s: str] : bool
-    len := str.len(s)
+    len := s->len()
     if len % 2 != 0
         return false
 
-    first := str.substr(s, 0, len / 2)
-    second := str.substr(s, len / 2, len / 2)
+    first := s->substr(0, len / 2)
+    second := s->substr(len / 2, len / 2)
 
-    return str.equal(first, second)
+    return first->equal(second)
 
 func part1[ranges: Array] : void
     sum := 0
 
     for i in 0..ranges->size
-        parts := str.split(array.nth(ranges, i), "-")
-        start := str.parse_i64(array.nth(parts, 0))
-        end := str.parse_i64(array.nth(parts, 1))
+        parts := (ranges->nth(i) as str)->split("-")
+        start := (parts->nth(0) as str)->parse_i64()
+        end := (parts->nth(1) as str)->parse_i64()
 
         for n in (start)..end+1
-            if part1_is_invalid_id(str.from_i64(n))
+            if part1_is_invalid_id(n->to_str())
                 sum += n
     
     io.println_i64(sum)
 
 // had to cheat this one
 func part2_is_invalid_id[s: str] : bool
-    len := str.len(s)
+    len := s->len()
     if len < 2
         return false
     for div in 1..(len / 2 + 1)
         if len % div == 0
-            u := str.substr(s, 0, div)
+            u := s->substr(0, div)
             is_repeat := true
             for k in 1..(len / div)
-                segment := str.substr(s, k * div, div)
-                if !str.equal(segment, u)
+                segment := s->substr(k * div, div)
+                if !segment->equal(u)
                     is_repeat = false
             if is_repeat
                 return true
@@ -43,12 +43,12 @@ func part2[ranges: Array] : void
     sum := 0
 
     for i in 0..ranges->size
-        parts := str.split(array.nth(ranges, i), "-")
-        start := str.parse_i64(array.nth(parts, 0))
-        end := str.parse_i64(array.nth(parts, 1))
+        parts := (ranges->nth(i) as str)->split("-")
+        start := (parts->nth(0) as str)->parse_i64()
+        end := (parts->nth(1) as str)->parse_i64()
 
         for n in (start)..end+1
-            if part2_is_invalid_id(str.from_i64(n))
+            if part2_is_invalid_id(n->to_str())
                 sum += n
     
     io.println_i64(sum)
@@ -58,7 +58,7 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    ranges := str.split(input, ",")
+    ranges := input->split(",")
 
     part1(ranges)
     part2(ranges)

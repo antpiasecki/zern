@@ -1,7 +1,7 @@
 func main[] : i64
     // https://brainfuck.org/sierpinski.b
     src := "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
-    src_len := str.len(src)
+    src_len := src->len()
     i := 0
 
     memory := mem.alloc(30000)

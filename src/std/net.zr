@@ -95,7 +95,7 @@ func net.create_udp_server[packed_host: i64, port: i64] : net.UDPSocket, bool
         return 0 as net.UDPSocket, false
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
-        net.UDPSocket.close_and_free(s)
+        s->close_and_free()
         return 0 as net.UDPSocket, false
 
     return s, true
@@ -129,7 +129,7 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     mem.free(s)
 
 func net.encode_dns_name[domain: str] : Blob
-    domain_len := str.len(domain)
+    domain_len := domain->len()
     buf := Blob.alloc(domain_len + 2)
     out_pos := 0
     part_start := 0
@@ -152,7 +152,7 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Blob
     out := Blob.alloc(12 + name->size + 4)
 
     // header
-    id := math.abs(os.urandom_i64() % 65536)
+    id := (os.urandom_i64() % 65536)->abs()
     mem.write16be(out->data + 0, id)
     mem.write16be(out->data + 2, DNS_RECURSION_DESIRED)
     mem.write16be(out->data + 4, 1)  // num_questions
@@ -165,7 +165,7 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Blob
     mem.write16be(out->data + 12 + name->size, record_type)
     mem.write16be(out->data + 12 + name->size + 2, DNS_CLASS_IN)
 
-    Blob.free(name)
+    name->free()
     return out
 
 // TODO: dont resolve if its already an IP
@@ -175,13 +175,13 @@ func net.resolve[domain: str] : i64, bool
     // TODO: this probably shouldnt be hardcoded
     ~s, ok := net.create_udp_client(net.pack_addr(1, 1, 1, 1), 53)
     if !ok
-        Blob.free(query)
+        query->free()
         return -1, false
 
     net.udp_send_to(s, s->addr, query->data, query->size)
-    Blob.free(query)
+    query->free()
     pkt := net.udp_receive(s, 1024)
-    net.UDPSocket.close_and_free(s)
+    s->close_and_free()
 
     // TODO: do actual parsing
 
@@ -195,5 +195,5 @@ func net.resolve[domain: str] : i64, bool
     pos += 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
     out := net.pack_addr(pkt->data[pos] as i64, pkt->data[pos+1] as i64, pkt->data[pos+2] as i64, pkt->data[pos+3] as i64)
-    net.UDPPacket.free(pkt)
+    pkt->free()
     return out, true

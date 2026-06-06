@@ -3,14 +3,14 @@ func run_test[x: str] : void
     run_blacklist := ["/aoc", "guess_number.zr", "tcp_server.zr", "udp_server.zr"]
 
     for i in 0..build_blacklist->size
-        if str.equal(x, array.nth(build_blacklist, i))
+        if x->equal(build_blacklist->nth(i))
             io.printf("Skipping %s...\n", x)
             return 0
 
     io.printf("Building %s...\n", x)
 
     build_start_time := os.time()
-    ~status, ok := os.run_shell_command(str.concat("./target/release/zern ", x))
+    ~status, ok := os.run_shell_command("./target/release/zern "->concat(x))
     if !ok || status != 0
         os.exit(1)
     build_end_time := os.time()
@@ -18,15 +18,15 @@ func run_test[x: str] : void
     io.printf("%dms\n", build_end_time - build_start_time)
 
     for i in 0..run_blacklist->size
-        if str.find(x, array.nth(run_blacklist, i)) != -1
+        if x->find(run_blacklist->nth(i)) != -1
             io.printf("Skipping %s...\n", x)
             return 0
 
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    if str.equal(x, "examples/curl.zr")
-        run_cmd = str.concat(run_cmd, " http://example.com")
+    if x->equal("examples/curl.zr")
+        run_cmd = run_cmd->concat(" http://example.com")
 
     run_start_time := os.time()
     ~status, ok := os.run_shell_command(run_cmd)
@@ -41,7 +41,7 @@ func run_directory[dir: str] : void
     if !ok
         panic("failed to open test directory")
     for i in 0..files->size
-        run_test(str.concat(dir, array.nth(files, i)))
+        run_test(dir->concat(files->nth(i)))
     
 func main[] : i64
     ~status, ok := os.run_shell_command("cargo build --release")

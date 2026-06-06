@@ -16,7 +16,7 @@ struct mem.Block
 func mem.align[x: i64] : i64
     return (x + 7) & -8
 
-func mem._split_block[blk: mem.Block, needed: i64] : void
+func mem.Block._split[blk: mem.Block, needed: i64] : void
     if blk->size >= needed + MEM_BLOCK_SIZE + 8
         new_blk := (blk as ptr + MEM_BLOCK_SIZE + needed) as mem.Block
         new_blk->size = blk->size - needed - MEM_BLOCK_SIZE
@@ -62,7 +62,7 @@ func mem.alloc[size: i64] : ptr
     cur := mem.read64(_builtin_heap_head()) as mem.Block
     while cur as ptr
         if cur->free && cur->size >= size
-            mem._split_block(cur, size)
+            cur->_split(size)
             cur->free = false
             return cur as ptr + MEM_BLOCK_SIZE
         cur = cur->next
@@ -72,7 +72,7 @@ func mem.alloc[size: i64] : ptr
     if !mem.read64(_builtin_heap_head())
         mem.write64(_builtin_heap_head(), blk)
     
-    mem._split_block(blk, size)
+    blk->_split(size)
     
     return blk as ptr + MEM_BLOCK_SIZE
 
@@ -136,7 +136,7 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
 
     blk := (x - MEM_BLOCK_SIZE) as mem.Block
     if blk->size >= new_size
-        mem._split_block(blk, new_size)
+        blk->_split(new_size)
         return x
 
     next := blk->next
@@ -151,7 +151,7 @@ func mem.realloc[x: ptr, new_size: i64] : ptr
                 next->next->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
                 mem.write64(_builtin_heap_tail(), blk)
-            mem._split_block(blk, new_size)
+            blk->_split(new_size)
             return x
 
     new_ptr := mem.alloc(new_size)
@@ -270,7 +270,7 @@ func io.printf[..] : void
             io.print_char(s[0])
         s += 1
 
-func io.snprintf[..] : i64
+func str.format_into[..] : i64
     buf := _var_arg(0) as ptr
     size := _var_arg(1) as i64
     if size <= 0
@@ -279,29 +279,29 @@ func io.snprintf[..] : i64
     i := 3
     n := 0
 
-    tmp := _stackalloc(21)
+    tmp := _stackalloc(21) as str
 
     while s[0]
         if s[0] == '%'
             s += 1
 
             if s[0] == 'd'
-                str.from_i64_buf(tmp, _var_arg(i) as i64)
-                tmp_len := str.len(tmp as str)
+                (_var_arg(i) as i64)->to_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
                 remaining := size - n - 1
-                mem.copy(tmp, buf + n, math.min(tmp_len, remaining))
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 'x'
-                str.hex_from_i64_buf(tmp, _var_arg(i) as i64)
-                tmp_len := str.len(tmp as str)
+                (_var_arg(i) as i64)->to_hex_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
                 remaining := size - n - 1
-                mem.copy(tmp, buf + n, math.min(tmp_len, remaining))
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 's'
                 tmp_str := _var_arg(i) as str
-                tmp_len := str.len(tmp_str)
+                tmp_len := tmp_str->len()
                 remaining := size - n - 1
                 mem.copy(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
@@ -318,7 +318,7 @@ func io.snprintf[..] : i64
             else if s[0] == 0
                 break
             else
-                panic("io.snprintf: unrecognized format")
+                panic("str.format_into: unrecognized format")
         else
             if n < size - 1
                 buf[n] = s[0]
@@ -335,7 +335,7 @@ func io.print_sized[x: ptr, size: i64] : void
     _builtin_syscall(SYS_write, STDOUT, x, size)
 
 func io.print[x: str] : void
-    io.print_sized(x as ptr, str.len(x))
+    io.print_sized(x as ptr, x->len())
 
 func io.println[x: str] : void
     io.print(x)
@@ -352,17 +352,17 @@ func io.print_bool[x: bool] : void
 
 func io.print_i64[x: i64] : void
     s := _stackalloc(21)
-    str.from_i64_buf(s, x)
+    x->to_str_buf(s)
     io.print(s as str)
 
 func io.print_i64_hex[x: i64] : void
     s := _stackalloc(17)
-    str.hex_from_i64_buf(s, x)
+    x->to_hex_str_buf(s)
     io.print(s as str)
 
 func io.println_i64[x: i64] : void
     s := _stackalloc(21)
-    str.from_i64_buf(s, x)
+    x->to_str_buf(s)
     io.println(s as str)
 
 func io.read_char[] : u8
@@ -376,8 +376,8 @@ func io.read_line[] : str
         c := io.read_char()
         if c == '\n'
             break
-        str.Builder.append_char(b, c)
-    s := str.Builder.build(b)
+        b->append_char(c)
+    s := b->build()
     mem.free(b->data)
     return s
 
@@ -427,13 +427,13 @@ func io.read_binary_file[path: str] : Blob, bool
     _builtin_syscall(SYS_close, fd)
 
     if n != buf->size
-        Blob.free(buf)
+        buf->free()
         return 0 as Blob, false
 
     return buf, true
 
 func io.write_file[path: str, content: str] : bool
-    return io.write_binary_file(path, content as ptr, str.len(content))
+    return io.write_binary_file(path, content as ptr, content->len())
 
 func io.write_binary_file[path: str, content: ptr, size: i64] : bool
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC, 0o644)
@@ -453,7 +453,7 @@ func str.len[s: str] : i64
     return i
 
 func str.make_copy[s: str] : str
-    size := str.len(s) + 1
+    size := s->len() + 1
     dup := mem.alloc(size) as str
     mem.copy(s as ptr, dup as ptr, size)
     return dup
@@ -488,8 +488,8 @@ func str.is_alphanumeric[x: u8] : bool
     return str.is_letter(x) || str.is_digit(x)
 
 func str.concat[a: str, b: str] : str
-    a_len := str.len(a)
-    b_len := str.len(b)
+    a_len := a->len()
+    b_len := b->len()
     out := mem.alloc(a_len + b_len + 1) as str
     mem.copy(a as ptr, out as ptr, a_len)
     mem.copy(b as ptr, out as ptr + a_len, b_len)
@@ -497,11 +497,11 @@ func str.concat[a: str, b: str] : str
     return out
 
 func str.contains[haystack: str, needle: str] : bool
-    return str.find(haystack, needle) != -1
+    return haystack->find(needle) != -1
 
 func str.find[haystack: str, needle: str] : i64
-    haystack_len := str.len(haystack)
-    needle_len := str.len(needle)
+    haystack_len := haystack->len()
+    needle_len := needle->len()
 
     if needle_len == 0
         return 0
@@ -533,7 +533,7 @@ func str.substr[s: str, start: i64, length: i64] : str
     return out
 
 func str.trim[s: str] : str
-    len := str.len(s)
+    len := s->len()
     if len == 0
         out := mem.alloc(1) as str
         out[0] = 0
@@ -548,11 +548,11 @@ func str.trim[s: str] : str
     while end >= start && str.is_whitespace(s[end])
         end -= 1
 
-    return str.substr(s, start, end - start + 1)
+    return s->substr(start, end - start + 1)
 
 func str.split[haystack: str, needle: str]: Array
-    haystack_len := str.len(haystack)
-    needle_len := str.len(needle)
+    haystack_len := haystack->len()
+    needle_len := needle->len()
     result := []
     
     if !needle_len
@@ -560,7 +560,7 @@ func str.split[haystack: str, needle: str]: Array
             return result
         else
             for i in 0..haystack_len
-                array.push(result, str.substr(haystack, i, 1))
+                result->push(haystack->substr(i, 1))
             return result
 
     start := 0
@@ -573,17 +573,17 @@ func str.split[haystack: str, needle: str]: Array
                     match = false
                     break
             if match
-                array.push(result, str.substr(haystack, start, i - start))
+                result->push(haystack->substr(start, i - start))
                 start = i + needle_len
                 i += needle_len
                 continue
         i += 1
 
-    array.push(result, str.substr(haystack, start, haystack_len - start))
+    result->push(haystack->substr(start, haystack_len - start))
     return result
 
 func str.reverse[s: str] : str
-    len := str.len(s)
+    len := s->len()
     out := mem.alloc(len + 1) as str
 
     for i in 0..len
@@ -591,12 +591,12 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-func str.from_i64[n: i64] : str
+func i64.to_str[n: i64] : str
     out := mem.alloc(21)
-    str.from_i64_buf(out, n)
+    n->to_str_buf(out)
     return out as str
 
-func str.from_i64_buf[buf: ptr, n: i64] : void
+func i64.to_str_buf[n: i64, buf: ptr] : void
     if n == 0
         buf[0] = '0'
         buf[1] = 0
@@ -624,12 +624,12 @@ func str.from_i64_buf[buf: ptr, n: i64] : void
         buf[i] = tmp[end + 1 + i]
     buf[len] = 0
 
-func str.hex_from_i64[n: i64] : str
+func i64.to_hex_str[n: i64] : str
     out := mem.alloc(17)
-    str.hex_from_i64_buf(out, n)
+    n->to_hex_str_buf(out)
     return out as str
 
-func str.hex_from_i64_buf[buf: ptr, n: i64] : void
+func i64.to_hex_str_buf[n: i64, buf: ptr] : void
     hex_chars := "0123456789abcdef"
 
     if n == 0
@@ -653,14 +653,14 @@ func str.hex_from_i64_buf[buf: ptr, n: i64] : void
 
     buf[len] = 0
 
-func str.from_char[c: u8] : str
+func u8.to_str[c: u8] : str
     s := mem.alloc(2) as str
     s[0] = c
     s[1] = 0
     return s
 
 func str.parse_i64[s: str] : i64
-    len := str.len(s)
+    len := s->len()
     i := 0
 
     sign := 1
@@ -698,7 +698,7 @@ func str._hex_digit_to_int[d: u8] : u8
     panic("invalid hex digit passed to str._hex_digit_to_int")
 
 func str.hex_decode[s: str] : str
-    s_len := str.len(s)
+    s_len := s->len()
     if s_len % 2 != 0
         panic("invalid hex string passed to str.hex_decode")
 
@@ -729,13 +729,13 @@ func str.Builder._grow[b: str.Builder, needed: i64] : void
         b->capacity = new_capacity
 
 func str.Builder.append_char[b: str.Builder, c: u8] : void
-    str.Builder._grow(b, 1)
+    b->_grow(1)
     b->data[b->size] = c
     b->size += 1
 
 func str.Builder.append[b: str.Builder, s: str] : void
-    len := str.len(s)
-    str.Builder._grow(b, len)
+    len := s->len()
+    b->_grow(len)
     mem.copy(s as ptr, b->data + b->size, len)
     b->size += len
 
@@ -746,8 +746,8 @@ func str.Builder.build[b: str.Builder] : str
     return s
 
 func math.gcd[a: i64, b: i64] : i64
-    a = math.abs(a)
-    b = math.abs(b)
+    a = a->abs()
+    b = b->abs()
     while b != 0
         tmp := b
         b = a % b
@@ -764,14 +764,14 @@ func math.max[a: i64, b: i64] : i64
         return a
     return b
 
-func math.abs[n: i64] : i64
+func i64.abs[n: i64] : i64
     if n == -9223372036854775808
         panic("MIN_I64 passed to math.abs")
     if n < 0
         return -n
     return n
 
-func math.sign[n: i64] : i64
+func i64.sign[n: i64] : i64
     if n < 0
         return -1
     else if n > 0
@@ -793,7 +793,7 @@ func math.pow[b: i64, e: i64] : i64
 func math.lcm[a: i64, b: i64] : i64
     return (a / math.gcd(a, b)) * b
 
-func math.isqrt[n: i64] : i64
+func i64.isqrt[n: i64] : i64
     if n < 0
         panic("negative number passed to math.isqrt")
     if n == 0 || n == 1
@@ -808,7 +808,7 @@ func math.isqrt[n: i64] : i64
 
     return guess
 
-func math.is_prime[n: i64]: bool
+func i64.is_prime[n: i64]: bool
     if n <= 1
         return false
     if n == 2 || n == 3
@@ -828,7 +828,7 @@ struct Array
     size: i64
     capacity: i64
 
-func array.new_preallocated_and_zeroed[size: i64] : Array
+func Array.new_preallocated_and_zeroed[size: i64] : Array
     xs := new* Array
     if size > 0
         xs->data = mem.alloc(size * 8)
@@ -837,17 +837,17 @@ func array.new_preallocated_and_zeroed[size: i64] : Array
         xs->capacity = size
     return xs
 
-func array.nth[xs: Array, n: i64] : any
+func Array.nth[xs: Array, n: i64] : any
     if n < 0 || n >= xs->size
         panic("array.nth out of bounds")
     return mem.read64(xs->data + n * 8)
 
-func array.set[xs: Array, n: i64, x: any] : void
+func Array.set[xs: Array, n: i64, x: any] : void
     if n < 0 || n >= xs->size
         panic("array.set out of bounds")
     mem.write64(xs->data + n * 8, x)
 
-func array.push[xs: Array, x: any] : void
+func Array.push[xs: Array, x: any] : void
     if xs->size == xs->capacity
         new_capacity := 4
         if xs->capacity != 0
@@ -858,35 +858,35 @@ func array.push[xs: Array, x: any] : void
     mem.write64(xs->data + xs->size * 8, x)
     xs->size += 1
 
-func array.free[xs: Array] : void
+func Array.free[xs: Array] : void
     if xs->data != 0
         mem.free(xs->data)
     mem.free(xs)
 
-func array.free_with_items[xs: Array] : void
+func Array.free_with_items[xs: Array] : void
     if xs->data != 0
         for i in 0..xs->size
-            mem.free(array.nth(xs, i))
+            mem.free(xs->nth(i))
         mem.free(xs->data)
     mem.free(xs)
 
-func array.pop[xs: Array] : any
+func Array.pop[xs: Array] : any
     if xs->size == 0
         panic("array.pop on empty array")
-    x : any = array.nth(xs, xs->size - 1)
+    x : any = xs->nth(xs->size - 1)
     xs->size = xs->size - 1
     return x
 
-func array.slice[xs: Array, start: i64, length: i64] : Array
+func Array.slice[xs: Array, start: i64, length: i64] : Array
     if start < 0 || length < 0 || start + length > xs->size
         panic("array.slice out of bounds")
 
-    new_array := array.new_preallocated_and_zeroed(length)
+    new_array := Array.new_preallocated_and_zeroed(length)
     mem.copy(xs->data + start * 8, new_array->data, length * 8)
     return new_array
 
-func array.concat[a: Array, b: Array] : Array
-    new_array := array.new_preallocated_and_zeroed(a->size + b->size)
+func Array.concat[a: Array, b: Array] : Array
+    new_array := Array.new_preallocated_and_zeroed(a->size + b->size)
     mem.copy(a->data, new_array->data, a->size * 8)
     mem.copy(b->data, new_array->data + a->size * 8, b->size * 8)
     return new_array
@@ -903,31 +903,31 @@ struct HashMap._Node
 
 func HashMap.new[] : HashMap
     map := new* HashMap
-    map->table = array.new_preallocated_and_zeroed(HashMap._TABLE_SIZE)
+    map->table = Array.new_preallocated_and_zeroed(HashMap._TABLE_SIZE)
     return map
 
 func HashMap.insert[map: HashMap, key: str, value: any] : void
     index := HashMap._djb2(key)
-    current : HashMap._Node = array.nth(map->table, index)
+    current : HashMap._Node = map->table->nth(index)
 
     while current as ptr
-        if str.equal(current->key, key)
+        if current->key->equal(key)
             current->value = value
             return 0
         current = current->next
 
     new_node := new* HashMap._Node
-    new_node->key = str.make_copy(key)
+    new_node->key = key->make_copy()
     new_node->value = value
-    new_node->next = array.nth(map->table, index)
-    array.set(map->table, index, new_node)
+    new_node->next = map->table->nth(index)
+    map->table->set(index, new_node)
 
 func HashMap.get[map: HashMap, key: str] : any, bool
     index := HashMap._djb2(key)
-    current : HashMap._Node = array.nth(map->table, index)
+    current : HashMap._Node = map->table->nth(index)
 
     while current as ptr
-        if str.equal(current->key, key)
+        if current->key->equal(key)
             return current->value, true
         current = current->next
     
@@ -935,15 +935,15 @@ func HashMap.get[map: HashMap, key: str] : any, bool
 
 func HashMap.delete[map: HashMap, key: str] : void
     index := HashMap._djb2(key)
-    current : HashMap._Node = array.nth(map->table, index)
+    current : HashMap._Node = map->table->nth(index)
     prev := 0 as HashMap._Node
 
     while current as ptr
-        if str.equal(current->key, key)
+        if current->key->equal(key)
             if prev as ptr
                 prev->next = current->next
             else
-                array.set(map->table, index, current->next)
+                map->table->set(index, current->next)
             
             mem.free(current->key)
             mem.free(current)
@@ -954,70 +954,69 @@ func HashMap.delete[map: HashMap, key: str] : void
 
 func HashMap._djb2[key: str] : i64
     hash := 5381 
-    key_len := str.len(key)
-    for i in 0..key_len
+    for i in 0..key->len()
         hash = ((hash << 5) + hash) + key[i]
     hash = (hash & 0x7fffffffffffffff) // prevent negative
     return hash % HashMap._TABLE_SIZE
 
 func HashMap.free[map: HashMap] : void
     for i in 0..HashMap._TABLE_SIZE
-        current : HashMap._Node = array.nth(map->table, i)
+        current : HashMap._Node = map->table->nth(i)
         while current as ptr
             tmp := current
             current = current->next
             mem.free(tmp->key)
             mem.free(tmp)
 
-    array.free(map->table)
+    map->table->free()
     mem.free(map)
 
-func alg.quicksort[arr: Array] : void
-    alg._do_quicksort(arr, 0, arr->size - 1)
+func Array.quicksort[arr: Array] : void
+    arr->_do_quicksort(0, arr->size - 1)
 
-func alg._do_quicksort[arr: Array, low: i64, high: i64] : void
+func Array._do_quicksort[arr: Array, low: i64, high: i64] : void
     if low < high
-        i := alg._partition(arr, low, high)
-        alg._do_quicksort(arr, low, i - 1)
-        alg._do_quicksort(arr, i + 1, high)
+        i := arr->_partition(low, high)
+        arr->_do_quicksort(low, i - 1)
+        arr->_do_quicksort(i + 1, high)
 
-func alg._partition[arr: Array, low: i64, high: i64] : i64
-    pivot : i64 = array.nth(arr, high)
+func Array._partition[arr: Array, low: i64, high: i64] : i64
+    pivot : i64 = arr->nth(high)
     i := low - 1
     for j in (low)..high
-        if array.nth(arr, j) as i64 <= pivot
+        if arr->nth(j) as i64 <= pivot
             i += 1
-            temp : i64 = array.nth(arr ,i)
-            array.set(arr, i, array.nth(arr, j))
-            array.set(arr, j, temp)
-    temp : i64 = array.nth(arr, i + 1)
-    array.set(arr, i + 1, array.nth(arr, high))
-    array.set(arr, high, temp)
+            temp : i64 = arr->nth(i)
+            arr->set(i, arr->nth(j))
+            arr->set(j, temp)
+    temp : i64 = arr->nth(i + 1)
+    arr->set(i + 1, arr->nth(high))
+    arr->set(high, temp)
     return i + 1
 
-func alg.count[arr: Array, item: any] : i64
+func Array.count[arr: Array, item: any] : i64
     count := 0
     for i in 0..arr->size
-        if array.nth(arr, i) == item
+        if arr->nth(i) == item
             count += 1
     return count
 
-func alg.map[arr: Array, fn: fnptr] : Array
-    out := array.new_preallocated_and_zeroed(arr->size)
+func Array.map[arr: Array, fn: fnptr] : Array
+    out := Array.new_preallocated_and_zeroed(arr->size)
     for i in 0..arr->size
-        array.set(out, i, fn(array.nth(arr, i)))
+        out->set(i, fn(arr->nth(i)))
     return out
 
-func alg.filter[arr: Array, fn: fnptr] : Array
+func Array.filter[arr: Array, fn: fnptr] : Array
     out := []
     for i in 0..arr->size
-        if fn(array.nth(arr, i))
-            array.push(out, array.nth(arr, i))
+        if fn(arr->nth(i))
+            out->push(arr->nth(i))
     return out
 
-func alg.reduce[arr: Array, fn: fnptr, acc: any] : any
+func Array.reduce[arr: Array, fn: fnptr, acc: any] : any
     for i in 0..arr->size
-        acc = fn(acc, array.nth(arr, i))
+        acc = fn(acc, arr->nth(i))
     return acc
 
 func os.exit[code: i64] : void
@@ -1098,7 +1097,7 @@ func os.list_directory[path: str] : Array, bool
     while true
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
-            array.free_with_items(files)
+            files->free_with_items()
             _builtin_syscall(SYS_close, fd)
             return 0 as Array, false
         else if n == 0
@@ -1118,7 +1117,7 @@ func os.list_directory[path: str] : Array, bool
                         if name[2] == 0
                             skip = true
                 if !skip
-                    array.push(files, str.make_copy(name as str))
+                    files->push((name as str)->make_copy())
             pos += len
 
     _builtin_syscall(SYS_close, fd)

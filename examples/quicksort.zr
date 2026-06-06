@@ -1,15 +1,15 @@
 func main[] : i64
     arr := []
     for i in 0..10
-        array.push(arr, math.abs(os.urandom_i64()) % 1000)
+        arr->push(os.urandom_i64()->abs() % 1000)
 
     for i in 0..arr->size
-        io.println_i64(array.nth(arr, i))
+        io.println_i64(arr->nth(i))
     io.println("------------")
 
-    alg.quicksort(arr)
+    arr->quicksort()
 
     for i in 0..arr->size
-        io.println_i64(array.nth(arr, i))
+        io.println_i64(arr->nth(i))
 
-    array.free(arr)
+    arr->free()

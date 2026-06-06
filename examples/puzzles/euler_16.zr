@@ -1,19 +1,18 @@
 func main[] : i64
-    n := []
-    array.push(n, 1)
+    n := [1]
 
     for j in 0..1000
         carry := 0
         for i in 0..n->size
-            tmp : i64 = array.nth(n, i) * 2 + carry
-            array.set(n, i, tmp % 10)
+            tmp : i64 = n->nth(i) * 2 + carry
+            n->set(i, tmp % 10)
             carry = tmp / 10
         while carry > 0
-            array.push(n, carry % 10)
+            n->push(carry % 10)
             carry = carry / 10
     
     sum := 0
     for i in 0..n->size
-        sum += array.nth(n, i)
+        sum += n->nth(i)
 
     io.println_i64(sum)

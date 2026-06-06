@@ -6,21 +6,21 @@ func main[] : i64
     sum := 0
 
     for i in 1..10
-        sum += array.nth(s1, i)
+        sum += s1->nth(i)
     for i in 0..10
-        sum += array.nth(s2, i)
+        sum += s2->nth(i)
     for i in 20..100
-        sum += array.nth(s3, i / 10) + array.nth(s1, i % 10)
+        sum += s3->nth(i / 10) + s1->nth(i % 10)
 
     for i in 1..10
-        sum += array.nth(s1, i) + 7
+        sum += s1->nth(i) + 7
         for j in 1..10
-            sum += array.nth(s1, i) + 7 + 3 + array.nth(s1, j)
+            sum += s1->nth(i) + 7 + 3 + s1->nth(j)
         for j in 0..10
-            sum += array.nth(s1, i) + 7 + 3 + array.nth(s2, j)
+            sum += s1->nth(i) + 7 + 3 + s2->nth(j)
         for j in 20..100
-            sum += array.nth(s1, i) + 7 + 3 + array.nth(s3, j / 10) + array.nth(s1, j % 10)
+            sum += s1->nth(i) + 7 + 3 + s3->nth(j / 10) + s1->nth(j % 10)
     
-    sum += array.nth(s1, 1) + 8
+    sum += s1->nth(1) + 8
 
     io.println_i64(sum)

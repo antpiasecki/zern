@@ -1,13 +1,13 @@
 func rule_exists[rules_left: Array, rules_right: Array, a: i64, b: i64] : bool
     for k in 0..rules_left->size
-        if array.nth(rules_left, k) == a && array.nth(rules_right, k) == b
+        if rules_left->nth(k) == a && rules_right->nth(k) == b
             return true
     return false
 
 func check[update: Array, rules_left: Array, rules_right: Array] : bool
     for i in 0..update->size
         for j in 0..i
-            if rule_exists(rules_left, rules_right, array.nth(update, i), array.nth(update, j))
+            if rule_exists(rules_left, rules_right, update->nth(i), update->nth(j))
                 return false
     return true
 
@@ -17,21 +17,21 @@ func sort_by_rules[update: Array, rules_left: Array, rules_right: Array] : void
     while swapped
         swapped = false
         for i in 0..update->size-1
-            a : i64 = array.nth(update, i)
-            b : i64 = array.nth(update, i+1)
+            a : i64 = update->nth(i)
+            b : i64 = update->nth(i+1)
             if rule_exists(rules_left, rules_right, b, a)
                 tmp := a
-                array.set(update, i, b)
-                array.set(update, i+1, tmp)
+                update->set(i, b)
+                update->set(i+1, tmp)
                 swapped = true
 
 func part1[updates: Array, rules_left: Array, rules_right: Array] : void
     out := 0
 
     for i in 0..updates->size
-        update : Array = array.nth(updates, i)
+        update : Array = updates->nth(i)
         if check(update, rules_left, rules_right)
-            out += array.nth(update, update->size / 2)
+            out += update->nth(update->size / 2)
 
     io.println_i64(out)
 
@@ -39,10 +39,10 @@ func part2[updates: Array, rules_left: Array, rules_right: Array] : void
     out := 0
 
     for i in 0..updates->size
-        update : Array = array.nth(updates, i)
+        update : Array = updates->nth(i)
         if !check(update, rules_left, rules_right)
             sort_by_rules(update, rules_left, rules_right)
-            out += array.nth(update, update->size / 2)
+            out += update->nth(update->size / 2)
 
     io.println_i64(out)
 
@@ -51,27 +51,27 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    data := str.split(input, "\n\n")
+    data := input->split("\n\n")
 
     rules_left := []
     rules_right := []
-    rules_lines := str.split(array.nth(data, 0), "\n")
+    rules_lines := (data->nth(0) as str)->split("\n")
     for i in 0..rules_lines->size
-        line : str = array.nth(rules_lines, i)
-        parts := str.split(line, "|")
+        line : str = rules_lines->nth(i)
+        parts := line->split("|")
 
-        array.push(rules_left, str.parse_i64(array.nth(parts, 0)))
-        array.push(rules_right, str.parse_i64(array.nth(parts, 1)))
+        rules_left->push((parts->nth(0) as str)->parse_i64())
+        rules_right->push((parts->nth(1) as str)->parse_i64())
 
     updates := []
-    updates_lines := str.split(array.nth(data, 1), "\n")
+    updates_lines := (data->nth(1) as str)->split("\n")
     for i in 0..updates_lines->size
-        line : str = array.nth(updates_lines, i)
-        xs := str.split(line, ",")
+        line : str = updates_lines->nth(i)
+        xs := line->split(",")
 
         for i in 0..xs->size
-            array.set(xs, i, str.parse_i64(array.nth(xs, i)))
-        array.push(updates, xs)
+            xs->set(i, (xs->nth(i) as str)->parse_i64())
+        updates->push(xs)
 
     part1(updates, rules_left, rules_right)
     part2(updates, rules_left, rules_right)

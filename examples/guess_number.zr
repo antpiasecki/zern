@@ -1,9 +1,9 @@
 func main[] : i64
-    answer := math.abs(os.urandom_i64()) % 100
+    answer := os.urandom_i64()->abs() % 100
 
     while true
         io.println("Guess a number: ")
-        guess := str.parse_i64(io.read_line())
+        guess := io.read_line()->parse_i64()
 
         if guess == answer
             io.println("You win!")

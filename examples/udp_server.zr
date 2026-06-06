@@ -7,7 +7,7 @@ func main[] : i64
     while true
         pkt := net.udp_receive(s, 60000)
         if pkt->size <= 0
-            net.UDPPacket.free(pkt)
+            pkt->free()
             continue
 
         io.printf("%d.%d.%d.%d:%d\n", pkt->source_addr[4], pkt->source_addr[5], pkt->source_addr[6], pkt->source_addr[7], mem.read16be(pkt->source_addr + 2))
@@ -16,4 +16,4 @@ func main[] : i64
         io.println("")
 
         net.udp_send_to(s, pkt->source_addr, pkt->data, pkt->size)
-        net.UDPPacket.free(pkt)
+        pkt->free()

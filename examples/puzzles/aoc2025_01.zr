@@ -3,9 +3,9 @@ func part1[lines: Array] : void
     dial := 50
 
     for i in 0..lines->size
-        line : str = array.nth(lines, i)
+        line : str = lines->nth(i)
         dir := line[0]
-        n := str.parse_i64(str.substr(line, 1, str.len(line) - 1))
+        n := line->substr(1, line->len() - 1)->parse_i64()
 
         if dir == 'L'
             dial -= n
@@ -26,9 +26,9 @@ func part2[lines: Array] : void
     dial := 50
 
     for i in 0..lines->size
-        line : str = array.nth(lines, i)
+        line : str = lines->nth(i)
         dir := line[0]
-        n := str.parse_i64(str.substr(line, 1, str.len(line) - 1))
+        n := line->substr(1, line->len() - 1)->parse_i64()
 
         if dir == 'L'
             for i in 0..n
@@ -51,7 +51,7 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    lines := str.split(input, "\n")
+    lines := input->split("\n")
 
     part1(lines)
     part2(lines)

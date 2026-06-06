@@ -1,14 +1,14 @@
 func check[lines: Array, x: i64, y: i64, dx: i64, dy: i64] : bool
-    if x + dx * 3 < 0 || x + dx * 3 >= lines->size || y + dy * 3 < 0 || y + dy * 3 >= str.len(array.nth(lines, 0))
+    if x + dx * 3 < 0 || x + dx * 3 >= lines->size || y + dy * 3 < 0 || y + dy * 3 >= (lines->nth(0) as str)->len()
         return false
     
-    if array.nth(lines, x)[y] != 'X'
+    if lines->nth(x)[y] != 'X'
         return false
-    if array.nth(lines, x + dx)[y + dy] != 'M'
+    if lines->nth(x + dx)[y + dy] != 'M'
         return false
-    if array.nth(lines, x + dx * 2)[y + dy * 2] != 'A'
+    if lines->nth(x + dx * 2)[y + dy * 2] != 'A'
         return false
-    if array.nth(lines, x + dx * 3)[y + dy * 3] != 'S'
+    if lines->nth(x + dx * 3)[y + dy * 3] != 'S'
         return false
     
     return true
@@ -17,7 +17,7 @@ func part1[lines: Array] : void
     out := 0
 
     for x in 0..lines->size
-        for y in 0..str.len(array.nth(lines, x))
+        for y in 0..(lines->nth(x) as str)->len()
             if check(lines, x, y, 0, 1)
                 out += 1
             if check(lines, x, y, 0, -1)
@@ -42,15 +42,16 @@ func part2[lines: Array] : void
     s := _stackalloc(5) as str
 
     for x in 1..lines->size-1
-        for y in 1..str.len(array.nth(lines, x))-1
-            if array.nth(lines, x)[y] == 'A'
-                s[0] = array.nth(lines, x - 1)[y - 1]
-                s[1] = array.nth(lines, x + 1)[y - 1]
-                s[2] = array.nth(lines, x + 1)[y + 1]
-                s[3] = array.nth(lines, x - 1)[y + 1]
+        line_len := (lines->nth(x) as str)->len()
+        for y in 1..line_len-1
+            if lines->nth(x)[y] == 'A'
+                s[0] = lines->nth(x - 1)[y - 1]
+                s[1] = lines->nth(x + 1)[y - 1]
+                s[2] = lines->nth(x + 1)[y + 1]
+                s[3] = lines->nth(x - 1)[y + 1]
                 s[4] = 0
 
-                if str.equal(s, "MSSM") || str.equal(s, "SMMS") || str.equal(s, "MMSS") || str.equal(s, "SSMM")
+                if s->equal("MSSM") || s->equal("SMMS") || s->equal("MMSS") || s->equal("SSMM")
                     out += 1
 
     io.println_i64(out)
@@ -60,7 +61,7 @@ func main[] : i64
     if !ok
         panic("failed to open input.txt")
     
-    lines := str.split(input, "\n")
+    lines := input->split("\n")
 
     part1(lines)
     part2(lines)
