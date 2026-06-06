@@ -46,4 +46,4 @@ func main[] : i64
 
         i += 1
 
-    mem.free(memory)
+    memory->free()

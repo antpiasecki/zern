@@ -41,7 +41,7 @@ func main[argc: i64, argv: ptr] : i64
     req->append(host)
     req->append("\r\nConnection: close\r\n\r\n")
     net.send(s, req->data, req->size)
-    mem.free(req->data)
+    req->destroy()
 
     header_buf := mem.alloc(8192) as str
     header_size := 0
@@ -64,7 +64,7 @@ func main[argc: i64, argv: ptr] : i64
 
     if end_index < header_size
         io.print_sized(header_buf as ptr + end_index, header_size as i64 - end_index)
-    mem.free(header_buf)
+    header_buf->free()
 
     buffer := mem.alloc(4096)
     while true
@@ -72,6 +72,6 @@ func main[argc: i64, argv: ptr] : i64
         if n <= 0
             break
         io.print_sized(buffer, n)
-    mem.free(buffer)
+    buffer->free()
 
     net.close(s)

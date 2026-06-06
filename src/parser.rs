@@ -583,6 +583,10 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
+            if self.peek().loc.line != self.previous().loc.line {
+                break;
+            }
+
             if self.match_token(&[TokenType::LeftParen]) {
                 let mut args = vec![];
                 if !self.check(&TokenType::RightParen) {

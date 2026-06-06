@@ -8,6 +8,6 @@ func main[] : i64
                 s_rev := s->reverse()
                 if s->equal(s_rev)
                     out = a * b
-                mem.free(s)
-                mem.free(s_rev)
+                s->free()
+                s_rev->free()
     io.println_i64(out)

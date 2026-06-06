@@ -33,7 +33,7 @@ macro_rules! expect_types {
     };
 }
 
-static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "str", "bool", "ptr", "fnptr", "any"];
+static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "any"];
 
 pub struct Env {
     scopes: Vec<HashMap<String, Type>>,
@@ -481,7 +481,7 @@ impl<'a> TypeChecker<'a> {
                         Ok(fn_type.return_type.clone())
                     } else {
                         // its a variable containing function address
-                        expect_type!(self.typecheck_expr(env, callee)?, "fnptr", paren.loc);
+                        expect_type!(self.typecheck_expr(env, callee)?, "ptr", paren.loc);
 
                         for arg in args {
                             self.typecheck_expr(env, arg)?;
@@ -490,7 +490,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 } else {
                     // its an expression that evalutes to function address
-                    expect_type!(self.typecheck_expr(env, callee)?, "fnptr", paren.loc);
+                    expect_type!(self.typecheck_expr(env, callee)?, "ptr", paren.loc);
 
                     for arg in args {
                         self.typecheck_expr(env, arg)?;
@@ -514,13 +514,7 @@ impl<'a> TypeChecker<'a> {
                 Ok("u8".into())
             }
             ExprKind::AddrOf { op, expr } => match &expr.kind {
-                ExprKind::Variable(name) => {
-                    if self.symbol_table.functions.contains_key(&name.lexeme) {
-                        Ok("fnptr".into())
-                    } else {
-                        Ok("ptr".into())
-                    }
-                }
+                ExprKind::Variable(_) => Ok("ptr".into()),
                 _ => {
                     error!(&op.loc, "can only take address of variables and functions")
                 }

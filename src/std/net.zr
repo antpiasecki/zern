@@ -78,12 +78,27 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
+func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : net.UDPPacket
+    pkt := new* net.UDPPacket
+    pkt->data = mem.alloc(size)
+    pkt->source_addr = mem.alloc(16)
+    mem.zero(pkt->source_addr, 16)
+
+    addrlen := 16
+    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->data, size, 0, pkt->source_addr, ^addrlen)
+    return pkt
+
+func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
+    _builtin_syscall(SYS_close, s->fd)
+    s->addr->free()
+    (s as ptr)->free()
+
 func net.create_udp_client[packed_host: i64, port: i64] : net.UDPSocket, bool
     s := new* net.UDPSocket
 
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
-        mem.free(s)
+        s->close_and_free()
         return 0 as net.UDPSocket, false
 
     s->addr = mem.alloc(16)
@@ -110,24 +125,9 @@ struct net.UDPPacket
     size: i64
 
 func net.UDPPacket.free[pkt: net.UDPPacket] : void
-    mem.free(pkt->data)
-    mem.free(pkt->source_addr)
-    mem.free(pkt)
-
-func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : net.UDPPacket
-    pkt := new* net.UDPPacket
-    pkt->data = mem.alloc(size)
-    pkt->source_addr = mem.alloc(16)
-    mem.zero(pkt->source_addr, 16)
-
-    addrlen := 16
-    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->data, size, 0, pkt->source_addr, ^addrlen)
-    return pkt
-
-func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
-    _builtin_syscall(SYS_close, s->fd)
-    mem.free(s->addr)
-    mem.free(s)
+    pkt->data->free()
+    pkt->source_addr->free()
+    (pkt as ptr)->free()
 
 func net.encode_dns_name[domain: str] : Blob
     domain_len := domain->len()

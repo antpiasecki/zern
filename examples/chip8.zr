@@ -21,8 +21,7 @@ struct CHIP8
     display: ptr
     keyboard_map: Array
 
-func chip8_create[] : CHIP8
-    c := new* CHIP8
+func CHIP8.init[c: CHIP8] : void
     c->memory = mem.alloc(4096)
     mem.zero(c->memory, 4096)
     c->display = mem.alloc(64*32)
@@ -43,18 +42,16 @@ func chip8_create[] : CHIP8
     // see KeyboardKey in raylib.h
     c->keyboard_map = [49, 50, 51, 52, 53, 265, 32, 263, 264, 262, 87, 69, 82, 84, 89, 85]
 
-    return c
-
-func chip8_free[c: CHIP8] : void
-    mem.free(c->memory)
+func CHIP8.free[c: CHIP8] : void
+    c->memory->free()
     c->stack->free()
-    mem.free(c->reg)
+    c->reg->free()
     c->keyboard->free()
-    mem.free(c->display)
+    c->display->free()
     c->keyboard_map->free()
-    mem.free(c)
+    (c as ptr)->free()
 
-func chip8_disassemble[c: CHIP8, ins_count: i64] : void
+func CHIP8.disassemble[c: CHIP8, ins_count: i64] : void
     for i in 0..ins_count
         io.printf("0x%x: ", c->pc)
 
@@ -153,7 +150,7 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
         else
             io.printf("??? (%x)\n", ins)
 
-func chip8_step[c: CHIP8] : void
+func CHIP8.step[c: CHIP8] : void
     high := c->memory[c->pc] as i64
     low := c->memory[c->pc + 1] as i64
     c->pc += 2
@@ -288,7 +285,8 @@ func main[argc: i64, argv: ptr] : i64
         io.println("Usage: chip8 -d <path>")
         return 1
     
-    c := chip8_create()
+    c := new CHIP8
+    c->init()
 
     ~buffer, ok := io.read_binary_file(path)
     if !ok
@@ -298,7 +296,7 @@ func main[argc: i64, argv: ptr] : i64
         c->memory[0x200 + i] = buffer->data[i]
 
     if disassemble
-        chip8_disassemble(c, buffer->size / 2)
+        c->disassemble(buffer->size / 2)
         return 0
     
     InitWindow(640, 320, "CHIP-8")
@@ -312,7 +310,7 @@ func main[argc: i64, argv: ptr] : i64
             // TODO: buzzer
         
         for i in 0..25
-            chip8_step(c)
+            c->step()
         
         BeginDrawing()
 

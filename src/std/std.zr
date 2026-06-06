@@ -76,11 +76,11 @@ func mem.alloc[size: i64] : ptr
     
     return blk as ptr + MEM_BLOCK_SIZE
 
-func mem.free[x: any] : void
+func ptr.free[x: ptr] : void
     if x == 0
         return 0
 
-    blk := (x as ptr - MEM_BLOCK_SIZE) as mem.Block
+    blk := (x - MEM_BLOCK_SIZE) as mem.Block
     if blk->free
         return 0
 
@@ -129,7 +129,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
         panic("mem.realloc: called with negative new_size")
 
     if new_size == 0
-        mem.free(x)
+        x->free()
         return 0 as ptr
 
     new_size = mem.align(new_size)
@@ -157,12 +157,12 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
     new_ptr := mem.alloc(new_size)
 
     mem.copy(x, new_ptr, math.min(blk->size, new_size))
-    mem.free(x)
+    x->free()
     return new_ptr
 
-func mem.zero_and_free[x: ptr, size: i64] : void
+func ptr.zero_and_free[x: ptr, size: i64] : void
     mem.zero(x, size)
-    mem.free(x)
+    x->free()
 
 func mem.zero[x: ptr, size: i64] : void
     i := 0
@@ -303,7 +303,7 @@ func io.read_line[] : str
             break
         b->append_char(c)
     s := b->build()
-    mem.free(b->data)
+    b->destroy()
     return s
 
 func io.file_exists[path: str] : bool
@@ -331,7 +331,7 @@ func io.read_text_file[path: str] : str, bool
     _builtin_syscall(SYS_close, fd)
 
     if n != size
-        mem.free(buffer)
+        buffer->free()
         return 0 as str, false
 
     buffer[n] = 0
@@ -370,6 +370,9 @@ func io.write_binary_file[path: str, content: ptr, size: i64] : bool
     if n != size
         return false
     return true
+
+func str.free[s: str] : void
+    (s as ptr)->free()
 
 func str.len[s: str] : i64
     i := 0
@@ -643,6 +646,12 @@ func str.Builder.build[b: str.Builder] : str
     s[b->size] = 0
     return s
 
+func str.Builder.destroy[b: str.Builder] : void
+    if b->data != 0
+        b->data->free()
+    b->size = 0
+    b->capacity = 0
+
 func u8.is_whitespace[x: u8] : bool
     return x == ' ' || x == '\n' || x == '\t' || x == '\r'
 
@@ -821,8 +830,8 @@ func Blob.alloc[size: i64] : Blob
     return buffer
 
 func Blob.free[buf: Blob] : void
-    mem.free(buf->data)
-    mem.free(buf)
+    buf->data->free()
+    (buf as ptr)->free()
 
 struct Array
     data: ptr
@@ -861,15 +870,15 @@ func Array.push[xs: Array, x: any] : void
 
 func Array.free[xs: Array] : void
     if xs->data != 0
-        mem.free(xs->data)
-    mem.free(xs)
+        xs->data->free()
+    (xs as ptr)->free()
 
 func Array.free_with_items[xs: Array] : void
     if xs->data != 0
         for i in 0..xs->size
-            mem.free(xs->nth(i))
-        mem.free(xs->data)
-    mem.free(xs)
+            (xs->nth(i) as ptr)->free()
+        xs->data->free()
+    (xs as ptr)->free()
 
 func Array.pop[xs: Array] : any
     if xs->size == 0
@@ -922,20 +931,20 @@ func Array.count[arr: Array, item: any] : i64
             count += 1
     return count
 
-func Array.map[arr: Array, fn: fnptr] : Array
+func Array.map[arr: Array, fn: ptr] : Array
     out := Array.new_preallocated_and_zeroed(arr->size)
     for i in 0..arr->size
         out->set(i, fn(arr->nth(i)))
     return out
 
-func Array.filter[arr: Array, fn: fnptr] : Array
+func Array.filter[arr: Array, fn: ptr] : Array
     out := []
     for i in 0..arr->size
         if fn(arr->nth(i))
             out->push(arr->nth(i))
     return out
 
-func Array.reduce[arr: Array, fn: fnptr, acc: any] : any
+func Array.reduce[arr: Array, fn: ptr, acc: any] : any
     for i in 0..arr->size
         acc = fn(acc, arr->nth(i))
     return acc
@@ -994,8 +1003,8 @@ func HashMap.delete[map: HashMap, key: str] : void
             else
                 map->table->set(index, current->next)
             
-            mem.free(current->key)
-            mem.free(current)
+            current->key->free()
+            (current as ptr)->free()
             return 0
 
         prev = current
@@ -1014,11 +1023,11 @@ func HashMap.free[map: HashMap] : void
         while current as ptr
             tmp := current
             current = current->next
-            mem.free(tmp->key)
-            mem.free(tmp)
+            tmp->key->free()
+            (tmp as ptr)->free()
 
     map->table->free()
-    mem.free(map)
+    (map as ptr)->free()
 
 func os.exit[code: i64] : void
     _builtin_syscall(SYS_exit, code)
