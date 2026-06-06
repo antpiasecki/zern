@@ -3,6 +3,7 @@ const SOCK_STREAM = 1
 const SOCK_DGRAM = 2
 const SOL_SOCKET = 1
 const SO_REUSEADDR = 2
+const SOMAXCONN = 128
 
 const DNS_TYPE_A = 1
 const DNS_CLASS_IN = 1
@@ -25,7 +26,7 @@ func net.listen[packed_host: i64, port: i64] : i64, bool
         _builtin_syscall(SYS_close, s)
         return -1, false
 
-    if _builtin_syscall(SYS_listen, s, 128) < 0
+    if _builtin_syscall(SYS_listen, s, SOMAXCONN) < 0
         _builtin_syscall(SYS_close, s)
         return -1, false
     

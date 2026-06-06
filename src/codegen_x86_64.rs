@@ -285,7 +285,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
                 }
             }
-            Stmt::Const { name: _, value: _ } => {
+            Stmt::Const { .. } => {
                 // handled in SymbolTable
             }
             Stmt::Block(statements) => {

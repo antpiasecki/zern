@@ -36,7 +36,7 @@ impl FnType {
 
 pub struct SymbolTable {
     pub functions: HashMap<String, FnType>,
-    pub constants: HashMap<String, u64>,
+    pub constants: HashMap<String, i64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
 }
 
@@ -63,24 +63,21 @@ impl SymbolTable {
 
     pub fn register_declaration(&mut self, stmt: &Stmt) -> Result<(), ZernError> {
         match stmt {
-            Stmt::Const { name, value } => {
+            Stmt::Const { name, value, neg } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
-                if value.lexeme.starts_with("0x") {
-                    self.constants.insert(
-                        name.lexeme.clone(),
-                        u64::from_str_radix(&value.lexeme[2..], 16).unwrap(),
-                    );
+                let mut value = if value.lexeme.starts_with("0x") {
+                    u64::from_str_radix(&value.lexeme[2..], 16).unwrap()
                 } else if value.lexeme.starts_with("0o") {
-                    self.constants.insert(
-                        name.lexeme.clone(),
-                        u64::from_str_radix(&value.lexeme[2..], 8).unwrap(),
-                    );
+                    u64::from_str_radix(&value.lexeme[2..], 8).unwrap()
                 } else {
-                    self.constants
-                        .insert(name.lexeme.clone(), value.lexeme.parse().unwrap());
+                    value.lexeme.parse().unwrap()
+                } as i64;
+                if *neg {
+                    value = -value;
                 }
+                self.constants.insert(name.lexeme.clone(), value);
             }
             Stmt::Extern(name) => {
                 if self.is_name_defined(&name.lexeme) {

@@ -39,6 +39,7 @@ pub enum Stmt {
     Const {
         name: Token,
         value: Token,
+        neg: bool,
     },
     Block(Vec<Stmt>),
     If {
@@ -271,8 +272,9 @@ impl Parser {
     fn const_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected const name")?;
         self.consume(TokenType::Equal, "expected '=' after const name")?;
+        let neg = self.match_token(&[TokenType::Minus]);
         let value = self.consume(TokenType::IntLiteral, "expected a number after '='")?;
-        Ok(Stmt::Const { name, value })
+        Ok(Stmt::Const { name, value, neg })
     }
 
     fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {

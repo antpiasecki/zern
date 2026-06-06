@@ -196,7 +196,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            Stmt::Const { name: _, value: _ } => {
+            Stmt::Const { .. } => {
                 // handled in SymbolTable
             }
             Stmt::Block(stmts) => {
