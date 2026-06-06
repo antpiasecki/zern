@@ -7,7 +7,7 @@ func collatz_seq[n: i64]: i64
     i := 1
     while n != 1
         n = collatz_num(n)
-        i = i + 1
+        i += 1
     return i
 
 func main[] : i64

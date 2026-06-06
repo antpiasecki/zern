@@ -19,21 +19,21 @@ func part1[lines: Array] : void
     for x in 0..lines->size
         for y in 0..str.len(array.nth(lines, x))
             if check(lines, x, y, 0, 1)
-                out = out + 1
+                out += 1
             if check(lines, x, y, 0, -1)
-                out = out + 1
+                out += 1
             if check(lines, x, y, 1, 0)
-                out = out + 1
+                out += 1
             if check(lines, x, y, -1, 0)
-                out = out + 1
+                out += 1
             if check(lines, x, y, 1, 1)
-                out = out + 1
+                out += 1
             if check(lines, x, y, -1, -1)
-                out = out + 1
+                out += 1
             if check(lines, x, y, 1, -1)
-                out = out + 1
+                out += 1
             if check(lines, x, y, -1, 1)
-                out = out + 1
+                out += 1
 
     io.println_i64(out)
 
@@ -51,7 +51,7 @@ func part2[lines: Array] : void
                 s[4] = 0
 
                 if str.equal(s, "MSSM") || str.equal(s, "SMMS") || str.equal(s, "MMSS") || str.equal(s, "SSMM")
-                    out = out + 1
+                    out += 1
 
     io.println_i64(out)
 

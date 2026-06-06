@@ -26,13 +26,13 @@ func main[] : i64
 
     while !WindowShouldClose()
         if IsKeyDown(KEY_W) & 255
-            y = y - 10
+            y -= 10
         if IsKeyDown(KEY_S) & 255
-            y = y + 10
+            y += 10
         if IsKeyDown(KEY_A) & 255
-            x = x - 10
+            x -= 10
         if IsKeyDown(KEY_D) & 255
-            x = x + 10
+            x += 10
 
         BeginDrawing()
         ClearBackground(WHITE)

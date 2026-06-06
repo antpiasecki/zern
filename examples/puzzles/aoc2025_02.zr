@@ -18,7 +18,7 @@ func part1[ranges: Array] : void
 
         for n in (start)..end+1
             if part1_is_invalid_id(str.from_i64(n))
-                sum = sum + n
+                sum += n
     
     io.println_i64(sum)
 
@@ -49,7 +49,7 @@ func part2[ranges: Array] : void
 
         for n in (start)..end+1
             if part2_is_invalid_id(str.from_i64(n))
-                sum = sum + n
+                sum += n
     
     io.println_i64(sum)
 

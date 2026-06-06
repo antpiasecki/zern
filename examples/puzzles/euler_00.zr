@@ -3,6 +3,6 @@ func main[] : i64
 
     for i in 0..266000
         if i % 2 != 0
-            sum = sum + i * i
+            sum += i * i
     
     io.println_i64(sum)

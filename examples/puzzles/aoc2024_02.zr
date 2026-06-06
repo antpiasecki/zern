@@ -18,7 +18,7 @@ func part1[data: Array] : void
 
     for i in 0..data->size
         if check(array.nth(data, i))
-            out = out + 1
+            out += 1
 
     io.println_i64(out)
 
@@ -27,14 +27,14 @@ func part2[data: Array] : void
 
     for i in 0..data->size
         if check(array.nth(data, i))
-            out = out + 1
+            out += 1
         else
             arr : Array = array.nth(data, i)
             for j in 0..arr->size
                 sliced := array.concat(array.slice(arr, 0, j), array.slice(arr, j + 1, arr->size - (j + 1)))
                 
                 if check(sliced)
-                    out = out + 1
+                    out += 1
                     break
 
     io.println_i64(out)

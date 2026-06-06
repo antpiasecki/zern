@@ -15,7 +15,7 @@ func part1[lines: Array] : void
                 if n > largest
                     largest = n
 
-        sum = sum + largest
+        sum += largest
     io.println_i64(sum)
 
 // had to cheat this one
@@ -41,7 +41,7 @@ func part2[lines: Array] : void
     for i in 0..lines->size
         line : str = array.nth(lines, i)
 
-        sum = sum + part2_rec(line, 0, 12)
+        sum += part2_rec(line, 0, 12)
     io.println_i64(sum)
 
 func main[] : i64

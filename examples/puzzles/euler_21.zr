@@ -16,6 +16,6 @@ func main[] : i64
     for i in 2..10000
         d := divisors_sum(i)
         if i < d && i == divisors_sum(d)
-            sum = sum + i + d
+            sum += i + d
     
     io.println_i64(sum)

@@ -19,7 +19,7 @@ func main[argc: i64, argv: ptr] : i64
     while i < url_len
         if url[i] == '/'
             break
-        i = i + 1
+        i += 1
 
     host := str.substr(url, host_start, i - host_start)
     path := "/"
@@ -59,7 +59,7 @@ func main[argc: i64, argv: ptr] : i64
                 found = true
                 end_index = i + 4
                 break
-            i = i + 1
+            i += 1
         header_size = current_size
 
     if end_index < header_size

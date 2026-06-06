@@ -16,7 +16,7 @@ func main[] : i64
     for year in 1901..2001
         for mon in 1..13
             if wday == 5
-                sun = sun + 1
+                sun += 1
             wday = (wday + days(year, mon)) % 7
     
     io.println_i64(sun)

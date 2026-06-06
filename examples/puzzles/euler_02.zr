@@ -5,9 +5,9 @@ func main[] : i64
 
     while a < 4000000
         if a % 2 == 0
-            sum = sum + a
+            sum += a
         temp := b
-        b = a + b
+        b += a
         a = temp
 
     io.println_i64(sum)

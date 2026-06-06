@@ -6,6 +6,6 @@ func main[] : i64
         if n % f == 0
             n = n / f
         else
-            f = f + 1
+            f += 1
 
     io.println_i64(n)

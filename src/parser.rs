@@ -355,6 +355,35 @@ impl Parser {
                     op,
                     value,
                 })
+            } else if self.match_token(&[TokenType::PlusEqual, TokenType::MinusEqual]) {
+                let op = self.previous().clone();
+                let right = self.expression()?;
+                let binary_token = Token {
+                    token_type: match op.token_type {
+                        TokenType::PlusEqual => TokenType::Plus,
+                        TokenType::MinusEqual => TokenType::Minus,
+                        _ => unreachable!(),
+                    },
+                    lexeme: match op.token_type {
+                        TokenType::PlusEqual => String::from("+"),
+                        TokenType::MinusEqual => String::from("-"),
+                        _ => unreachable!(),
+                    },
+                    loc: op.loc.clone(),
+                };
+                Ok(Stmt::Assign {
+                    left: expr.clone(),
+                    op: Token {
+                        token_type: TokenType::Equal,
+                        lexeme: String::from("="),
+                        loc: op.loc,
+                    },
+                    value: Expr::new(ExprKind::Binary {
+                        left: Box::new(expr),
+                        op: binary_token,
+                        right: Box::new(right),
+                    }),
+                })
             } else {
                 Ok(Stmt::Expression(expr))
             }

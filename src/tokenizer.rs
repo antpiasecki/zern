@@ -8,7 +8,9 @@ pub enum TokenType {
     RightBracket,
     Comma,
     Plus,
+    PlusEqual,
     Minus,
+    MinusEqual,
     Star,
     Slash,
     Mod,
@@ -154,7 +156,13 @@ impl Tokenizer {
             ')' => self.add_token(TokenType::RightParen)?,
             '[' => self.add_token(TokenType::LeftBracket)?,
             ']' => self.add_token(TokenType::RightBracket)?,
-            '+' => self.add_token(TokenType::Plus)?,
+            '+' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::PlusEqual)?
+                } else {
+                    self.add_token(TokenType::Plus)?
+                }
+            }
             '*' => self.add_token(TokenType::Star)?,
             ',' => self.add_token(TokenType::Comma)?,
             '%' => self.add_token(TokenType::Mod)?,
@@ -162,7 +170,9 @@ impl Tokenizer {
             ':' => self.add_token(TokenType::Colon)?,
             '~' => self.add_token(TokenType::Tilde)?,
             '-' => {
-                if self.match_char('>') {
+                if self.match_char('=') {
+                    self.add_token(TokenType::MinusEqual)?
+                } else if self.match_char('>') {
                     self.add_token(TokenType::Arrow)?
                 } else {
                     self.add_token(TokenType::Minus)?

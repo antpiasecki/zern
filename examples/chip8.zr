@@ -60,7 +60,7 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
 
         high := c->memory[c->pc] as i64
         low := c->memory[c->pc + 1] as i64
-        c->pc = c->pc + 2
+        c->pc += 2
 
         ins := (high << 8) | low
         nnn := ins & 0x0fff
@@ -156,7 +156,7 @@ func chip8_disassemble[c: CHIP8, ins_count: i64] : void
 func chip8_step[c: CHIP8] : void
     high := c->memory[c->pc] as i64
     low := c->memory[c->pc + 1] as i64
-    c->pc = c->pc + 2
+    c->pc += 2
 
     ins := (high << 8) | low
     nnn := ins & 0x0fff
@@ -175,22 +175,22 @@ func chip8_step[c: CHIP8] : void
     else if op == 0x1
         c->pc = nnn
     else if op == 0x2
-        c->sp = c->sp + 1
+        c->sp += 1
         array.set(c->stack, c->sp, c->pc)
         c->pc = nnn
     else if op == 0x3
         if c->reg[x] == kk
-            c->pc = c->pc + 2
+            c->pc += 2
     else if op == 0x4
         if c->reg[x] != kk
-            c->pc = c->pc + 2
+            c->pc += 2
     else if op == 0x5
         if c->reg[x] == c->reg[y]
-            c->pc = c->pc + 2
+            c->pc += 2
     else if op == 0x6
         c->reg[x] = kk
     else if op == 0x7
-        c->reg[x] = c->reg[x] + kk
+        c->reg[x] += kk
     else if op == 0x8
         if n == 0x0
             c->reg[x] = c->reg[y]
@@ -218,7 +218,7 @@ func chip8_step[c: CHIP8] : void
             c->reg[x] = c->reg[x] << 1
     else if op == 0x9
         if c->reg[x] != c->reg[y]
-            c->pc = c->pc + 2
+            c->pc += 2
     else if op == 0xa
         c->I = nnn
     else if op == 0xb
@@ -240,10 +240,10 @@ func chip8_step[c: CHIP8] : void
     else if op == 0xe
         if kk == 0x9e
             if IsKeyDown(array.nth(c->keyboard_map, c->reg[x] as i64))
-                c->pc = c->pc + 2
+                c->pc += 2
         else if kk == 0xa1
             if !IsKeyDown(array.nth(c->keyboard_map, c->reg[x] as i64))
-                c->pc = c->pc + 2
+                c->pc += 2
     else if op == 0xf
         if kk == 0x07
             c->reg[x] = c->delay_timer
@@ -259,7 +259,7 @@ func chip8_step[c: CHIP8] : void
         else if kk == 0x18
             c->sound_timer = c->reg[x]
         else if kk == 0x1E
-            c->I = c->I + c->reg[x]
+            c->I += c->reg[x]
         else if kk == 0x29
             c->I = c->reg[x] as i64 * 5
         else if kk == 0x33

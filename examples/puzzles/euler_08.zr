@@ -8,7 +8,7 @@ func main[] : i64
         j := 0
         while j < 13
             s = s * (n[i + j] - '0')
-            j = j + 1
+            j += 1
         if s > out
             out = s
     io.println_i64(out)

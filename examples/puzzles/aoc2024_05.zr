@@ -31,7 +31,7 @@ func part1[updates: Array, rules_left: Array, rules_right: Array] : void
     for i in 0..updates->size
         update : Array = array.nth(updates, i)
         if check(update, rules_left, rules_right)
-            out = out + array.nth(update, update->size / 2)
+            out += array.nth(update, update->size / 2)
 
     io.println_i64(out)
 
@@ -42,7 +42,7 @@ func part2[updates: Array, rules_left: Array, rules_right: Array] : void
         update : Array = array.nth(updates, i)
         if !check(update, rules_left, rules_right)
             sort_by_rules(update, rules_left, rules_right)
-            out = out + array.nth(update, update->size / 2)
+            out += array.nth(update, update->size / 2)
 
     io.println_i64(out)
 
