@@ -3,7 +3,7 @@ func main[] : i64
 
     while true
         io.println("Guess a number: ")
-        guess := io.read_line() |> str.trim() |> str.parse_i64()
+        guess := str.parse_i64(io.read_line())
 
         if guess == answer
             io.println("You win!")

@@ -439,37 +439,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ZernError> {
-        self.pipe()
-    }
-
-    fn pipe(&mut self) -> Result<Expr, ZernError> {
-        let mut expr = self.or_and()?;
-
-        while self.match_token(&[TokenType::Pipe]) {
-            let pipe = self.previous().clone();
-            let right = self.equality()?;
-
-            match right.kind {
-                ExprKind::Call {
-                    callee,
-                    paren,
-                    args,
-                } => {
-                    let mut new_args = args;
-                    new_args.insert(0, expr);
-                    expr = Expr::new(ExprKind::Call {
-                        callee,
-                        paren,
-                        args: new_args,
-                    })
-                }
-                _ => {
-                    return error!(pipe.loc, "tried to pipe into a non-call expression");
-                }
-            };
-        }
-
-        Ok(expr)
+        self.or_and()
     }
 
     fn or_and(&mut self) -> Result<Expr, ZernError> {

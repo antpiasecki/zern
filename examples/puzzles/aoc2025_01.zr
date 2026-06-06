@@ -5,7 +5,7 @@ func part1[lines: Array] : void
     for i in 0..lines->size
         line : str = array.nth(lines, i)
         dir := line[0]
-        n := str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+        n := str.parse_i64(str.substr(line, 1, str.len(line) - 1))
 
         if dir == 'L'
             dial -= n
@@ -28,7 +28,7 @@ func part2[lines: Array] : void
     for i in 0..lines->size
         line : str = array.nth(lines, i)
         dir := line[0]
-        n := str.substr(line, 1, str.len(line) - 1) |> str.parse_i64()
+        n := str.parse_i64(str.substr(line, 1, str.len(line) - 1))
 
         if dir == 'L'
             for i in 0..n

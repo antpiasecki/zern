@@ -12,9 +12,9 @@ func part1[ranges: Array] : void
     sum := 0
 
     for i in 0..ranges->size
-        parts := array.nth(ranges, i) |> str.split("-")
-        start := array.nth(parts, 0) |> str.parse_i64()
-        end := array.nth(parts, 1) |> str.parse_i64()
+        parts := str.split(array.nth(ranges, i), "-")
+        start := str.parse_i64(array.nth(parts, 0))
+        end := str.parse_i64(array.nth(parts, 1))
 
         for n in (start)..end+1
             if part1_is_invalid_id(str.from_i64(n))
@@ -43,9 +43,9 @@ func part2[ranges: Array] : void
     sum := 0
 
     for i in 0..ranges->size
-        parts := array.nth(ranges, i) |> str.split("-")
-        start := array.nth(parts, 0) |> str.parse_i64()
-        end := array.nth(parts, 1) |> str.parse_i64()
+        parts := str.split(array.nth(ranges, i), "-")
+        start := str.parse_i64(array.nth(parts, 0))
+        end := str.parse_i64(array.nth(parts, 1))
 
         for n in (start)..end+1
             if part2_is_invalid_id(str.from_i64(n))

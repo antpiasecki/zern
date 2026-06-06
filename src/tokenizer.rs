@@ -21,7 +21,6 @@ pub enum TokenType {
     BitOr,
     LogicalAnd,
     LogicalOr,
-    Pipe,
     DoubleDot,
     ShiftLeft,
     ShiftRight,
@@ -202,9 +201,7 @@ impl Tokenizer {
                 }
             }
             '|' => {
-                if self.match_char('>') {
-                    self.add_token(TokenType::Pipe)?
-                } else if self.match_char('|') {
+                if self.match_char('|') {
                     self.add_token(TokenType::LogicalOr)?
                 } else {
                     self.add_token(TokenType::BitOr)?

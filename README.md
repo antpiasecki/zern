@@ -8,7 +8,7 @@ A very cool language
 * Growing [standard library](https://git.ton1.dev/toni/zern/src/branch/main/src/std)
 * Produces tiny static executables (11KB for `hello.zr`)
 * No libc required!
-* Has type inference, pipe operator, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
+* Has type inference, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
 ```rust
@@ -17,7 +17,7 @@ func main[] : i64
 
     while true
         io.println("Guess a number: ")
-        guess := io.read_line() |> str.trim() |> str.parse_i64()
+        guess := str.parse_i64(io.read_line())
 
         if guess == answer
             io.println("You win!")
@@ -26,20 +26,6 @@ func main[] : i64
             io.println("Too low!")
         else
             io.println("Too high!")
-```
-
-```rust
-func square[x: i64] : i64
-    return x * x
-
-func sum[a: i64, b: i64] : i64
-    return a + b
-
-func main[] : i64
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-    |> alg.map(^square)
-    |> alg.reduce(^sum, 0)
-    |> io.println_i64()
 ```
 
 ## Quickstart
