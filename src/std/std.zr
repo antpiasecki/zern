@@ -121,7 +121,7 @@ func mem.free[x: any] : void
             mem.write64(_builtin_heap_tail(), blk->prev)
         _builtin_syscall(SYS_munmap, blk, block_total)
 
-func mem.realloc[x: ptr, new_size: i64] : ptr
+func ptr.realloc[x: ptr, new_size: i64] : ptr
     if !x
         return mem.alloc(new_size)
     
@@ -226,20 +226,6 @@ func mem.write16be[x: ptr, d: i64] : void
 func mem.write64[x: ptr, d: any] : void
     _builtin_set64(x, d)
 
-struct Blob
-    data: ptr
-    size: i64
-
-func Blob.alloc[size: i64] : Blob
-    buffer := new* Blob
-    buffer->size = size
-    buffer->data = mem.alloc(size)
-    return buffer
-
-func Blob.free[buf: Blob] : void
-    mem.free(buf->data)
-    mem.free(buf)
-
 func io.printf[..] : void
     s := _var_arg(0) as ptr
     i := 1
@@ -269,67 +255,6 @@ func io.printf[..] : void
         else
             io.print_char(s[0])
         s += 1
-
-func str.format_into[..] : i64
-    buf := _var_arg(0) as ptr
-    size := _var_arg(1) as i64
-    if size <= 0
-        return 0
-    s := _var_arg(2) as ptr
-    i := 3
-    n := 0
-
-    tmp := _stackalloc(21) as str
-
-    while s[0]
-        if s[0] == '%'
-            s += 1
-
-            if s[0] == 'd'
-                (_var_arg(i) as i64)->to_str_buf(tmp as ptr)
-                tmp_len := tmp->len()
-                remaining := size - n - 1
-                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 'x'
-                (_var_arg(i) as i64)->to_hex_str_buf(tmp as ptr)
-                tmp_len := tmp->len()
-                remaining := size - n - 1
-                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 's'
-                tmp_str := _var_arg(i) as str
-                tmp_len := tmp_str->len()
-                remaining := size - n - 1
-                mem.copy(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 'c'
-                if n < size - 1
-                    buf[n] = _var_arg(i) as u8
-                n += 1
-                i += 1
-            else if s[0] == '%'
-                if n < size - 1
-                    buf[n] = '%'
-                n += 1
-            else if s[0] == 0
-                break
-            else
-                panic("str.format_into: unrecognized format")
-        else
-            if n < size - 1
-                buf[n] = s[0]
-            n += 1
-        s += 1
-
-    if n < size
-        buf[n] = 0
-    else if size > 0
-        buf[size - 1] = 0
-    return n
 
 func io.print_sized[x: ptr, size: i64] : void
     _builtin_syscall(SYS_write, STDOUT, x, size)
@@ -466,26 +391,66 @@ func str.equal[a: str, b: str] : bool
         i += 1
     return a[i] == b[i]
 
-func str.is_whitespace[x: u8] : bool
-    return x == ' ' || x == '\n' || x == '\t' || x == '\r'
+func str.format_into[..] : i64
+    buf := _var_arg(0) as ptr
+    size := _var_arg(1) as i64
+    if size <= 0
+        return 0
+    s := _var_arg(2) as ptr
+    i := 3
+    n := 0
 
-func str.is_digit[x: u8] : bool
-    return x >= '0' && x <= '9'
+    tmp := _stackalloc(21) as str
 
-func str.is_hex_digit[x: u8] : bool
-    return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F')
+    while s[0]
+        if s[0] == '%'
+            s += 1
 
-func str.is_lowercase[x: u8] : bool
-    return x >= 'a' && x <= 'z'
+            if s[0] == 'd'
+                (_var_arg(i) as i64)->to_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
+                remaining := size - n - 1
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 'x'
+                (_var_arg(i) as i64)->to_hex_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
+                remaining := size - n - 1
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 's'
+                tmp_str := _var_arg(i) as str
+                tmp_len := tmp_str->len()
+                remaining := size - n - 1
+                mem.copy(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 'c'
+                if n < size - 1
+                    buf[n] = _var_arg(i) as u8
+                n += 1
+                i += 1
+            else if s[0] == '%'
+                if n < size - 1
+                    buf[n] = '%'
+                n += 1
+            else if s[0] == 0
+                break
+            else
+                panic("str.format_into: unrecognized format")
+        else
+            if n < size - 1
+                buf[n] = s[0]
+            n += 1
+        s += 1
 
-func str.is_uppercase[x: u8] : bool
-    return x >= 'A' && x <= 'Z'
-
-func str.is_letter[x: u8] : bool
-    return str.is_uppercase(x) || str.is_lowercase(x)
-
-func str.is_alphanumeric[x: u8] : bool
-    return str.is_letter(x) || str.is_digit(x)
+    if n < size
+        buf[n] = 0
+    else if size > 0
+        buf[size - 1] = 0
+    return n
 
 func str.concat[a: str, b: str] : str
     a_len := a->len()
@@ -542,10 +507,10 @@ func str.trim[s: str] : str
     start := 0
     end := len - 1
 
-    while start <= end && str.is_whitespace(s[start])
+    while start <= end && s[start]->is_whitespace()
         start += 1
 
-    while end >= start && str.is_whitespace(s[end])
+    while end >= start && s[end]->is_whitespace()
         end -= 1
 
     return s->substr(start, end - start + 1)
@@ -591,73 +556,6 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-func i64.to_str[n: i64] : str
-    out := mem.alloc(21)
-    n->to_str_buf(out)
-    return out as str
-
-func i64.to_str_buf[n: i64, buf: ptr] : void
-    if n == 0
-        buf[0] = '0'
-        buf[1] = 0
-        return 0
-
-    neg : bool = n < 0
-    if neg
-        // MIN_I64 will fail but i so dont care
-        n = -n
-    tmp := _stackalloc(21)
-    end := 20
-    tmp[end] = 0
-    end -= 1
-    for i in 0..19
-        if n == 0
-            break
-        tmp[end] = '0' + (n % 10)
-        n = n / 10
-        end -= 1
-    if neg
-        tmp[end] = '-'
-        end -= 1
-    len := 19 - end
-    for i in 0..len
-        buf[i] = tmp[end + 1 + i]
-    buf[len] = 0
-
-func i64.to_hex_str[n: i64] : str
-    out := mem.alloc(17)
-    n->to_hex_str_buf(out)
-    return out as str
-
-func i64.to_hex_str_buf[n: i64, buf: ptr] : void
-    hex_chars := "0123456789abcdef"
-
-    if n == 0
-        buf[0] = '0'
-        buf[1] = 0
-        return 0
-
-    mask := (1 << 60) - 1
-    tmp := _stackalloc(17)
-    len := 0
-
-    for i in 0..16
-        if n == 0
-            break
-        tmp[len] = hex_chars[n & 15]
-        n = (n >> 4) & mask
-        len += 1
-
-    for j in 0..len
-        buf[j] = tmp[len - 1 - j]
-
-    buf[len] = 0
-
-func u8.to_str[c: u8] : str
-    s := mem.alloc(2) as str
-    s[0] = c
-    s[1] = 0
-    return s
 
 func str.parse_i64[s: str] : i64
     len := s->len()
@@ -725,7 +623,7 @@ func str.Builder._grow[b: str.Builder, needed: i64] : void
             new_capacity = b->capacity * 2
         while new_capacity < b->size + needed
             new_capacity = new_capacity * 2
-        b->data = mem.realloc(b->data, new_capacity)
+        b->data = b->data->realloc(new_capacity)
         b->capacity = new_capacity
 
 func str.Builder.append_char[b: str.Builder, c: u8] : void
@@ -745,24 +643,32 @@ func str.Builder.build[b: str.Builder] : str
     s[b->size] = 0
     return s
 
-func math.gcd[a: i64, b: i64] : i64
-    a = a->abs()
-    b = b->abs()
-    while b != 0
-        tmp := b
-        b = a % b
-        a = tmp
-    return a
+func u8.is_whitespace[x: u8] : bool
+    return x == ' ' || x == '\n' || x == '\t' || x == '\r'
 
-func math.min[a: i64, b: i64] : i64
-    if a < b
-        return a
-    return b
+func u8.is_digit[x: u8] : bool
+    return x >= '0' && x <= '9'
 
-func math.max[a: i64, b: i64] : i64
-    if a > b
-        return a
-    return b
+func u8.is_hex_digit[x: u8] : bool
+    return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F')
+
+func u8.is_lowercase[x: u8] : bool
+    return x >= 'a' && x <= 'z'
+
+func u8.is_uppercase[x: u8] : bool
+    return x >= 'A' && x <= 'Z'
+
+func u8.is_letter[x: u8] : bool
+    return x->is_uppercase() || x->is_lowercase()
+
+func u8.is_alphanumeric[x: u8] : bool
+    return x->is_letter() || x->is_digit()
+
+func u8.to_str[c: u8] : str
+    s := mem.alloc(2) as str
+    s[0] = c
+    s[1] = 0
+    return s
 
 func i64.abs[n: i64] : i64
     if n == -9223372036854775808
@@ -778,20 +684,6 @@ func i64.sign[n: i64] : i64
         return 1
     else
         return 0
-
-func math.pow[b: i64, e: i64] : i64
-    if e < 0
-        panic("negative exponent passed to math.pow")
-    out := 1
-    while e > 0
-        if e & 1
-            out = out * b
-        b = b * b
-        e = e >> 1
-    return out
-
-func math.lcm[a: i64, b: i64] : i64
-    return (a / math.gcd(a, b)) * b
 
 func i64.isqrt[n: i64] : i64
     if n < 0
@@ -823,6 +715,115 @@ func i64.is_prime[n: i64]: bool
         i += 6
     return true
 
+func i64.to_str[n: i64] : str
+    out := mem.alloc(21)
+    n->to_str_buf(out)
+    return out as str
+
+func i64.to_str_buf[n: i64, buf: ptr] : void
+    if n == 0
+        buf[0] = '0'
+        buf[1] = 0
+        return 0
+
+    neg : bool = n < 0
+    if neg
+        // MIN_I64 will fail but i so dont care
+        n = -n
+    tmp := _stackalloc(21)
+    end := 20
+    tmp[end] = 0
+    end -= 1
+    for i in 0..19
+        if n == 0
+            break
+        tmp[end] = '0' + (n % 10)
+        n = n / 10
+        end -= 1
+    if neg
+        tmp[end] = '-'
+        end -= 1
+    len := 19 - end
+    for i in 0..len
+        buf[i] = tmp[end + 1 + i]
+    buf[len] = 0
+
+func i64.to_hex_str[n: i64] : str
+    out := mem.alloc(17)
+    n->to_hex_str_buf(out)
+    return out as str
+
+func i64.to_hex_str_buf[n: i64, buf: ptr] : void
+    hex_chars := "0123456789abcdef"
+
+    if n == 0
+        buf[0] = '0'
+        buf[1] = 0
+        return 0
+
+    mask := (1 << 60) - 1
+    tmp := _stackalloc(17)
+    len := 0
+
+    for i in 0..16
+        if n == 0
+            break
+        tmp[len] = hex_chars[n & 15]
+        n = (n >> 4) & mask
+        len += 1
+
+    for j in 0..len
+        buf[j] = tmp[len - 1 - j]
+
+    buf[len] = 0
+
+func math.gcd[a: i64, b: i64] : i64
+    a = a->abs()
+    b = b->abs()
+    while b != 0
+        tmp := b
+        b = a % b
+        a = tmp
+    return a
+
+func math.min[a: i64, b: i64] : i64
+    if a < b
+        return a
+    return b
+
+func math.max[a: i64, b: i64] : i64
+    if a > b
+        return a
+    return b
+
+func math.pow[b: i64, e: i64] : i64
+    if e < 0
+        panic("negative exponent passed to math.pow")
+    out := 1
+    while e > 0
+        if e & 1
+            out = out * b
+        b = b * b
+        e = e >> 1
+    return out
+
+func math.lcm[a: i64, b: i64] : i64
+    return (a / math.gcd(a, b)) * b
+
+struct Blob
+    data: ptr
+    size: i64
+
+func Blob.alloc[size: i64] : Blob
+    buffer := new* Blob
+    buffer->size = size
+    buffer->data = mem.alloc(size)
+    return buffer
+
+func Blob.free[buf: Blob] : void
+    mem.free(buf->data)
+    mem.free(buf)
+
 struct Array
     data: ptr
     size: i64
@@ -852,7 +853,7 @@ func Array.push[xs: Array, x: any] : void
         new_capacity := 4
         if xs->capacity != 0
             new_capacity = xs->capacity * 2
-        xs->data = mem.realloc(xs->data, new_capacity * 8)
+        xs->data = xs->data->realloc(new_capacity * 8)
         xs->capacity = new_capacity
 
     mem.write64(xs->data + xs->size * 8, x)
@@ -890,6 +891,54 @@ func Array.concat[a: Array, b: Array] : Array
     mem.copy(a->data, new_array->data, a->size * 8)
     mem.copy(b->data, new_array->data + a->size * 8, b->size * 8)
     return new_array
+
+func Array.quicksort[arr: Array] : void
+    arr->_do_quicksort(0, arr->size - 1)
+
+func Array._do_quicksort[arr: Array, low: i64, high: i64] : void
+    if low < high
+        i := arr->_partition(low, high)
+        arr->_do_quicksort(low, i - 1)
+        arr->_do_quicksort(i + 1, high)
+
+func Array._partition[arr: Array, low: i64, high: i64] : i64
+    pivot : i64 = arr->nth(high)
+    i := low - 1
+    for j in (low)..high
+        if arr->nth(j) as i64 <= pivot
+            i += 1
+            temp : i64 = arr->nth(i)
+            arr->set(i, arr->nth(j))
+            arr->set(j, temp)
+    temp : i64 = arr->nth(i + 1)
+    arr->set(i + 1, arr->nth(high))
+    arr->set(high, temp)
+    return i + 1
+
+func Array.count[arr: Array, item: any] : i64
+    count := 0
+    for i in 0..arr->size
+        if arr->nth(i) == item
+            count += 1
+    return count
+
+func Array.map[arr: Array, fn: fnptr] : Array
+    out := Array.new_preallocated_and_zeroed(arr->size)
+    for i in 0..arr->size
+        out->set(i, fn(arr->nth(i)))
+    return out
+
+func Array.filter[arr: Array, fn: fnptr] : Array
+    out := []
+    for i in 0..arr->size
+        if fn(arr->nth(i))
+            out->push(arr->nth(i))
+    return out
+
+func Array.reduce[arr: Array, fn: fnptr, acc: any] : any
+    for i in 0..arr->size
+        acc = fn(acc, arr->nth(i))
+    return acc
 
 const HashMap._TABLE_SIZE = 100
 
@@ -970,54 +1019,6 @@ func HashMap.free[map: HashMap] : void
 
     map->table->free()
     mem.free(map)
-
-func Array.quicksort[arr: Array] : void
-    arr->_do_quicksort(0, arr->size - 1)
-
-func Array._do_quicksort[arr: Array, low: i64, high: i64] : void
-    if low < high
-        i := arr->_partition(low, high)
-        arr->_do_quicksort(low, i - 1)
-        arr->_do_quicksort(i + 1, high)
-
-func Array._partition[arr: Array, low: i64, high: i64] : i64
-    pivot : i64 = arr->nth(high)
-    i := low - 1
-    for j in (low)..high
-        if arr->nth(j) as i64 <= pivot
-            i += 1
-            temp : i64 = arr->nth(i)
-            arr->set(i, arr->nth(j))
-            arr->set(j, temp)
-    temp : i64 = arr->nth(i + 1)
-    arr->set(i + 1, arr->nth(high))
-    arr->set(high, temp)
-    return i + 1
-
-func Array.count[arr: Array, item: any] : i64
-    count := 0
-    for i in 0..arr->size
-        if arr->nth(i) == item
-            count += 1
-    return count
-
-func Array.map[arr: Array, fn: fnptr] : Array
-    out := Array.new_preallocated_and_zeroed(arr->size)
-    for i in 0..arr->size
-        out->set(i, fn(arr->nth(i)))
-    return out
-
-func Array.filter[arr: Array, fn: fnptr] : Array
-    out := []
-    for i in 0..arr->size
-        if fn(arr->nth(i))
-            out->push(arr->nth(i))
-    return out
-
-func Array.reduce[arr: Array, fn: fnptr, acc: any] : any
-    for i in 0..arr->size
-        acc = fn(acc, arr->nth(i))
-    return acc
 
 func os.exit[code: i64] : void
     _builtin_syscall(SYS_exit, code)

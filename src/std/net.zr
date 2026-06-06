@@ -4,6 +4,7 @@ const SOCK_DGRAM = 2
 const SOL_SOCKET = 1
 const SO_REUSEADDR = 2
 const SOMAXCONN = 128
+const IP_MAXPACKET = 65535
 
 const DNS_TYPE_A = 1
 const DNS_CLASS_IN = 1
@@ -100,7 +101,7 @@ func net.create_udp_server[packed_host: i64, port: i64] : net.UDPSocket, bool
 
     return s, true
 
-func net.udp_send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : void
+func net.UDPSocket.send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : void
     _builtin_syscall(SYS_sendto, s->fd, data, size, 0, addr, 16)
 
 struct net.UDPPacket
@@ -113,7 +114,7 @@ func net.UDPPacket.free[pkt: net.UDPPacket] : void
     mem.free(pkt->source_addr)
     mem.free(pkt)
 
-func net.udp_receive[s: net.UDPSocket, size: i64] : net.UDPPacket
+func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : net.UDPPacket
     pkt := new* net.UDPPacket
     pkt->data = mem.alloc(size)
     pkt->source_addr = mem.alloc(16)
@@ -178,9 +179,9 @@ func net.resolve[domain: str] : i64, bool
         query->free()
         return -1, false
 
-    net.udp_send_to(s, s->addr, query->data, query->size)
+    s->send_to(s->addr, query->data, query->size)
     query->free()
-    pkt := net.udp_receive(s, 1024)
+    pkt := s->receive(1024)
     s->close_and_free()
 
     // TODO: do actual parsing

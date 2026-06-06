@@ -5,7 +5,7 @@ func main[] : i64
 
     io.println("Listening on port 8000...")
     while true
-        pkt := net.udp_receive(s, 60000)
+        pkt := s->receive(IP_MAXPACKET)
         if pkt->size <= 0
             pkt->free()
             continue
@@ -15,5 +15,5 @@ func main[] : i64
         io.print_sized(pkt->data, pkt->size)
         io.println("")
 
-        net.udp_send_to(s, pkt->source_addr, pkt->data, pkt->size)
+        s->send_to(pkt->source_addr, pkt->data, pkt->size)
         pkt->free()
