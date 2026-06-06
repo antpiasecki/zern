@@ -1,5 +1,6 @@
 func part1[lines: Array] : void
     sum := 0
+    s := _stackalloc(3) as str
 
     for i in 0..lines->size
         line : str = array.nth(lines, i)
@@ -7,7 +8,6 @@ func part1[lines: Array] : void
         largest := 0
         for j in 0..str.len(line)
             for k in (j+1)..str.len(line)
-                s := _stackalloc(3) as str
                 s[0] = line[j]
                 s[1] = line[k]
                 s[2] = 0

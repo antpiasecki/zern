@@ -436,12 +436,14 @@ _builtin_environ:
 
                 self.compile_expr(env, start)?;
                 emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                self.compile_expr(env, end)?;
+                let end_offset = env.next_offset;
+                env.next_offset += 8;
+                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", end_offset);
                 emit!(&mut self.output, "{}:", env.loop_begin_label);
                 emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
-                emit!(&mut self.output, "    push rax");
-                self.compile_expr(env, end)?;
-                emit!(&mut self.output, "    pop rcx");
-                emit!(&mut self.output, "    cmp rcx, rax");
+                emit!(&mut self.output, "    mov rcx, QWORD [rbp-{}]", end_offset);
+                emit!(&mut self.output, "    cmp rax, rcx");
                 emit!(&mut self.output, "    jge {}", env.loop_end_label);
                 self.compile_stmt(env, body)?;
                 emit!(&mut self.output, "{}:", env.loop_continue_label);
