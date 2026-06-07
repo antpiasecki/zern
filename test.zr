@@ -1,6 +1,6 @@
 func run_test[x: str] : void
-    build_blacklist := ["examples/puzzles", "examples/raylib.zr", "examples/chip8.zr", "examples/sqlite_todo.zr"]
-    run_blacklist := ["/aoc", "guess_number.zr", "tcp_server.zr", "udp_server.zr"]
+    build_blacklist := ["examples/euler", "examples/raylib.zr", "examples/chip8.zr", "examples/sqlite_todo.zr"]
+    run_blacklist := ["guess_number.zr", "tcp_server.zr", "udp_server.zr"]
 
     for i in 0..build_blacklist->size
         if x->equal(build_blacklist->nth(i))
@@ -18,7 +18,7 @@ func run_test[x: str] : void
     io.printf("%dms\n", build_end_time - build_start_time)
 
     for i in 0..run_blacklist->size
-        if x->find(run_blacklist->nth(i)) != -1
+        if x->contains(run_blacklist->nth(i))
             io.printf("Skipping %s...\n", x)
             return 0
 
@@ -49,4 +49,4 @@ func main[] : i64
         os.exit(1)
 
     run_directory("examples/")
-    run_directory("examples/puzzles/")
+    run_directory("examples/euler/")
