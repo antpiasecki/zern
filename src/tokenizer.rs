@@ -260,7 +260,7 @@ impl Tokenizer {
                         break;
                     } else if self.peek() == '\n' {
                         self.loc.line += 1;
-                        self.loc.column = 1;
+                        self.loc.column = 0;
                     }
                     self.advance();
                 }

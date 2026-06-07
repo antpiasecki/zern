@@ -495,9 +495,6 @@ func str.find[haystack: str, needle: str] : i64
     return -1
 
 func str.substr[s: str, start: i64, length: i64] : str
-    if start < 0 || length < 0 || start + length > str.len(s)
-        panic("str.substr out of bounds")
-
     out := mem.alloc(length + 1) as str
     mem.copy(s as ptr + start, out as ptr, length)
     out[length] = 0
@@ -1037,6 +1034,12 @@ func os.exit[code: i64] : void
 
 func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
+
+func os.basename[path: str] : str
+    i := path->len() - 1
+    while i >= 0 && path[i] != '/'
+        i -= 1
+    return path->substr(i + 1, path->len() - i - 1)
 
 struct os.Timespec
     tv_sec: i64

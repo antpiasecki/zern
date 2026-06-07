@@ -54,7 +54,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types);
+    let mut codegen =
+        codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types, args.emit_debug);
     codegen.emit_prologue(args.use_crt)?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
@@ -63,19 +64,18 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     if !args.emit_only {
         let out = args.out.unwrap_or_else(|| "out".into());
 
-        fs::write(format!("{}.s", out), codegen.get_output()).unwrap();
+        fs::write(format!("{out}.s"), codegen.get_output()).unwrap();
 
-        run_command(format!("nasm -f elf64 -o {}.o {}.s", out, out));
+        run_command(format!("nasm -f elf64 -o {out}.o {out}.s"));
 
         if args.use_crt {
             run_command(format!(
-                "cc -no-pie -o {} {}.o -flto -Wl,--gc-sections {}",
-                out, out, args.cflags
+                "cc -no-pie -o {out} {out}.o -flto -Wl,--gc-sections {}",
+                args.cflags
             ));
         } else {
             run_command(format!(
-                "ld -static -o {} {}.o --gc-sections -e _start",
-                out, out
+                "ld -static -o {out} {out}.o --gc-sections -e _start"
             ));
         }
 
@@ -113,6 +113,7 @@ struct Args {
     path: String,
     out: Option<String>,
     emit_only: bool,
+    emit_debug: bool,
     include_stdlib: bool,
     run_exe: bool,
     use_crt: bool,
@@ -127,6 +128,7 @@ impl Args {
             path: String::new(),
             out: None,
             emit_only: false,
+            emit_debug: false,
             include_stdlib: true,
             run_exe: false,
             use_crt: false,
@@ -150,6 +152,8 @@ impl Args {
                 out.run_exe = true;
             } else if arg == "-m" {
                 out.use_crt = true;
+            } else if arg == "-g" {
+                out.emit_debug = true;
             } else if arg == "-C" {
                 match args.next() {
                     Some(s) => out.cflags = s,
@@ -160,16 +164,16 @@ impl Args {
                 }
             } else if arg == "-h" || arg == "--help" {
                 println!(
-                    "Usage: zern [-o path] [-r] [-m] [-C cflags] [--emit-only] [--no-stdlib] path"
+                    "Usage: zern [-o path] [-r] [-m] [-g] [-C cflags] [--emit-only] [--no-stdlib] path"
                 );
                 process::exit(0);
             } else if arg.starts_with('-') {
-                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {}", arg);
+                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {arg}");
                 process::exit(1);
             } else if out.path.is_empty() {
                 out.path = arg
             } else {
-                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized argument: {}", arg);
+                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized argument: {arg}");
                 process::exit(1);
             }
         }

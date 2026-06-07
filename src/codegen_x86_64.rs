@@ -77,12 +77,14 @@ pub struct CodegenX86_64<'a> {
     data_counter: usize,
     pub symbol_table: &'a SymbolTable,
     pub expr_types: &'a HashMap<usize, String>,
+    emit_debug: bool,
 }
 
 impl<'a> CodegenX86_64<'a> {
     pub fn new(
         symbol_table: &'a SymbolTable,
         expr_types: &'a HashMap<usize, String>,
+        emit_debug: bool,
     ) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
@@ -91,6 +93,7 @@ impl<'a> CodegenX86_64<'a> {
             data_counter: 1,
             symbol_table,
             expr_types,
+            emit_debug,
         }
     }
 
@@ -344,11 +347,15 @@ _builtin_environ:
                 body,
                 exported,
             } => {
-                if *exported || name.lexeme == "main" {
-                    emit!(&mut self.output, "global {}", name.lexeme);
+                let name = &name.lexeme;
+                if self.emit_debug || *exported || name == "main" {
+                    emit!(
+                        &mut self.output,
+                        "global {name}:function (__end_{name} - {name})",
+                    );
                 }
-                emit!(&mut self.output, "section .text.{}", name.lexeme);
-                emit!(&mut self.output, "{}:", name.lexeme);
+                emit!(&mut self.output, "section .text.{}", name);
+                emit!(&mut self.output, "{}:", name);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
 
@@ -396,6 +403,10 @@ _builtin_environ:
                     emit!(&mut self.output, "    mov rsp, rbp");
                     emit!(&mut self.output, "    pop rbp");
                     emit!(&mut self.output, "    ret");
+                }
+
+                if self.emit_debug || *exported || name == "main" {
+                    emit!(&mut self.output, "__end_{}:", name);
                 }
 
                 // patch the stack size after we know how much we actually need
