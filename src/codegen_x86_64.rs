@@ -415,15 +415,18 @@ _builtin_environ:
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
-                if exprs.len() == 2 {
-                    self.compile_expr(env, &exprs[1])?;
-                    emit!(&mut self.output, "    push rax");
-                    self.compile_expr(env, &exprs[0])?;
-                    emit!(&mut self.output, "    pop rdx");
-                } else if exprs.len() == 1 {
-                    self.compile_expr(env, &exprs[0])?;
-                } else {
-                    todo!();
+                match exprs.len() {
+                    2 => {
+                        self.compile_expr(env, &exprs[1])?;
+                        emit!(&mut self.output, "    push rax");
+                        self.compile_expr(env, &exprs[0])?;
+                        emit!(&mut self.output, "    pop rdx");
+                    }
+                    1 => {
+                        self.compile_expr(env, &exprs[0])?;
+                    }
+                    0 => {}
+                    _ => todo!(),
                 }
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    pop rbp");

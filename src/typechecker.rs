@@ -329,17 +329,16 @@ impl<'a> TypeChecker<'a> {
                 env.pop_scope();
             }
             Stmt::Return { keyword, exprs } => {
-                let expected = if self.current_function_return_type == "void" {
-                    "i64".into()
+                let joined_type = if exprs.is_empty() {
+                    "void".into()
                 } else {
-                    self.current_function_return_type.clone()
+                    exprs
+                        .iter()
+                        .map(|e| self.typecheck_expr(env, e))
+                        .collect::<Result<Vec<String>, _>>()?
+                        .join(",")
                 };
-                let joined_type = exprs
-                    .iter()
-                    .map(|e| self.typecheck_expr(env, e))
-                    .collect::<Result<Vec<String>, _>>()?
-                    .join(",");
-                expect_type!(joined_type, expected, keyword.loc);
+                expect_type!(joined_type, self.current_function_return_type, keyword.loc);
             }
             Stmt::Break => {}
             Stmt::Continue => {}

@@ -327,10 +327,12 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             let keyword = self.previous().clone();
             let mut exprs = vec![];
-            loop {
-                exprs.push(self.expression()?);
-                if !self.match_token(&[TokenType::Comma]) {
-                    break;
+            if !self.check(&TokenType::Dedent) {
+                loop {
+                    exprs.push(self.expression()?);
+                    if !self.match_token(&[TokenType::Comma]) {
+                        break;
+                    }
                 }
             }
             Ok(Stmt::Return { keyword, exprs })

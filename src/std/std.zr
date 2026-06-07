@@ -81,11 +81,11 @@ func mem.free[x: any] : void
 
 func ptr.free[x: ptr] : void
     if x == 0
-        return 0
+        return
 
     blk := (x - MEM_BLOCK_SIZE) as mem.Block
     if blk->free
-        return 0
+        return
 
     blk->free = true
 
@@ -733,7 +733,7 @@ func i64.to_str_buf[n: i64, buf: ptr] : void
     if n == 0
         buf[0] = '0'
         buf[1] = 0
-        return 0
+        return
 
     neg : bool = n < 0
     if neg
@@ -768,7 +768,7 @@ func i64.to_hex_str_buf[n: i64, buf: ptr] : void
     if n == 0
         buf[0] = '0'
         buf[1] = 0
-        return 0
+        return
 
     mask := (1 << 60) - 1
     tmp := _stackalloc(17)
@@ -849,7 +849,7 @@ func Array.new_preallocated_and_zeroed[size: i64] : Array
 
 func Array.nth[xs: Array, n: i64] : any
     if n < 0 || n >= xs->size
-        panic("array.nth out of bounds")
+        panic("Array.nth out of bounds")
     return mem.read64(xs->data + n * 8)
 
 func Array.set[xs: Array, n: i64, x: any] : void
@@ -882,14 +882,19 @@ func Array.free_with_items[xs: Array] : void
 
 func Array.pop[xs: Array] : any
     if xs->size == 0
-        panic("array.pop on empty array")
-    x : any = xs->nth(xs->size - 1)
+        panic("Array.pop on empty array")
+    x : any = Array.last(xs)
     xs->size = xs->size - 1
     return x
 
+func Array.last[xs: Array] : any
+    if xs->size == 0
+        panic("Array.last on empty array")
+    return xs->nth(xs->size - 1)
+
 func Array.slice[xs: Array, start: i64, length: i64] : Array
     if start < 0 || length < 0 || start + length > xs->size
-        panic("array.slice out of bounds")
+        panic("Array.slice out of bounds")
 
     new_array := Array.new_preallocated_and_zeroed(length)
     mem.copy(xs->data + start * 8, new_array->data, length * 8)
@@ -971,7 +976,7 @@ func HashMap.insert[map: HashMap, key: str, value: any] : void
     while current as ptr
         if current->key->equal(key)
             current->value = value
-            return 0
+            return
         current = current->next
 
     new_node := new* HashMap._Node
@@ -1005,7 +1010,7 @@ func HashMap.delete[map: HashMap, key: str] : void
             
             current->key->free()
             mem.free(current)
-            return 0
+            return
 
         prev = current
         current = current->next

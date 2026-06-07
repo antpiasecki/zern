@@ -5,7 +5,7 @@ func run_test[x: str] : void
     for i in 0..build_blacklist->size
         if x->equal(build_blacklist->nth(i))
             io.printf("Skipping %s...\n", x)
-            return 0
+            return
 
     io.printf("Building %s...\n", x)
 
@@ -20,7 +20,7 @@ func run_test[x: str] : void
     for i in 0..run_blacklist->size
         if x->contains(run_blacklist->nth(i))
             io.printf("Skipping %s...\n", x)
-            return 0
+            return
 
     io.printf("Running %s...\n", x)
 
