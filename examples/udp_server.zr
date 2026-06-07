@@ -1,5 +1,5 @@
 func main[] : i64
-    ~s, ok := net.create_udp_server(net.pack_addr(127, 0, 0, 1), 8000)
+    ~s, ok := net.create_udp_server("127.0.0.1", 8000)
     if !ok
         panic("net.create_udp_server failed")
 

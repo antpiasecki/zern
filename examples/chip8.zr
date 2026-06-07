@@ -49,7 +49,7 @@ func CHIP8.free[c: CHIP8] : void
     c->keyboard->free()
     c->display->free()
     c->keyboard_map->free()
-    (c as ptr)->free()
+    mem.free(c)
 
 func CHIP8.disassemble[c: CHIP8, ins_count: i64] : void
     for i in 0..ins_count

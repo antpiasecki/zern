@@ -26,11 +26,7 @@ func main[argc: i64, argv: ptr] : i64
     if i < url_len
         path = url->substr(i, url_len - i)
     
-    ~addr, ok := net.resolve(host)
-    if !ok
-        panic("failed to resolve host")
-
-    ~s, ok := net.connect(addr, 80)
+    ~s, ok := net.connect(host, 80)
     if !ok
         panic("failed to connect")
 

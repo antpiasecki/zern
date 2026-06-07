@@ -670,7 +670,11 @@ _builtin_environ:
                 self.emit_call_setup(arg_count);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
-                    if self.symbol_table.functions.contains_key(&callee_name.lexeme) {
+                    if self
+                        .symbol_table
+                        .functions
+                        .contains_key(&callee_name.lexeme)
+                    {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
@@ -852,28 +856,28 @@ _builtin_environ:
 
     fn emit_var_arg(&mut self, env: &mut Env, index_expr: &Expr) -> Result<(), ZernError> {
         self.compile_expr(env, index_expr)?;
-        emit!(&mut self.output, " mov r10, rax");
+        emit!(&mut self.output, "    mov r10, rax");
 
         let stack_label = self.label();
         let done_label = self.label();
 
-        emit!(&mut self.output, " cmp r10, 6");
-        emit!(&mut self.output, " jge {}", stack_label);
+        emit!(&mut self.output, "    cmp r10, 6");
+        emit!(&mut self.output, "    jge {}", stack_label);
 
         // < 6
-        emit!(&mut self.output, " mov rax, r10");
-        emit!(&mut self.output, " inc rax");
-        emit!(&mut self.output, " shl rax, 3");
-        emit!(&mut self.output, " neg rax");
-        emit!(&mut self.output, " mov rax, [rbp + rax]");
-        emit!(&mut self.output, " jmp {}", done_label);
+        emit!(&mut self.output, "    mov rax, r10");
+        emit!(&mut self.output, "    inc rax");
+        emit!(&mut self.output, "    shl rax, 3");
+        emit!(&mut self.output, "    neg rax");
+        emit!(&mut self.output, "    mov rax, [rbp + rax]");
+        emit!(&mut self.output, "    jmp {}", done_label);
 
         // >= 6
         emit!(&mut self.output, "{}:", stack_label);
-        emit!(&mut self.output, " mov rax, r10");
-        emit!(&mut self.output, " sub rax, 6");
-        emit!(&mut self.output, " shl rax, 3");
-        emit!(&mut self.output, " mov rax, [rbp + 16 + rax]");
+        emit!(&mut self.output, "    mov rax, r10");
+        emit!(&mut self.output, "    sub rax, 6");
+        emit!(&mut self.output, "    shl rax, 3");
+        emit!(&mut self.output, "    mov rax, [rbp + 16 + rax]");
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())

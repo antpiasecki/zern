@@ -26,7 +26,6 @@ func main[] : i64
 
     for i in 0..lines->size
         line : str = lines->nth(i)
-        
         parts := line->split("   ")
 
         l1->push((parts->nth(0) as str)->parse_i64())
