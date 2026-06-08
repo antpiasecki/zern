@@ -77,6 +77,10 @@ pub enum Stmt {
         name: Token,
         fields: Vec<Param>,
     },
+    Enum {
+        name: Token,
+        variants: Vec<Token>,
+    },
 }
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -191,6 +195,9 @@ impl Parser {
             if self.match_token(&[TokenType::KeywordStruct]) {
                 return self.struct_declaration();
             }
+            if self.match_token(&[TokenType::KeywordEnum]) {
+                return self.enum_declaration();
+            }
             return error!(
                 self.peek().loc,
                 "statements not allowed outside function body"
@@ -269,9 +276,24 @@ impl Parser {
             fields.push(Param { var_type, var_name });
         }
 
-        self.consume(TokenType::Dedent, "expected dedent after the struct fields")?;
+        self.consume(TokenType::Dedent, "expected dedent after struct fields")?;
 
         Ok(Stmt::Struct { name, fields })
+    }
+
+    fn enum_declaration(&mut self) -> Result<Stmt, ZernError> {
+        let name = self.consume(TokenType::Identifier, "expected enum name")?;
+
+        self.consume(TokenType::Indent, "expected indent after enum name")?;
+
+        let mut variants = vec![];
+        while !self.eof() && !self.check(&TokenType::Dedent) {
+            variants.push(self.consume(TokenType::Identifier, "expected variant name")?);
+        }
+
+        self.consume(TokenType::Dedent, "expected dedent after enum variants")?;
+
+        Ok(Stmt::Enum { name, variants })
     }
 
     fn const_declaration(&mut self) -> Result<Stmt, ZernError> {

@@ -351,7 +351,8 @@ _builtin_environ:
                 if self.emit_debug || *exported || name == "main" {
                     emit!(
                         &mut self.output,
-                        "global {name}:function (__end_{name} - {name})",
+                        "global {0}:function ({0}.end - {0})",
+                        name
                     );
                 }
                 emit!(&mut self.output, "section .text.{}", name);
@@ -405,9 +406,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    ret");
                 }
 
-                if self.emit_debug || *exported || name == "main" {
-                    emit!(&mut self.output, "__end_{}:", name);
-                }
+                emit!(&mut self.output, ".end:");
 
                 // patch the stack size after we know how much we actually need
                 let patch = format!("    sub rsp, {:<10}", (env.next_offset + 15) & !15);
@@ -481,7 +480,10 @@ _builtin_environ:
             Stmt::Extern(name) => {
                 emit!(&mut self.output, "extern {}", name.lexeme);
             }
-            Stmt::Struct { name: _, fields: _ } => {
+            Stmt::Struct { .. } => {
+                // handled in SymbolTable
+            }
+            Stmt::Enum { .. } => {
                 // handled in SymbolTable
             }
         }

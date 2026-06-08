@@ -10,6 +10,9 @@ extern sqlite3_column_int
 extern sqlite3_column_text
 extern sqlite3_finalize
 
+const SQLITE_ROW  = 100
+const SQLITE_DONE = 101
+
 func main[] : i64
     rc := 0
     db := 0
@@ -38,7 +41,7 @@ func main[] : i64
             io.println("============")
             sqlite3_prepare_v2(db, "SELECT * FROM todo", -1, ^stmt, 0)
 
-            while sqlite3_step(stmt) == 100
+            while sqlite3_step(stmt) == SQLITE_ROW
                 id := sqlite3_column_int(stmt, 0) as i64
                 task := sqlite3_column_text(stmt, 1) as str
                 io.printf("%d - %s\n", id, task)
@@ -50,7 +53,7 @@ func main[] : i64
 
             sqlite3_prepare_v2(db, "INSERT INTO todo(task) VALUES (?);", -1, ^stmt, 0)
             sqlite3_bind_text(stmt, 1, task, -1, 0)
-            if sqlite3_step(stmt) != 101
+            if sqlite3_step(stmt) != SQLITE_DONE
                 panic(sqlite3_errmsg(db))
 
             io.println("\nTask added\n")
@@ -60,7 +63,7 @@ func main[] : i64
 
             sqlite3_prepare_v2(db, "DELETE FROM todo WHERE id = ?;", -1, ^stmt, 0)
             sqlite3_bind_int(stmt, 1, id, -1, 0)
-            if sqlite3_step(stmt) != 101
+            if sqlite3_step(stmt) != SQLITE_DONE
                 panic(sqlite3_errmsg(db))
 
             io.println("\nTask deleted\n")

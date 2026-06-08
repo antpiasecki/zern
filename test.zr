@@ -31,6 +31,7 @@ func run_test[x: str] : void
     run_start_time := os.time()
     ~status, ok := os.run_shell_command(run_cmd)
     if !ok || status != 0
+        io.println("Test failed.")
         os.exit(1)
     run_end_time := os.time()
 
@@ -50,3 +51,4 @@ func main[] : i64
 
     run_directory("examples/")
     run_directory("examples/euler/")
+    io.println("DONE")
