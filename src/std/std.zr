@@ -309,18 +309,6 @@ func io.read_line[] : str
     b->destroy()
     return s
 
-func io.file_exists[path: str] : bool
-    return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
-
-func io.is_a_directory[path: str] : bool
-    st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
-
-    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
-    if rc != 0
-        return false
-
-    return (mem.read32(st + 24) & S_IFMT) == S_IFDIR
-
 func io.read_text_file[path: str] : str, bool
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)
     if fd < 0
@@ -929,6 +917,12 @@ func Array._partition[arr: Array, low: i64, high: i64] : i64
     arr->set(high, temp)
     return i + 1
 
+func Array.contains_str[arr: Array, s: str] : bool
+    for i in 0..arr->size
+        if (arr->nth(i) as str)->equal(s)
+            return true
+    return false
+
 func Array.count[arr: Array, item: any] : i64
     count := 0
     for i in 0..arr->size
@@ -1107,6 +1101,18 @@ func os.run_shell_command[command: str] : i64, bool
             return (st >> 8) & 0xff, true
         else
             return -(st & 0x7f), true
+
+func os.file_exists[path: str] : bool
+    return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
+
+func os.is_a_directory[path: str] : bool
+    st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
+
+    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    if rc != 0
+        return false
+
+    return (mem.read32(st + 24) & S_IFMT) == S_IFDIR
 
 func os.list_directory[path: str] : Array, bool
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)

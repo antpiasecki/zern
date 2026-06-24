@@ -137,6 +137,17 @@ _builtin_set64:
     mov [rdi], rsi
     ret
 
+section .text._builtin_cvtsi2sd
+_builtin_cvtsi2sd:
+    cvtsi2sd xmm0, rdi
+    movq rax, xmm0
+    ret
+
+section .text._builtin_cvttsd2si
+_builtin_cvttsd2si:
+    cvttsd2si rax, xmm0
+    ret
+
 section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -682,8 +693,11 @@ _builtin_environ:
                     emit!(&mut self.output, "    push rax");
                 }
 
-                let arg_count = args.len();
-                self.emit_call_setup(arg_count);
+                let arg_types: Vec<String> = args
+                    .iter()
+                    .map(|a| self.expr_types[&a.id].clone())
+                    .collect();
+                self.emit_call_setup(&arg_types);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
                     if self
@@ -704,7 +718,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    call rax");
                 }
 
-                self.emit_call_cleanup(arg_count);
+                self.emit_call_cleanup(args.len());
             }
             ExprKind::ArrayLiteral(exprs) => {
                 emit!(&mut self.output, "    mov rdi, 24");
@@ -805,50 +819,65 @@ _builtin_environ:
                     emit!(&mut self.output, "    push rax");
                 }
 
-                let arg_count = 1 + args.len();
-                self.emit_call_setup(arg_count);
+                let mut arg_types = vec![];
+                arg_types.push(receiver_type.clone());
+                arg_types.extend(args.iter().map(|a| self.expr_types[&a.id].clone()));
+
+                self.emit_call_setup(&arg_types);
                 emit!(&mut self.output, "    call {}", func_name);
-                self.emit_call_cleanup(arg_count);
+                self.emit_call_cleanup(1 + args.len());
             }
         }
         Ok(())
     }
 
-    fn emit_call_setup(&mut self, arg_count: usize) {
-        if arg_count <= 6 {
-            for i in (0..arg_count).rev() {
-                emit!(&mut self.output, "    pop {}", REGISTERS[i]);
+    fn emit_call_setup(&mut self, arg_types: &[String]) {
+        let arg_count = arg_types.len();
+
+        let to_register = arg_count.min(6);
+        let mut fp_idx = 0;
+        let mut int_idx = 0;
+        for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
+            let offset = 8 * (arg_count - 1 - i);
+            emit!(&mut self.output, "    mov rax, QWORD [rsp + {}]", offset);
+            if arg_type == "f64" {
+                emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
+                fp_idx += 1;
+            } else {
+                emit!(&mut self.output, "    mov {}, rax", REGISTERS[int_idx]);
+                int_idx += 1;
             }
-        } else {
-            for (i, reg) in REGISTERS.iter().enumerate() {
-                let offset = 8 * (arg_count - 1 - i);
-                emit!(
-                    &mut self.output,
-                    "    mov {}, QWORD [rsp + {}]",
-                    reg,
-                    offset
-                );
-            }
-            // TODO: since all zern values are 64bit large we currently cannot call
-            // external functions that expect a non-64bit value past the 6th argument
-            let num_stack = arg_count - 6;
-            for i in 0..num_stack {
-                let arg_idx = arg_count - 1 - i;
-                let offset = 8 * (arg_count - 1 - arg_idx);
-                emit!(
-                    &mut self.output,
-                    "    mov rax, QWORD [rsp + {}]",
-                    offset + 8 * i
-                );
-                emit!(&mut self.output, "    push rax");
-            }
+        }
+
+        // TODO: since all zern values are 64bit large we currently cannot call
+        // external functions that expect a non-64bit value past the 6th argument
+        let num_stack = arg_count.saturating_sub(6);
+        for i in 0..num_stack {
+            let arg_idx = arg_count - 1 - i;
+            let offset = 8 * (arg_count - 1 - arg_idx);
+            emit!(
+                &mut self.output,
+                "    mov rax, QWORD [rsp + {}]",
+                offset + 8 * i
+            );
+            emit!(&mut self.output, "    push rax");
+        }
+
+        emit!(&mut self.output, "    mov al, {}", fp_idx);
+
+        if num_stack == 0 {
+            emit!(&mut self.output, "    add rsp, {}", 8 * to_register);
         }
     }
 
     fn emit_call_cleanup(&mut self, arg_count: usize) {
-        if arg_count > 6 {
-            emit!(&mut self.output, "    add rsp, {}", 8 * (arg_count - 6));
-            emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
+        let num_stack = arg_count.saturating_sub(6);
+        if num_stack > 0 {
+            emit!(
+                &mut self.output,
+                "    add rsp, {}",
+                8 * (arg_count + num_stack)
+            );
         }
     }
 

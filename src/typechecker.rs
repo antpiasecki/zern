@@ -33,7 +33,7 @@ macro_rules! expect_types {
     };
 }
 
-static BUILTIN_TYPES: [&str; 7] = ["void", "u8", "i64", "str", "bool", "ptr", "any"];
+static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "any"];
 
 pub struct Env {
     scopes: Vec<HashMap<String, Type>>,
@@ -300,6 +300,9 @@ impl<'a> TypeChecker<'a> {
                         "unrecognized type: ".to_owned() + &return_type
                     );
                 }
+                if return_type == "f64" {
+                    return error!(&return_types[0].loc, "returning f64 not implemented yet");
+                }
 
                 self.current_function_return_type = return_type.clone();
 
@@ -312,6 +315,12 @@ impl<'a> TypeChecker<'a> {
                                 return error!(
                                     &param.var_name.loc,
                                     "unrecognized type: ".to_owned() + &param.var_type.lexeme
+                                );
+                            }
+                            if param.var_type.lexeme == "f64" {
+                                return error!(
+                                    &param.var_name.loc,
+                                    "f64 params not implemented yet"
                                 );
                             }
 
@@ -549,6 +558,12 @@ impl<'a> TypeChecker<'a> {
                 Ok(field.field_type.clone())
             }
             ExprKind::Cast { expr, type_name } => {
+                if type_name.lexeme == "f64" {
+                    return error!(
+                        &type_name.loc,
+                        "use _builtin_cvtsi2sd and _builtin_cvttsd2si to cast to f64"
+                    );
+                }
                 self.typecheck_expr(env, expr)?;
                 if !self.is_valid_type_name(&type_name.lexeme) {
                     return error!(

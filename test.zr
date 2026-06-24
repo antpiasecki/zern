@@ -1,32 +1,52 @@
-func run_test[x: str] : void
-    build_blacklist := ["examples/euler", "examples/raylib.zr", "examples/chip8.zr", "examples/sqlite_todo.zr"]
-    run_blacklist := ["guess_number.zr", "tcp_server.zr", "udp_server.zr"]
+struct TestRunner
+    build_blacklist: Array
+    run_blacklist: Array
+    custom_build_flags: HashMap
+    custom_run_args: HashMap
 
-    for i in 0..build_blacklist->size
-        if x->equal(build_blacklist->nth(i))
-            io.printf("Skipping %s...\n", x)
-            return
+func TestRunner.run_directory[tr: TestRunner, dir: str] : void
+    ~files, ok := os.list_directory(dir)
+    if !ok
+        panic("failed to open test directory")
+    for i in 0..files->size
+        joined := dir->concat("/")->concat(files->nth(i))
+        if os.is_a_directory(joined)
+            tr->run_directory(joined)
+        else
+            tr->run_test(joined)
+
+func TestRunner.run_test[tr: TestRunner, x: str] : void
+    name := os.basename(x)
+
+    if tr->build_blacklist->contains_str(name)
+        io.printf("Skipping %s...\n", x)
+        return
 
     io.printf("Building %s...\n", x)
 
+    build_cmd := "./target/release/zern "->concat(x)
+    ~custom_build_flags, ok := tr->custom_build_flags->get(name)
+    if ok
+        build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
+
     build_start_time := os.time()
-    ~status, ok := os.run_shell_command("./target/release/zern "->concat(x))
+    ~status, ok := os.run_shell_command(build_cmd)
     if !ok || status != 0
         os.exit(1)
     build_end_time := os.time()
 
     io.printf("%dms\n", build_end_time - build_start_time)
 
-    for i in 0..run_blacklist->size
-        if x->contains(run_blacklist->nth(i))
-            io.printf("Skipping %s...\n", x)
-            return
+    if tr->run_blacklist->contains_str(name)
+        io.printf("Skipping %s...\n", x)
+        return
 
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    if x->equal("examples/curl.zr")
-        run_cmd = run_cmd->concat(" http://example.com")
+    ~custom_run_args, ok := tr->custom_run_args->get(name)
+    if ok
+        run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
     run_start_time := os.time()
     ~status, ok := os.run_shell_command(run_cmd)
@@ -37,18 +57,20 @@ func run_test[x: str] : void
 
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
-func run_directory[dir: str] : void
-    ~files, ok := os.list_directory(dir)
-    if !ok
-        panic("failed to open test directory")
-    for i in 0..files->size
-        run_test(dir->concat(files->nth(i)))
-    
 func main[] : i64
     ~status, ok := os.run_shell_command("cargo build --release")
     if !ok || status != 0
         os.exit(1)
 
-    run_directory("examples/")
-    run_directory("examples/euler/")
+    tr := new TestRunner
+    tr->build_blacklist = []
+    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "udp_server.zr", "chip8.zr", "tcp_server.zr"]
+    tr->custom_build_flags = HashMap.new()
+    tr->custom_build_flags->insert("raylib.zr", "-m -C \"-lraylib\"")
+    tr->custom_build_flags->insert("chip8.zr", "-m -C \"-lraylib\"")
+    tr->custom_build_flags->insert("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
+    tr->custom_run_args = HashMap.new()
+    tr->custom_run_args->insert("curl.zr", "http://example.com")
+
+    tr->run_directory("examples")
     io.println("DONE")
