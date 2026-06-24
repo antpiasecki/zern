@@ -39,6 +39,7 @@ pub enum TokenType {
     StringLiteral,
     CharLiteral,
     IntLiteral,
+    FloatLiteral,
     True,
     False,
 
@@ -338,6 +339,8 @@ impl Tokenizer {
     }
 
     fn scan_number(&mut self) -> Result<(), ZernError> {
+        let mut is_float = false;
+
         if self.match_char('x') {
             while self.peek().is_ascii_hexdigit() {
                 self.advance();
@@ -350,9 +353,23 @@ impl Tokenizer {
             while self.peek().is_ascii_digit() {
                 self.advance();
             }
+            if self.current + 1 < self.source.len()
+                && self.peek() == '.'
+                && self.source[self.current + 1] != '.'
+            {
+                is_float = true;
+                self.advance();
+                while self.peek().is_ascii_digit() {
+                    self.advance();
+                }
+            }
         }
 
-        self.add_token(TokenType::IntLiteral)
+        if is_float {
+            self.add_token(TokenType::FloatLiteral)
+        } else {
+            self.add_token(TokenType::IntLiteral)
+        }
     }
 
     fn scan_identifier(&mut self) -> Result<(), ZernError> {

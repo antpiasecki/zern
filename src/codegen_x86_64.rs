@@ -148,6 +148,12 @@ _builtin_cvttsd2si:
     cvttsd2si rax, xmm0
     ret
 
+section .text._builtin_f64_to_float
+_builtin_f64_to_float:
+    cvtsd2ss xmm0, xmm0
+    movd eax, xmm0
+    ret
+
 section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -603,6 +609,13 @@ _builtin_environ:
                 TokenType::IntLiteral => {
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
                 }
+                TokenType::FloatLiteral => {
+                    emit!(
+                        &mut self.output,
+                        "    mov rax, __float64__({})",
+                        token.lexeme
+                    );
+                }
                 TokenType::CharLiteral => {
                     emit!(
                         &mut self.output,
@@ -639,7 +652,12 @@ _builtin_environ:
                 self.compile_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        emit!(&mut self.output, "    neg rax");
+                        if self.expr_types[&right.id] == "f64" {
+                            emit!(&mut self.output, "    mov rbx, 0x8000000000000000");
+                            emit!(&mut self.output, "    xor rax, rbx");
+                        } else {
+                            emit!(&mut self.output, "    neg rax");
+                        }
                     }
                     TokenType::Bang => {
                         emit!(&mut self.output, "    test rax, rax");

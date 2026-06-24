@@ -53,6 +53,10 @@ impl SymbolTable {
                 ),
                 ("_builtin_cvtsi2sd".into(), FnType::new("f64", vec!["i64"])),
                 ("_builtin_cvttsd2si".into(), FnType::new("i64", vec!["f64"])),
+                (
+                    "_builtin_f64_to_float".into(),
+                    FnType::new("i64", vec!["f64"]),
+                ),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("_builtin_environ".into(), FnType::new("ptr", vec![])),
                 ("_var_arg".into(), FnType::new("any", vec!["i64"])),

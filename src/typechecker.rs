@@ -429,6 +429,7 @@ impl<'a> TypeChecker<'a> {
             ExprKind::Grouping(expr) => self.typecheck_expr(env, expr),
             ExprKind::Literal(token) => match token.token_type {
                 TokenType::IntLiteral => Ok("i64".into()),
+                TokenType::FloatLiteral => Ok("f64".into()),
                 TokenType::CharLiteral => Ok("u8".into()),
                 TokenType::StringLiteral => Ok("str".into()),
                 TokenType::True => Ok("bool".into()),
@@ -439,8 +440,8 @@ impl<'a> TypeChecker<'a> {
                 let right_type = self.typecheck_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        expect_type!(right_type, "i64", op.loc);
-                        Ok("i64".into())
+                        expect_types!(right_type, ["f64", "i64"], op.loc);
+                        Ok(right_type)
                     }
                     TokenType::Bang => {
                         expect_types!(right_type, ["bool", "i64", "ptr", "u8"], op.loc);
