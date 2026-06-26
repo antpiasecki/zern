@@ -103,58 +103,60 @@ impl<'a> CodegenX86_64<'a> {
     }
 
     pub fn get_output(&self) -> String {
-        format!("section .data\n{}{}", self.data_section, self.output)
+        format!(".section .data\n{}{}", self.data_section, self.output)
     }
 
     pub fn emit_prologue(&mut self, use_crt: bool) -> Result<(), ZernError> {
         emit!(
             &mut self.output,
-            "section .note.GNU-stack
-    db 0
+            ".intel_syntax noprefix
 
-section .bss
-    _heap_head: resq 1
-    _heap_tail: resq 1
-    _environ: resq 1
+.section .note.GNU-stack
+    .byte 0
 
-section .text._builtin_heap_head
+.section .bss
+    _heap_head: .zero 8
+    _heap_tail: .zero 8
+    _environ: .zero 8
+
+.section .text._builtin_heap_head
 _builtin_heap_head:
-    lea rax, [rel _heap_head]
+    lea rax, [rip + _heap_head]
     ret
 
-section .text._builtin_heap_tail
+.section .text._builtin_heap_tail
 _builtin_heap_tail:
-    lea rax, [rel _heap_tail]
+    lea rax, [rip + _heap_tail]
     ret
 
-section .text._builtin_read64
+.section .text._builtin_read64
 _builtin_read64:
-    mov rax, QWORD [rdi]
+    mov rax, QWORD PTR [rdi]
     ret
 
-section .text._builtin_set64
+.section .text._builtin_set64
 _builtin_set64:
     mov [rdi], rsi
     ret
 
-section .text._builtin_cvtsi2sd
+.section .text._builtin_cvtsi2sd
 _builtin_cvtsi2sd:
     cvtsi2sd xmm0, rdi
     movq rax, xmm0
     ret
 
-section .text._builtin_cvttsd2si
+.section .text._builtin_cvttsd2si
 _builtin_cvttsd2si:
     cvttsd2si rax, xmm0
     ret
 
-section .text._builtin_f64_to_float
+.section .text._builtin_f64_to_float
 _builtin_f64_to_float:
     cvtsd2ss xmm0, xmm0
     movd eax, xmm0
     ret
 
-section .text._builtin_syscall
+.section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
     mov rdi, rsi
@@ -172,26 +174,26 @@ _builtin_syscall:
             emit!(
                 &mut self.output,
                 "
-section .text._builtin_environ
+.section .text._builtin_environ
 _builtin_environ:
-    lea rax, [rel _environ]
+    lea rax, [rip + _environ]
     mov rax, [rax]
     ret
 
-global _start
-section .text
+.globl _start
+.section .text
 _start:
     xor rbp, rbp
-    ; setup args
+    // setup args
     pop rdi
     mov rsi, rsp
-    ; save environ
+    // save environ
     lea rdx, [rsi + rdi*8 + 8]
-    lea rax, [rel _environ]
+    lea rax, [rip + _environ]
     mov [rax], rdx
-    ; align stack
+    // align stack
     and rsp, -16
-    ; exit(main())
+    // exit(main())
     call main
     mov rdi, rax
     mov rax, 60
@@ -202,10 +204,10 @@ _start:
             emit!(
                 &mut self.output,
                 "
-section .text._builtin_environ
+.section .text._builtin_environ
 _builtin_environ:
-    extern environ
-    mov rax, [rel environ]
+    .extern environ
+    mov rax, [rip + environ]
     ret
 "
             );
@@ -239,7 +241,7 @@ _builtin_environ:
 
                 self.compile_expr(env, initializer)?;
                 let offset = env.define_var(name.lexeme.clone(), var_type);
-                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
             }
             Stmt::Assign { left, op, value } => {
                 self.compile_expr(env, value)?;
@@ -250,7 +252,7 @@ _builtin_environ:
                         let var = env.get_var(&name.lexeme).unwrap();
                         emit!(
                             &mut self.output,
-                            "    mov QWORD [rbp-{}], rax",
+                            "    mov QWORD PTR [rbp-{}], rax",
                             var.stack_offset,
                         );
                     }
@@ -266,7 +268,7 @@ _builtin_environ:
                         emit!(&mut self.output, "    pop rbx");
                         emit!(&mut self.output, "    add rbx, rax");
                         emit!(&mut self.output, "    pop rax");
-                        emit!(&mut self.output, "    mov BYTE [rbx], al");
+                        emit!(&mut self.output, "    mov BYTE PTR [rbx], al");
                     }
                     ExprKind::MemberAccess { left, field } => {
                         emit!(&mut self.output, "    push rax");
@@ -275,7 +277,7 @@ _builtin_environ:
 
                         self.compile_expr(env, left)?;
                         emit!(&mut self.output, "    pop rbx");
-                        emit!(&mut self.output, "    mov QWORD [rax+{}], rbx", offset);
+                        emit!(&mut self.output, "    mov QWORD PTR [rax+{}], rbx", offset);
                     }
                     _ => return error!(&op.loc, "invalid assignment target"),
                 };
@@ -302,7 +304,12 @@ _builtin_environ:
                             env.define_var(target.lexeme.clone(), types[i].to_string())
                         }
                     };
-                    emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                    emit!(
+                        &mut self.output,
+                        "    mov QWORD PTR [rbp-{}], {}",
+                        offset,
+                        reg
+                    );
                 }
             }
             Stmt::Const { .. } => {
@@ -366,13 +373,10 @@ _builtin_environ:
             } => {
                 let name = &name.lexeme;
                 if self.emit_debug || *exported || name == "main" {
-                    emit!(
-                        &mut self.output,
-                        "global {0}:function ({0}.end - {0})",
-                        name
-                    );
+                    emit!(&mut self.output, ".globl {0}", name);
+                    emit!(&mut self.output, ".type {0}, @function", name);
                 }
-                emit!(&mut self.output, "section .text.{}", name);
+                emit!(&mut self.output, ".section .text.{}", name);
                 emit!(&mut self.output, "{}:", name);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
@@ -388,15 +392,20 @@ _builtin_environ:
                                 param.var_type.lexeme.clone(),
                             );
                             if let Some(reg) = REGISTERS.get(i) {
-                                emit!(&mut self.output, "    mov QWORD [rbp-{}], {}", offset, reg);
+                                emit!(
+                                    &mut self.output,
+                                    "    mov QWORD PTR [rbp-{}], {}",
+                                    offset,
+                                    reg
+                                );
                             } else {
                                 let stack_offset = 16 + 8 * (i - REGISTERS.len());
                                 emit!(
                                     &mut self.output,
-                                    "    mov rax, QWORD [rbp+{}]",
+                                    "    mov rax, QWORD PTR [rbp+{}]",
                                     stack_offset
                                 );
-                                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                             }
                         }
                     }
@@ -423,7 +432,7 @@ _builtin_environ:
                     emit!(&mut self.output, "    ret");
                 }
 
-                emit!(&mut self.output, ".end:");
+                emit!(&mut self.output, ".size {0}, . - {0}", name);
 
                 // patch the stack size after we know how much we actually need
                 let patch = format!("    sub rsp, {:<10}", (env.next_offset + 15) & !15);
@@ -465,21 +474,29 @@ _builtin_environ:
                 let offset = env.define_var(var.lexeme.clone(), "i64".into());
 
                 self.compile_expr(env, start)?;
-                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                 self.compile_expr(env, end)?;
                 let end_offset = env.next_offset;
                 env.next_offset += 8;
-                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", end_offset);
+                emit!(
+                    &mut self.output,
+                    "    mov QWORD PTR [rbp-{}], rax",
+                    end_offset
+                );
                 emit!(&mut self.output, "{}:", env.loop_begin_label);
-                emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
-                emit!(&mut self.output, "    mov rcx, QWORD [rbp-{}]", end_offset);
+                emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
+                emit!(
+                    &mut self.output,
+                    "    mov rcx, QWORD PTR [rbp-{}]",
+                    end_offset
+                );
                 emit!(&mut self.output, "    cmp rax, rcx");
                 emit!(&mut self.output, "    jge {}", env.loop_end_label);
                 self.compile_stmt(env, body)?;
                 emit!(&mut self.output, "{}:", env.loop_continue_label);
-                emit!(&mut self.output, "    mov rax, QWORD [rbp-{}]", offset);
+                emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
                 emit!(&mut self.output, "    add rax, 1");
-                emit!(&mut self.output, "    mov QWORD [rbp-{}], rax", offset);
+                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                 emit!(&mut self.output, "    jmp {}", env.loop_begin_label);
                 emit!(&mut self.output, "{}:", env.loop_end_label);
                 env.pop_scope();
@@ -495,7 +512,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
             }
             Stmt::Extern(name) => {
-                emit!(&mut self.output, "extern {}", name.lexeme);
+                emit!(&mut self.output, ".extern {}", name.lexeme);
             }
             Stmt::Struct { .. } => {
                 // handled in SymbolTable
@@ -610,11 +627,8 @@ _builtin_environ:
                     emit!(&mut self.output, "    mov rax, {}", token.lexeme);
                 }
                 TokenType::FloatLiteral => {
-                    emit!(
-                        &mut self.output,
-                        "    mov rax, __float64__({})",
-                        token.lexeme
-                    );
+                    let value: f64 = token.lexeme.parse().unwrap();
+                    emit!(&mut self.output, "    mov rax, {}", value.to_bits());
                 }
                 TokenType::CharLiteral => {
                     emit!(
@@ -635,10 +649,10 @@ _builtin_environ:
                         .chain(std::iter::once("0".into()))
                         .collect::<Vec<_>>()
                         .join(",");
-                    emit!(&mut self.data_section, "    {} db {}", label, charcodes);
+                    emit!(&mut self.data_section, "    {}: .byte {}", label, charcodes);
                     self.data_counter += 1;
 
-                    emit!(&mut self.output, "    mov rax, {}", label);
+                    emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                 }
                 TokenType::True => {
                     emit!(&mut self.output, "    mov rax, 1");
@@ -679,7 +693,7 @@ _builtin_environ:
                     let var = env.get_var(&name.lexeme).unwrap();
                     emit!(
                         &mut self.output,
-                        "    mov rax, QWORD [rbp-{}]",
+                        "    mov rax, QWORD PTR [rbp-{}]",
                         var.stack_offset,
                     );
                 }
@@ -767,12 +781,12 @@ _builtin_environ:
                 self.compile_expr(env, index)?;
                 emit!(&mut self.output, "    pop rbx");
                 emit!(&mut self.output, "    add rax, rbx");
-                emit!(&mut self.output, "    movzx rax, BYTE [rax]");
+                emit!(&mut self.output, "    movzx rax, BYTE PTR [rax]");
             }
             ExprKind::AddrOf { op, expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
-                        emit!(&mut self.output, "    mov rax, {}", name.lexeme);
+                        emit!(&mut self.output, "    lea rax, [rip + {}]", name.lexeme);
                     } else {
                         let var = match env.get_var(&name.lexeme) {
                             Some(x) => x,
@@ -785,7 +799,7 @@ _builtin_environ:
                         };
                         emit!(
                             &mut self.output,
-                            "    lea rax, QWORD [rbp-{}]",
+                            "    lea rax, QWORD PTR [rbp-{}]",
                             var.stack_offset,
                         );
                     }
@@ -821,7 +835,7 @@ _builtin_environ:
             ExprKind::MemberAccess { left, field } => {
                 let offset = self.get_field_offset(left, field)?;
                 self.compile_expr(env, left)?;
-                emit!(&mut self.output, "    mov rax, QWORD [rax+{}]", offset);
+                emit!(&mut self.output, "    mov rax, QWORD PTR [rax+{}]", offset);
             }
             ExprKind::Cast { expr, type_name: _ } => {
                 self.compile_expr(env, expr)?;
@@ -857,7 +871,11 @@ _builtin_environ:
         let mut int_idx = 0;
         for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
             let offset = 8 * (arg_count - 1 - i);
-            emit!(&mut self.output, "    mov rax, QWORD [rsp + {}]", offset);
+            emit!(
+                &mut self.output,
+                "    mov rax, QWORD PTR [rsp + {}]",
+                offset
+            );
             if arg_type == "f64" {
                 emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
                 fp_idx += 1;
@@ -875,7 +893,7 @@ _builtin_environ:
             let offset = 8 * (arg_count - 1 - arg_idx);
             emit!(
                 &mut self.output,
-                "    mov rax, QWORD [rsp + {}]",
+                "    mov rax, QWORD PTR [rsp + {}]",
                 offset + 8 * i
             );
             emit!(&mut self.output, "    push rax");

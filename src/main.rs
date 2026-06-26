@@ -50,7 +50,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         fs::write(format!("{out}.s"), codegen.get_output()).unwrap();
 
-        run_command(format!("nasm -f elf64 -o {out}.o {out}.s"));
+        run_command(format!("as --64 -o {out}.o {out}.s"));
 
         if args.use_crt {
             run_command(format!(

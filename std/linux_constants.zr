@@ -5,8 +5,8 @@ const SIGABRT       = 6
 
 const AT_FDCWD      = -100
 
-const S_IFDIR       = 0o040000
-const S_IFMT        = 0o170000
+const S_IFDIR       = 16384
+const S_IFMT        = 61440
 
 const PROT_READ     = 1
 const PROT_WRITE    = 2

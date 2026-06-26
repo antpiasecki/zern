@@ -75,8 +75,6 @@ impl SymbolTable {
                 }
                 let mut value = if value.lexeme.starts_with("0x") {
                     u64::from_str_radix(&value.lexeme[2..], 16).unwrap()
-                } else if value.lexeme.starts_with("0o") {
-                    u64::from_str_radix(&value.lexeme[2..], 8).unwrap()
                 } else {
                     value.lexeme.parse().unwrap()
                 } as i64;

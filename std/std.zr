@@ -438,7 +438,7 @@ func io.write_file[path: str, content: str] : bool
     return io.write_binary_file(path, content as ptr, content->len())
 
 func io.write_binary_file[path: str, content: ptr, size: i64] : bool
-    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC, 0o644)
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
     if fd < 0
         return false
 
@@ -900,6 +900,17 @@ func math.pow[b: i64, e: i64] : i64
 
 func math.lcm[a: i64, b: i64] : i64
     return (a / math.gcd(a, b)) * b
+
+func math.octal_to_decimal[octal: i64] : i64
+    decimal := 0
+    base := 1
+
+    while octal > 0
+        digit := octal % 10
+        decimal += digit * base
+        base = base * 8
+        octal = octal / 10
+    return decimal
 
 struct Blob
     data: ptr
