@@ -38,8 +38,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen =
-        codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types, args.emit_debug);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types);
     codegen.emit_prologue(args.use_crt)?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
@@ -50,7 +49,9 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
         fs::write(format!("{out}.s"), codegen.get_output()).unwrap();
 
-        run_command(format!("as --64 -o {out}.o {out}.s"));
+        let debug_flag = if args.emit_debug { "-g" } else { "" };
+
+        run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s"));
 
         if args.use_crt {
             run_command(format!(
