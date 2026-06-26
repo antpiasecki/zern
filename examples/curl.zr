@@ -1,3 +1,5 @@
+include "std/net.zr"
+
 func main[argc: i64, argv: ptr] : i64
     if argc < 2
         io.println("ERROR: url is missing")

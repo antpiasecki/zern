@@ -8,7 +8,7 @@ A very cool language
 * No libc required!
 * Produces tiny static executables (11KB for `hello.zr`)
 * Has type inference, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), variadics, dynamic arrays, hashmaps, DNS resolver, etc.
-* Growing [standard library](https://git.ton1.dev/toni/zern/src/branch/main/src/std)
+* Growing [standard library](https://git.ton1.dev/toni/zern/src/branch/main/std)
 
 ## Syntax
 ```rust

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, fs, path::Path};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
@@ -378,6 +378,11 @@ impl Tokenizer {
         }
 
         let lexeme: String = self.source[self.start..self.current].iter().collect();
+
+        if lexeme == "include" {
+            return self.scan_include();
+        }
+
         self.add_token(match lexeme.as_str() {
             "const" => TokenType::KeywordConst,
             "if" => TokenType::KeywordIf,
@@ -399,6 +404,49 @@ impl Tokenizer {
             "false" => TokenType::False,
             _ => TokenType::Identifier,
         })
+    }
+
+    fn scan_include(&mut self) -> Result<(), ZernError> {
+        if !self.match_char(' ') {
+            return error!(self.loc, "expected a space after 'include'");
+        }
+
+        if self.peek() != '"' {
+            return error!(self.loc, "expected '#' after 'include '");
+        }
+        self.advance();
+
+        let path_start = self.current;
+        while !self.eof() && self.peek() != '"' {
+            self.advance();
+        }
+
+        if self.eof() {
+            return error!(self.loc, "unterminated string after 'include'");
+        }
+
+        let path: String = self.source[path_start..self.current].iter().collect();
+        self.advance(); // consume closing quote
+
+        self.include_file(path)
+    }
+
+    // TODO: circular includes lead to "fatal runtime error: stack overflow, aborting"
+    pub fn include_file(&mut self, path: String) -> Result<(), ZernError> {
+        let source = match fs::read_to_string(&path) {
+            Ok(x) => x,
+            Err(_) => {
+                return error!(self.loc, format!("failed to include {}", path));
+            }
+        };
+
+        let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
+
+        let tokenizer = Tokenizer::new(filename.to_owned(), source);
+        self.tokens.extend(tokenizer.tokenize()?);
+        self.tokens.pop(); // remove inner Eof
+
+        Ok(())
     }
 
     fn match_char(&mut self, expected: char) -> bool {

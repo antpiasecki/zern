@@ -1,3 +1,5 @@
+include "std/linux_constants.zr"
+
 func panic[msg: str] : void
     io.print("PANIC: ")
     io.println(msg)

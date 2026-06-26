@@ -12,15 +12,6 @@ use std::{
 
 use tokenizer::ZernError;
 
-macro_rules! parse_std_file {
-    ($statements:expr, $filename:expr) => {
-        let source: String = include_str!($filename).into();
-        let tokenizer = tokenizer::Tokenizer::new($filename.to_owned(), source);
-        let parser = parser::Parser::new(tokenizer.tokenize()?);
-        $statements.extend(parser.parse()?);
-    };
-}
-
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
         Ok(x) => x,
@@ -32,17 +23,10 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
-    let mut statements = Vec::new();
-
-    if args.include_stdlib {
-        parse_std_file!(statements, "std/std.zr");
-        parse_std_file!(statements, "std/net.zr");
-        parse_std_file!(statements, "std/linux_constants.zr");
-    }
-
-    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
+    let mut tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
+    tokenizer.include_file("std/std.zr".into())?;
     let parser = parser::Parser::new(tokenizer.tokenize()?);
-    statements.extend(parser.parse()?);
+    let statements = parser.parse()?;
 
     let mut symbol_table = symbol_table::SymbolTable::new();
     for stmt in &statements {
@@ -114,7 +98,6 @@ struct Args {
     out: Option<String>,
     emit_only: bool,
     emit_debug: bool,
-    include_stdlib: bool,
     run_exe: bool,
     use_crt: bool,
     cflags: String,
@@ -129,7 +112,6 @@ impl Args {
             out: None,
             emit_only: false,
             emit_debug: false,
-            include_stdlib: true,
             run_exe: false,
             use_crt: false,
             cflags: String::new(),
@@ -146,8 +128,6 @@ impl Args {
                 }
             } else if arg == "--emit-only" {
                 out.emit_only = true;
-            } else if arg == "--no-stdlib" {
-                out.include_stdlib = false;
             } else if arg == "-r" {
                 out.run_exe = true;
             } else if arg == "-m" {
@@ -163,9 +143,7 @@ impl Args {
                     }
                 }
             } else if arg == "-h" || arg == "--help" {
-                println!(
-                    "Usage: zern [-o path] [-r] [-m] [-g] [-C cflags] [--emit-only] [--no-stdlib] path"
-                );
+                println!("Usage: zern [-o path] [-r] [-m] [-g] [-C cflags] [--emit-only] path");
                 process::exit(0);
             } else if arg.starts_with('-') {
                 eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {arg}");
