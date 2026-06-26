@@ -300,9 +300,6 @@ impl<'a> TypeChecker<'a> {
                         "unrecognized type: ".to_owned() + &return_type
                     );
                 }
-                if return_type == "f64" {
-                    return error!(&return_types[0].loc, "returning f64 not implemented yet");
-                }
 
                 self.current_function_return_type = return_type.clone();
 
@@ -559,13 +556,13 @@ impl<'a> TypeChecker<'a> {
                 Ok(field.field_type.clone())
             }
             ExprKind::Cast { expr, type_name } => {
-                if type_name.lexeme == "f64" {
+                let expr_type = self.typecheck_expr(env, expr)?;
+                if expr_type != "any" && type_name.lexeme == "f64" {
                     return error!(
                         &type_name.loc,
-                        "use _builtin_cvtsi2sd and _builtin_cvttsd2si to cast to f64"
+                        "use _builtin_cvtsi2sd and _builtin_cvttsd2si to cast between integers and f64"
                     );
                 }
-                self.typecheck_expr(env, expr)?;
                 if !self.is_valid_type_name(&type_name.lexeme) {
                     return error!(
                         &type_name.loc,
