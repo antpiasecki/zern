@@ -514,9 +514,6 @@ _builtin_environ:
             Stmt::Struct { .. } => {
                 // handled in SymbolTable
             }
-            Stmt::Enum { .. } => {
-                // handled in SymbolTable
-            }
         }
         Ok(())
     }

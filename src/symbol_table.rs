@@ -144,16 +144,6 @@ impl SymbolTable {
 
                 self.structs.insert(name.lexeme.clone(), fields_map);
             }
-            Stmt::Enum { name, variants } => {
-                // TODO: distinct enum types
-                for (i, v) in variants.iter().enumerate() {
-                    let variant = format!("{}.{}", name.lexeme, v.lexeme);
-                    if self.is_name_defined(&variant) {
-                        return error!(name.loc, format!("tried to redefine '{}'", variant));
-                    }
-                    self.constants.insert(variant, i as i64);
-                }
-            }
             _ => {}
         }
         Ok(())

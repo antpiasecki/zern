@@ -1,4 +1,4 @@
-include "std/linux_constants.zr"
+include "std/linux.zr"
 
 func panic[msg: str] : void
     io.print("PANIC: ")
@@ -265,7 +265,7 @@ func io.printf[..] : void
         s += 1
 
 func io.print_sized[x: ptr, size: i64] : void
-    _builtin_syscall(SYS_write, STDOUT, x, size)
+    _builtin_syscall(SYS_write, STDOUT_FILENO, x, size)
 
 func io.print[x: str] : void
     io.print_sized(x as ptr, x->len())
@@ -381,7 +381,7 @@ func f64.to_str_buf[x: i64, buf: ptr] : void
 
 func io.read_char[] : u8
     c := 0 as u8
-    _builtin_syscall(SYS_read, STDIN, ^c, 1)
+    _builtin_syscall(SYS_read, STDIN_FILENO, ^c, 1)
     return c
 
 func io.read_line[] : str
@@ -1157,6 +1157,12 @@ func os.sleep[ms: i64] : void
     req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
 
+func os.time[] : i64
+    ts := new os.Timespec
+    _builtin_syscall(SYS_clock_gettime, CLOCK_REALTIME, ts)
+    out := ts->tv_sec * 1000 + ts->tv_nsec / 1000000
+    return out
+
 func os.urandom_buf[buf: ptr, n: i64] : void
     pos := 0
     while pos < n
@@ -1174,16 +1180,6 @@ func os.urandom_i64[] : i64
     n := 0
     os.urandom_buf(^n, 8)
     return n
-
-struct os.Timeval
-    tv_sec: i64
-    tv_usec: i64
-
-func os.time[] : i64
-    tv := new os.Timeval
-    _builtin_syscall(SYS_gettimeofday, tv, 0)
-    out := tv->tv_sec * 1000 + tv->tv_usec / 1000
-    return out
 
 func os.run_shell_command[command: str] : i64, bool
     pid := _builtin_syscall(SYS_fork)

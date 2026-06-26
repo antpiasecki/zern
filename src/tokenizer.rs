@@ -58,7 +58,6 @@ pub enum TokenType {
     KeywordStruct,
     KeywordNew,
     KeywordAs,
-    KeywordEnum,
 
     Indent,
     Dedent,
@@ -395,7 +394,6 @@ impl Tokenizer {
             "struct" => TokenType::KeywordStruct,
             "new" => TokenType::KeywordNew,
             "as" => TokenType::KeywordAs,
-            "enum" => TokenType::KeywordEnum,
             "true" => TokenType::True,
             "false" => TokenType::False,
             _ => TokenType::Identifier,

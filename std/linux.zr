@@ -1,28 +1,4 @@
-const STDIN         = 0
-const STDOUT        = 1
-
-const SIGABRT       = 6
-
-const AT_FDCWD      = -100
-
-const S_IFDIR       = 16384
-const S_IFMT        = 61440
-
-const PROT_READ     = 1
-const PROT_WRITE    = 2
-
-const MAP_PRIVATE   = 2
-const MAP_ANONYMOUS = 32
-
-const O_RDONLY      = 0
-const O_WRONLY      = 1
-const O_CREAT       = 64
-const O_TRUNC       = 512
-
-const SEEK_SET      = 0
-const SEEK_END      = 2
-
-const F_OK          = 0
+include "std/posix.zr"
 
 const SYS_read                    =  0
 const SYS_write                   =  1

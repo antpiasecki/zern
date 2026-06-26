@@ -361,7 +361,6 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            Stmt::Enum { .. } => {}
         }
         Ok(())
     }
