@@ -342,7 +342,7 @@ impl Parser {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
-        } else if self.match_token(&[TokenType::Tilde]) {
+        } else if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::Comma) {
             let mut targets = vec![];
             loop {
                 targets.push(self.consume(Identifier, "expected an identifier")?);

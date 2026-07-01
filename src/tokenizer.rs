@@ -30,7 +30,6 @@ pub enum TokenType {
     ShiftLeft,
     ShiftRight,
     Arrow,
-    Tilde,
 
     Equal,
     DoubleEqual,
@@ -179,7 +178,6 @@ impl<'a> Tokenizer<'a> {
             '%' => self.add_token(TokenType::Mod)?,
             '^' => self.add_token(TokenType::Xor)?,
             ':' => self.add_token(TokenType::Colon)?,
-            '~' => self.add_token(TokenType::Tilde)?,
             '-' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::MinusEqual)?

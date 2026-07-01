@@ -2,7 +2,7 @@ include "std/io.zr"
 include "std/net.zr"
 
 func main[] : i64
-    ~s, ok := net.listen("127.0.0.1", 8000)
+    s, ok := net.listen("127.0.0.1", 8000)
     if !ok
         panic("failed to listen")
 

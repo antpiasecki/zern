@@ -8,7 +8,7 @@ struct TestRunner
     custom_run_args: HashMap
 
 func TestRunner.run_directory[tr: TestRunner, dir: str] : void
-    ~files, ok := os.list_directory(dir)
+    files, ok := os.list_directory(dir)
     if !ok
         panic("failed to open test directory")
     for i in 0..files->size
@@ -28,12 +28,12 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Building %s...\n", x)
 
     build_cmd := "./target/release/zern "->concat(x)
-    ~custom_build_flags, ok := tr->custom_build_flags->get(name)
+    custom_build_flags, ok := tr->custom_build_flags->get(name)
     if ok
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
     build_start_time := os.time()
-    ~status, ok := os.run_shell_command(build_cmd)
+    status, ok := os.run_shell_command(build_cmd)
     if !ok || status != 0
         os.exit(1)
     build_end_time := os.time()
@@ -47,12 +47,12 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    ~custom_run_args, ok := tr->custom_run_args->get(name)
+    custom_run_args, ok := tr->custom_run_args->get(name)
     if ok
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
     run_start_time := os.time()
-    ~status, ok := os.run_shell_command(run_cmd)
+    status, ok := os.run_shell_command(run_cmd)
     if !ok || status != 0
         io.println("Test failed.")
         os.exit(1)
@@ -61,7 +61,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
 func main[] : i64
-    ~status, ok := os.run_shell_command("cargo build --release")
+    status, ok := os.run_shell_command("cargo build --release")
     if !ok || status != 0
         os.exit(1)
 
