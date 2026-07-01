@@ -5,6 +5,7 @@ mod tokenizer;
 mod typechecker;
 
 use std::{
+    collections::HashSet,
     fs,
     path::Path,
     process::{self, Command},
@@ -27,8 +28,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
 
-    let mut tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source);
-    tokenizer.include_file("std/std.zr".into())?;
+    let mut included_paths = HashSet::new();
+    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source, &mut included_paths);
     let parser = parser::Parser::new(tokenizer.tokenize()?);
     let statements = parser.parse()?;
 

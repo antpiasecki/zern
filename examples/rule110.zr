@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/containers.zr"
+
 func rule110_step[state: Array] : void
     new_state := []
 

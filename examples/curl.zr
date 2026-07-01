@@ -1,3 +1,4 @@
+include "std/io.zr"
 include "std/net.zr"
 
 func main[argc: i64, argv: ptr] : i64

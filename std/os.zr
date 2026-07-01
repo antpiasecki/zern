@@ -1,0 +1,133 @@
+include "std/posix.zr"
+include "std/linux_syscalls.zr"
+include "std/str.zr"
+include "std/containers.zr"
+
+func os.exit[code: i64] : void
+    _builtin_syscall(SYS_exit, code)
+
+func os.getpid[] : i64
+    return _builtin_syscall(SYS_getpid)
+
+func os.getenv[name: str] : str
+    name_len := name->len()
+    i := 0
+    while true
+        entry := mem.read64(_builtin_environ() + i * 8) as str
+        if entry as ptr == 0
+            break
+        if entry->equal_n(name, name_len) && entry[name_len] == '='
+            return (entry as ptr + name_len + 1) as str
+        i += 1
+    return ""
+
+func os.basename[path: str] : str
+    i := path->len() - 1
+    while i >= 0 && path[i] != '/'
+        i -= 1
+    return path->substr(i + 1, path->len() - i - 1)
+
+struct os.Timespec
+    tv_sec: i64
+    tv_nsec: i64
+
+func os.sleep[ms: i64] : void
+    if ms < 0
+        panic("negative time passed to os.sleep")
+    req := new os.Timespec
+    req->tv_sec = ms / 1000
+    req->tv_nsec = (ms % 1000) * 1000000
+    _builtin_syscall(SYS_nanosleep, req, 0)
+
+func os.time[] : i64
+    ts := new os.Timespec
+    _builtin_syscall(SYS_clock_gettime, CLOCK_REALTIME, ts)
+    out := ts->tv_sec * 1000 + ts->tv_nsec / 1000000
+    return out
+
+func os.urandom_buf[buf: ptr, n: i64] : void
+    pos := 0
+    while pos < n
+        ret := _builtin_syscall(SYS_getrandom, buf + pos, n - pos, 0)
+        if ret <= 0
+            panic("os.urandom_buf: syscall failed")
+        pos += ret
+
+func os.urandom[n: i64]: ptr
+    buf := mem.alloc(n)
+    os.urandom_buf(buf, n)
+    return buf
+
+func os.urandom_i64[] : i64
+    n := 0
+    os.urandom_buf(^n, 8)
+    return n
+
+func os.run_shell_command[command: str] : i64, bool
+    pid := _builtin_syscall(SYS_fork)
+    if pid < 0
+        return -1, false
+
+    if pid == 0
+        argv := ["sh", "-c", command, 0] // gets freed after child process exits
+        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
+        os.exit(1)
+    else
+        status := 0
+        wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, 0)
+        if wp < 0
+            return -1, false
+        st := status & 0xffffffff
+        
+        if (st & 0x7f) == 0
+            return (st >> 8) & 0xff, true
+        else
+            return -(st & 0x7f), true
+
+func os.file_exists[path: str] : bool
+    return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
+
+func os.is_a_directory[path: str] : bool
+    st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
+
+    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    if rc != 0
+        return false
+
+    return (mem.read32(st + 24) & S_IFMT) == S_IFDIR
+
+func os.list_directory[path: str] : Array, bool
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)
+    if fd < 0
+        return 0 as Array, false
+
+    files := []
+    buf := _stackalloc(1024)
+    while true
+        n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
+        if n < 0
+            files->free_with_items()
+            _builtin_syscall(SYS_close, fd)
+            return 0 as Array, false
+        else if n == 0
+            break
+
+        pos := 0
+        while pos < n
+            len := mem.read16(buf + pos + 16)
+            name : ptr = buf + pos + 19
+            if name[0]
+                skip := false
+                // skip if name is exactly '.' or '..'
+                if name[0] == '.'
+                    if name[1] == 0
+                        skip = true
+                    else if name[1] == '.'
+                        if name[2] == 0
+                            skip = true
+                if !skip
+                    files->push((name as str)->make_copy())
+            pos += len
+
+    _builtin_syscall(SYS_close, fd)
+    return files, true

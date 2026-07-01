@@ -1,3 +1,5 @@
+include "std/io.zr"
+
 func collatz_num[n: i64] : i64
     if n % 2 == 0
         return n / 2

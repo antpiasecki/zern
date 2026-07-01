@@ -1,3 +1,5 @@
+include "std/io.zr"
+
 func main[] : i64
     sum := 0
     a := 0

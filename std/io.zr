@@ -1,0 +1,143 @@
+include "std/str.zr"
+
+func io.printf[..] : void
+    s := _var_arg(0) as ptr
+    i := 1
+
+    while s[0]
+        if s[0] == '%'
+            s += 1
+
+            if s[0] == 'd'
+                io.print_i64(_var_arg(i) as i64)
+                i += 1
+            else if s[0] == 'x'
+                io.print_i64_hex(_var_arg(i) as i64)
+                i += 1
+            else if s[0] == 's'
+                io.print(_var_arg(i) as str)
+                i += 1
+            else if s[0] == 'c'
+                io.print_char(_var_arg(i) as u8)
+                i += 1
+            else if s[0] == 'f'
+                io.print_f64(_var_arg(i) as i64)
+                i += 1
+            else if s[0] == '%'
+                io.print_char('%')
+            else if s[0] == 0
+                break
+            else
+                panic("io.printf: unrecognized format")
+        else
+            io.print_char(s[0])
+        s += 1
+
+func io.print_sized[x: ptr, size: i64] : void
+    _builtin_syscall(SYS_write, STDOUT_FILENO, x, size)
+
+func io.print[x: str] : void
+    io.print_sized(x as ptr, x->len())
+
+func io.println[x: str] : void
+    io.print(x)
+    io.print("\n")
+
+func io.print_char[x: u8] : void
+    io.print_sized(^x, 1)
+
+func io.print_bool[x: bool] : void
+    if x
+        io.print("true")
+    else
+        io.print("false")
+
+func io.print_i64[x: i64] : void
+    s := _stackalloc(21)
+    x->to_str_buf(s)
+    io.print(s as str)
+
+func io.print_i64_hex[x: i64] : void
+    s := _stackalloc(17)
+    x->to_hex_str_buf(s)
+    io.print(s as str)
+
+func io.println_i64[x: i64] : void
+    s := _stackalloc(21)
+    x->to_str_buf(s)
+    io.println(s as str)
+
+// TODO: fix when we implement f64 params
+func io.print_f64[x: i64] : void
+    s := _stackalloc(64)
+    f64.to_str_buf(x, s)
+    io.print(s as str)
+
+func io.read_char[] : u8
+    c := 0 as u8
+    _builtin_syscall(SYS_read, STDIN_FILENO, ^c, 1)
+    return c
+
+func io.read_line[] : str
+    b := new str.Builder
+    while true
+        c := io.read_char()
+        if c == '\n'
+            break
+        b->append_char(c)
+    s := b->build()
+    b->destroy()
+    return s
+
+func io.read_text_file[path: str] : str, bool
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)
+    if fd < 0
+        return 0 as str, false
+
+    size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
+
+    buffer := mem.alloc(size + 1)
+    n := _builtin_syscall(SYS_read, fd, buffer, size)
+    _builtin_syscall(SYS_close, fd)
+
+    if n != size
+        buffer->free()
+        return 0 as str, false
+
+    buffer[n] = 0
+    return buffer as str, true
+
+func io.read_binary_file[path: str] : Blob, bool
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)
+    if fd < 0
+        return 0 as Blob, false
+    
+    buf := new* Blob
+    buf->size = _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
+
+    buf->data = mem.alloc(buf->size)
+
+    n := _builtin_syscall(SYS_read, fd, buf->data, buf->size)
+    _builtin_syscall(SYS_close, fd)
+
+    if n != buf->size
+        buf->free()
+        return 0 as Blob, false
+
+    return buf, true
+
+func io.write_file[path: str, content: str] : bool
+    return io.write_binary_file(path, content as ptr, content->len())
+
+func io.write_binary_file[path: str, content: ptr, size: i64] : bool
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
+    if fd < 0
+        return false
+
+    n := _builtin_syscall(SYS_write, fd, content, size)
+    _builtin_syscall(SYS_close, fd)
+    if n != size
+        return false
+    return true

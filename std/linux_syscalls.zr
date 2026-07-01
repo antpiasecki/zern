@@ -1,5 +1,3 @@
-include "std/posix.zr"
-
 const SYS_read                    =  0
 const SYS_write                   =  1
 const SYS_open                    =  2

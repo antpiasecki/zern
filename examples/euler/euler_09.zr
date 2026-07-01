@@ -1,3 +1,5 @@
+include "std/io.zr"
+
 func main[] : i64
     for a in 1..1000
         for b in 1..1000

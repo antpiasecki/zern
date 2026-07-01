@@ -1,0 +1,304 @@
+include "std/num.zr"
+include "std/mem.zr"
+
+func u8.is_whitespace[x: u8] : bool
+    return x == ' ' || x == '\n' || x == '\t' || x == '\r'
+
+func u8.is_digit[x: u8] : bool
+    return x >= '0' && x <= '9'
+
+func u8.is_hex_digit[x: u8] : bool
+    return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F')
+
+func u8.is_lowercase[x: u8] : bool
+    return x >= 'a' && x <= 'z'
+
+func u8.is_uppercase[x: u8] : bool
+    return x >= 'A' && x <= 'Z'
+
+func u8.is_letter[x: u8] : bool
+    return x->is_uppercase() || x->is_lowercase()
+
+func u8.is_alphanumeric[x: u8] : bool
+    return x->is_letter() || x->is_digit()
+
+func u8.to_str[c: u8] : str
+    s := mem.alloc(2) as str
+    s[0] = c
+    s[1] = 0
+    return s
+
+func str.free[s: str] : void
+    mem.free(s)
+
+func str.len[s: str] : i64
+    i := 0
+    while s[i]
+        i += 1
+    return i
+
+func str.make_copy[s: str] : str
+    size := s->len() + 1
+    dup := mem.alloc(size) as str
+    mem.copy(s as ptr, dup as ptr, size)
+    return dup
+
+func str.equal[a: str, b: str] : bool
+    i := 0
+    while a[i] != 0 && b[i] != 0
+        if a[i] != b[i]
+            return false
+        i += 1
+    return a[i] == b[i]
+
+func str.equal_n[a: str, b: str, n: i64] : bool
+    i := 0
+    while i < n
+        if a[i] == 0 || b[i] == 0
+            return false
+        if a[i] != b[i]
+            return false
+        i += 1
+    return true
+
+func str.format_into[..] : i64
+    buf := _var_arg(0) as ptr
+    size := _var_arg(1) as i64
+    if size <= 0
+        return 0
+    s := _var_arg(2) as ptr
+    i := 3
+    n := 0
+
+    tmp := _stackalloc(64) as str
+
+    while s[0]
+        if s[0] == '%'
+            s += 1
+
+            if s[0] == 'd'
+                (_var_arg(i) as i64)->to_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
+                remaining := size - n - 1
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 'x'
+                (_var_arg(i) as i64)->to_hex_str_buf(tmp as ptr)
+                tmp_len := tmp->len()
+                remaining := size - n - 1
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 's'
+                tmp_str := _var_arg(i) as str
+                tmp_len := tmp_str->len()
+                remaining := size - n - 1
+                mem.copy(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == 'c'
+                if n < size - 1
+                    buf[n] = _var_arg(i) as u8
+                n += 1
+                i += 1
+            else if s[0] == 'f'
+                // TODO: fix when we implement f64 params
+                f64.to_str_buf(_var_arg(i), tmp as ptr)
+                tmp_len := tmp->len()
+                remaining := size - n - 1
+                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                n += tmp_len
+                i += 1
+            else if s[0] == '%'
+                if n < size - 1
+                    buf[n] = '%'
+                n += 1
+            else if s[0] == 0
+                break
+            else
+                panic("str.format_into: unrecognized format")
+        else
+            if n < size - 1
+                buf[n] = s[0]
+            n += 1
+        s += 1
+
+    if n < size
+        buf[n] = 0
+    else if size > 0
+        buf[size - 1] = 0
+    return n
+
+func str.concat[a: str, b: str] : str
+    a_len := a->len()
+    b_len := b->len()
+    out := mem.alloc(a_len + b_len + 1) as str
+    mem.copy(a as ptr, out as ptr, a_len)
+    mem.copy(b as ptr, out as ptr + a_len, b_len)
+    out[a_len + b_len] = 0
+    return out
+
+func str.contains[haystack: str, needle: str] : bool
+    return haystack->find(needle) != -1
+
+func str.find[haystack: str, needle: str] : i64
+    haystack_len := haystack->len()
+    needle_len := needle->len()
+
+    if needle_len == 0
+        return 0
+    
+    if needle_len > haystack_len
+        return -1
+
+    for i in 0..(haystack_len - needle_len + 1)
+        if haystack[i] != needle[0]
+            continue
+        if needle_len == 1
+            return i
+        match := true
+        for j in 1..needle_len
+            if haystack[i + j] != needle[j]
+                match = false
+                break
+        if match
+            return i
+    return -1
+
+func str.substr[s: str, start: i64, length: i64] : str
+    out := mem.alloc(length + 1) as str
+    mem.copy(s as ptr + start, out as ptr, length)
+    out[length] = 0
+    return out
+
+func str.trim[s: str] : str
+    len := s->len()
+    if len == 0
+        out := mem.alloc(1) as str
+        out[0] = 0
+        return out
+
+    start := 0
+    end := len - 1
+
+    while start <= end && s[start]->is_whitespace()
+        start += 1
+
+    while end >= start && s[end]->is_whitespace()
+        end -= 1
+
+    return s->substr(start, end - start + 1)
+
+func str.reverse[s: str] : str
+    len := s->len()
+    out := mem.alloc(len + 1) as str
+
+    for i in 0..len
+        out[i] = s[len - i - 1]
+    out[len] = 0
+    return out
+
+
+func str.parse_i64[s: str] : i64
+    len := s->len()
+    i := 0
+
+    sign := 1
+    if i < len && s[i] == '-'
+        sign = -1
+        i += 1
+
+    num := 0
+    while i < len
+        d := s[i]
+        if !d->is_digit()
+            break
+        num = num * 10 + (d - '0')
+        i += 1
+    return num * sign
+
+func str.hex_encode[s: str, s_len: i64] : str
+    hex_chars := "0123456789abcdef"
+    out := mem.alloc(s_len * 2 + 1) as str
+
+    for i in 0..s_len
+        b := s[i]
+        out[i * 2]     = hex_chars[(b >> 4) & 15]
+        out[i * 2 + 1] = hex_chars[b & 15]
+
+    out[s_len * 2] = 0
+    return out
+
+func str._hex_digit_to_int[d: u8] : u8
+    if d->is_digit()
+        return d - '0'
+    lower : u8 = d | 32 
+    if lower >= 'a' && lower <= 'f'
+        return lower - 'a' + 10
+    panic("invalid hex digit passed to str._hex_digit_to_int")
+
+func str.hex_decode[s: str] : str
+    s_len := s->len()
+    if s_len % 2 != 0
+        panic("invalid hex string passed to str.hex_decode")
+
+    out_len := s_len / 2
+    out := mem.alloc(out_len + 1) as str
+
+    for i in 0..out_len
+        high := str._hex_digit_to_int(s[i * 2])
+        low := str._hex_digit_to_int(s[i * 2 + 1])
+        out[i] = (high << 4) | low
+
+    out[out_len] = 0
+    return out
+
+struct str.Builder
+    data: ptr
+    size: i64
+    capacity: i64
+
+func str.Builder._grow[b: str.Builder, needed: i64] : void
+    if b->size + needed > b->capacity
+        new_capacity := 64
+        if b->capacity != 0
+            new_capacity = b->capacity * 2
+        while new_capacity < b->size + needed
+            new_capacity = new_capacity * 2
+        b->data = b->data->realloc(new_capacity)
+        b->capacity = new_capacity
+
+func str.Builder.append_char[b: str.Builder, c: u8] : void
+    b->_grow(1)
+    b->data[b->size] = c
+    b->size += 1
+
+func str.Builder.append[b: str.Builder, s: str] : void
+    len := s->len()
+    b->_grow(len)
+    mem.copy(s as ptr, b->data + b->size, len)
+    b->size += len
+
+func str.Builder.build[b: str.Builder] : str
+    s := mem.alloc(b->size + 1) as str
+    mem.copy(b->data, s as ptr, b->size)
+    s[b->size] = 0
+    return s
+
+func str.Builder.destroy[b: str.Builder] : void
+    if b->data != 0
+        b->data->free()
+    b->size = 0
+    b->capacity = 0
+
+// here to prevent num depending on mem
+func i64.to_str[n: i64] : str
+    out := mem.alloc(21)
+    n->to_str_buf(out)
+    return out as str
+
+func i64.to_hex_str[n: i64] : str
+    out := mem.alloc(17)
+    n->to_hex_str_buf(out)
+    return out as str

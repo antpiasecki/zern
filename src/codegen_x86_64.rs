@@ -147,8 +147,8 @@ _builtin_cvttsd2si:
     cvttsd2si rax, xmm0
     ret
 
-.section .text._builtin_f64_to_float
-_builtin_f64_to_float:
+.section .text._builtin_f64_to_f32
+_builtin_f64_to_f32:
     cvtsd2ss xmm0, xmm0
     movd eax, xmm0
     ret
@@ -648,10 +648,10 @@ _builtin_environ:
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                 }
-                TokenType::True => {
+                TokenType::KeywordTrue => {
                     emit!(&mut self.output, "    mov rax, 1");
                 }
-                TokenType::False => {
+                TokenType::KeywordFalse => {
                     emit!(&mut self.output, "    mov rax, 0");
                 }
                 _ => unreachable!(),

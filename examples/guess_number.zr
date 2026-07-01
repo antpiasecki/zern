@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/os.zr"
+
 func main[] : i64
     answer := os.urandom_i64()->abs() % 100
 

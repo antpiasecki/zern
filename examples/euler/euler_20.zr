@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/containers.zr"
+
 func multiply[n: Array, x: i64] : void
     carry := 0
     for i in 0..n->size

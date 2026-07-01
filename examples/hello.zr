@@ -1,2 +1,4 @@
+include "std/io.zr"
+
 func main[] : i64
     io.println("Hello, World!")

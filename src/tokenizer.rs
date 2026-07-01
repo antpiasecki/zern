@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, fmt, fs, path::Path};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt, fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
@@ -40,8 +45,6 @@ pub enum TokenType {
     CharLiteral,
     IntLiteral,
     FloatLiteral,
-    True,
-    False,
 
     KeywordConst,
     KeywordIf,
@@ -58,6 +61,8 @@ pub enum TokenType {
     KeywordStruct,
     KeywordNew,
     KeywordAs,
+    KeywordTrue,
+    KeywordFalse,
 
     Indent,
     Dedent,
@@ -109,7 +114,7 @@ pub struct Token {
     pub loc: Loc,
 }
 
-pub struct Tokenizer {
+pub struct Tokenizer<'a> {
     source: Vec<char>,
     tokens: Vec<Token>,
     indent_stack: Vec<usize>,
@@ -117,10 +122,15 @@ pub struct Tokenizer {
     start: usize,
     current: usize,
     loc: Loc,
+    included_paths: &'a mut HashSet<PathBuf>,
 }
 
-impl Tokenizer {
-    pub fn new(filename: String, source: String) -> Tokenizer {
+impl<'a> Tokenizer<'a> {
+    pub fn new(
+        filename: String,
+        source: String,
+        included_paths: &'a mut HashSet<PathBuf>,
+    ) -> Tokenizer<'a> {
         Tokenizer {
             source: source.chars().collect(),
             tokens: vec![],
@@ -133,6 +143,7 @@ impl Tokenizer {
                 line: 1,
                 column: 1,
             },
+            included_paths,
         }
     }
 
@@ -357,6 +368,9 @@ impl Tokenizer {
                 self.advance();
             }
         } else {
+            if self.source[self.current - 1] == '0' && self.peek().is_ascii_digit() {
+                return error!(self.loc, "octal literals are not allowed");
+            }
             while self.peek().is_ascii_digit() {
                 self.advance();
             }
@@ -406,8 +420,8 @@ impl Tokenizer {
             "struct" => TokenType::KeywordStruct,
             "new" => TokenType::KeywordNew,
             "as" => TokenType::KeywordAs,
-            "true" => TokenType::True,
-            "false" => TokenType::False,
+            "true" => TokenType::KeywordTrue,
+            "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,
         })
     }
@@ -437,8 +451,18 @@ impl Tokenizer {
         self.include_file(path)
     }
 
-    // TODO: circular includes lead to "fatal runtime error: stack overflow, aborting"
-    pub fn include_file(&mut self, path: String) -> Result<(), ZernError> {
+    fn include_file(&mut self, path: String) -> Result<(), ZernError> {
+        let canonical = match fs::canonicalize(&path) {
+            Ok(p) => p,
+            Err(e) => {
+                return error!(self.loc, format!("failed to resolve {}: {}", path, e));
+            }
+        };
+
+        if !self.included_paths.insert(canonical) {
+            return Ok(());
+        }
+
         let source = match fs::read_to_string(&path) {
             Ok(x) => x,
             Err(_) => {
@@ -448,7 +472,7 @@ impl Tokenizer {
 
         let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
 
-        let tokenizer = Tokenizer::new(filename.to_owned(), source);
+        let tokenizer = Tokenizer::new(filename.to_owned(), source, &mut *self.included_paths);
         self.tokens.extend(tokenizer.tokenize()?);
         self.tokens.pop(); // remove inner Eof
 

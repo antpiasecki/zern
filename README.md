@@ -4,11 +4,10 @@ A very cool language
 
 ## Features
 * Clean indentation-based syntax
-* Compiles to x86_64 Assembly
+* Compiles to x86-64 Assembly
 * No libc required!
 * Produces tiny static executables (11KB for `hello.zr`)
-* Has type inference, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), variadics, dynamic arrays, hashmaps, DNS resolver, etc.
-* Growing [standard library](https://git.ton1.dev/toni/zern/src/branch/main/std)
+* Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), variadics, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
 ```rust

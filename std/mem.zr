@@ -1,0 +1,240 @@
+include "std/linux_syscalls.zr"
+include "std/num.zr"
+
+const MEM_BLOCK_SIZE = 32
+
+struct mem.Block
+    size: i64
+    free: bool
+    next: mem.Block
+    prev: mem.Block
+
+func mem.align[x: i64] : i64
+    return (x + 7) & -8
+
+func mem.Block._split[blk: mem.Block, needed: i64] : void
+    if blk->size >= needed + MEM_BLOCK_SIZE + 8
+        new_blk := (blk as ptr + MEM_BLOCK_SIZE + needed) as mem.Block
+        new_blk->size = blk->size - needed - MEM_BLOCK_SIZE
+        new_blk->free = true
+        new_blk->next = blk->next
+        new_blk->prev = blk
+
+        if blk->next as ptr
+            blk->next->prev = new_blk
+        else
+            mem.write64(_builtin_heap_tail(), new_blk)
+
+        blk->size = needed
+        blk->next = new_blk
+
+func mem._request_space[size: i64] : mem.Block
+    needed := size + MEM_BLOCK_SIZE
+    alloc_size := (needed + 4095) & -4096
+
+    blk := _builtin_syscall(SYS_mmap, 0, alloc_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
+    if (blk as ptr as i64) == -1
+        panic("mem._request_space: failed to mmap")
+
+    blk->size = alloc_size - MEM_BLOCK_SIZE
+    blk->free = false
+    blk->next = 0 as mem.Block
+    blk->prev = 0 as mem.Block
+
+    tail := mem.read64(_builtin_heap_tail()) as mem.Block
+    if tail as ptr
+        tail->next = blk
+        blk->prev = tail
+
+    mem.write64(_builtin_heap_tail(), blk)
+    return blk
+
+func mem.alloc[size: i64] : ptr
+    if size <= 0
+        panic("mem.alloc: called with nonpositive size")
+
+    size = mem.align(size)
+
+    cur := mem.read64(_builtin_heap_head()) as mem.Block
+    while cur as ptr
+        if cur->free && cur->size >= size
+            cur->_split(size)
+            cur->free = false
+            return cur as ptr + MEM_BLOCK_SIZE
+        cur = cur->next
+    
+    blk := mem._request_space(size)
+    
+    if !mem.read64(_builtin_heap_head())
+        mem.write64(_builtin_heap_head(), blk)
+    
+    blk->_split(size)
+    
+    return blk as ptr + MEM_BLOCK_SIZE
+
+func mem.free[x: any] : void
+    ptr.free(x as ptr)
+
+func ptr.free[x: ptr] : void
+    if x == 0
+        return
+
+    blk := (x - MEM_BLOCK_SIZE) as mem.Block
+    if blk->free
+        return
+
+    blk->free = true
+
+    next := blk->next
+    if next as ptr && next->free
+        expected_next := (blk as ptr + MEM_BLOCK_SIZE + blk->size) as mem.Block
+        if expected_next as ptr == next as ptr
+            blk->size += MEM_BLOCK_SIZE + next->size
+            blk->next = next->next
+            if next->next as ptr
+                next->next->prev = blk
+            if mem.read64(_builtin_heap_tail()) == next as ptr
+                mem.write64(_builtin_heap_tail(), blk)
+
+    prev := blk->prev
+    if prev as ptr && prev->free
+        expected_blk := (prev as ptr + MEM_BLOCK_SIZE + prev->size) as mem.Block
+        if expected_blk as ptr == blk as ptr
+            prev->size += MEM_BLOCK_SIZE + blk->size
+            prev->next = blk->next
+            if blk->next as ptr
+                blk->next->prev = prev
+            if mem.read64(_builtin_heap_tail()) == blk as ptr
+                mem.write64(_builtin_heap_tail(), prev)
+            blk = prev
+
+    block_total := blk->size + MEM_BLOCK_SIZE
+    if (blk as i64 & 4095) == 0 && (block_total & 4095) == 0
+        if blk->prev as ptr
+            blk->prev->next = blk->next
+        else
+            mem.write64(_builtin_heap_head(), blk->next)
+        if blk->next as ptr
+            blk->next->prev = blk->prev
+        else
+            mem.write64(_builtin_heap_tail(), blk->prev)
+        _builtin_syscall(SYS_munmap, blk, block_total)
+
+func ptr.realloc[x: ptr, new_size: i64] : ptr
+    if !x
+        return mem.alloc(new_size)
+    
+    if new_size < 0
+        panic("mem.realloc: called with negative new_size")
+
+    if new_size == 0
+        x->free()
+        return 0 as ptr
+
+    new_size = mem.align(new_size)
+
+    blk := (x - MEM_BLOCK_SIZE) as mem.Block
+    if blk->size >= new_size
+        blk->_split(new_size)
+        return x
+
+    next := blk->next
+    expected_next := (blk as ptr + MEM_BLOCK_SIZE + blk->size) as mem.Block
+    
+    if next as ptr && next->free && expected_next as ptr == next as ptr
+        combined := blk->size + MEM_BLOCK_SIZE + next->size
+        if combined >= new_size
+            blk->size = combined
+            blk->next = next->next
+            if next->next as ptr
+                next->next->prev = blk
+            if mem.read64(_builtin_heap_tail()) == next as ptr
+                mem.write64(_builtin_heap_tail(), blk)
+            blk->_split(new_size)
+            return x
+
+    new_ptr := mem.alloc(new_size)
+
+    mem.copy(x, new_ptr, math.min(blk->size, new_size))
+    x->free()
+    return new_ptr
+
+func ptr.zero_and_free[x: ptr, size: i64] : void
+    mem.zero(x, size)
+    x->free()
+
+func mem.zero[x: ptr, size: i64] : void
+    i := 0
+    while i + 8 <= size
+        mem.write64(x + i, 0)
+        i += 8
+    while i < size
+        x[i] = 0 as u8
+        i += 1
+
+func mem.copy[src: ptr, dst: ptr, n: i64] : void
+    if dst > src && dst < src + n
+        i := n
+        while i - 8 >= 0
+            i -= 8
+            mem.write64(dst + i, mem.read64(src + i))
+        while i > 0
+            i -= 1
+            dst[i] = src[i]
+    else
+        i := 0
+        while i + 8 <= n
+            mem.write64(dst + i, mem.read64(src + i))
+            i += 8
+        while i < n
+            dst[i] = src[i]
+            i += 1
+
+func mem.read8[x: ptr] : u8
+    return x[0]
+
+func mem.read16[x: ptr] : i64
+    return x[0] as i64 | (x[1] << 8)
+
+func mem.read16be[x: ptr] : i64
+    return (x[0] << 8) as i64 | x[1]
+
+func mem.read32[x: ptr] : i64
+    return x[0] as i64 | (x[1] << 8) | (x[2] << 16) | (x[3] << 24)
+
+func mem.read32be[x: ptr] : i64
+    return (x[0] as i64 << 24) | (x[1] << 16) | (x[2] << 8) | x[3]
+
+func mem.read64[x: ptr] : i64
+    return _builtin_read64(x)
+
+func mem.write32[x: ptr, d: i64] : void
+    x[0] = d & 0xff
+    x[1] = (d >> 8) & 0xff
+    x[2] = (d >> 16) & 0xff
+    x[3] = (d >> 24) & 0xff
+
+func mem.write16[x: ptr, d: i64] : void
+    x[0] = d & 0xff
+    x[1] = (d >> 8) & 0xff
+
+func mem.write16be[x: ptr, d: i64] : void
+    x[0] = (d >> 8) & 0xff
+    x[1] = d & 0xff
+
+func mem.write64[x: ptr, d: any] : void
+    _builtin_set64(x, d)
+
+struct Blob
+    data: ptr
+    size: i64
+
+func Blob.alloc[size: i64] : Blob
+    buffer := new* Blob
+    buffer->size = size
+    buffer->data = mem.alloc(size)
+    return buffer
+
+func Blob.free[buf: Blob] : void
+    buf->data->free()
+    mem.free(buf)

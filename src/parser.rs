@@ -665,8 +665,8 @@ impl Parser {
             TokenType::FloatLiteral,
             TokenType::CharLiteral,
             TokenType::StringLiteral,
-            TokenType::True,
-            TokenType::False,
+            TokenType::KeywordTrue,
+            TokenType::KeywordFalse,
         ]) {
             Ok(Expr::new(ExprKind::Literal(self.previous().clone())))
         } else if self.match_token(&[TokenType::LeftParen]) {

@@ -1,0 +1,14 @@
+include "std/linux_syscalls.zr"
+include "std/posix.zr"
+
+// weird like that so num doesnt depend on io
+func panic[msg: str] : void
+    len := 0
+    while msg[len]
+        len += 1
+    _builtin_syscall(SYS_write, 2, "PANIC: ", 7)
+    _builtin_syscall(SYS_write, 2, msg, len)
+    _builtin_syscall(SYS_write, 2, "\n", 1)
+    // for gdb backtrace
+    _builtin_syscall(SYS_kill, _builtin_syscall(SYS_getpid), SIGABRT)
+    _builtin_syscall(SYS_exit, 1)

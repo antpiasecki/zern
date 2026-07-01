@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/containers.zr"
+
 func main[] : i64
     s1 := [0, 3, 3, 5, 4, 4, 3, 5, 5, 4]
     s2 := [3, 6, 6, 8, 8, 7, 7, 9, 8, 8]

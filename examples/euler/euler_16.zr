@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/containers.zr"
+
 func main[] : i64
     n := [1]
 

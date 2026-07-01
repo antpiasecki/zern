@@ -428,8 +428,8 @@ impl<'a> TypeChecker<'a> {
                 TokenType::FloatLiteral => Ok("f64".into()),
                 TokenType::CharLiteral => Ok("u8".into()),
                 TokenType::StringLiteral => Ok("str".into()),
-                TokenType::True => Ok("bool".into()),
-                TokenType::False => Ok("bool".into()),
+                TokenType::KeywordTrue => Ok("bool".into()),
+                TokenType::KeywordFalse => Ok("bool".into()),
                 _ => unreachable!(),
             },
             ExprKind::Unary { op, right } => {

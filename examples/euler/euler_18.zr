@@ -1,3 +1,6 @@
+include "std/io.zr"
+include "std/containers.zr"
+
 func findmax[triangle: Array, row: i64, col: i64] : i64
     if row == 14
         return (triangle->nth(row) as Array)->nth(col)

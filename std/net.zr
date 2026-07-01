@@ -1,3 +1,5 @@
+include "std/os.zr"
+
 const AF_INET = 2
 const SOCK_STREAM = 1
 const SOCK_DGRAM = 2

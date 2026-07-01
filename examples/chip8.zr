@@ -1,4 +1,7 @@
 // needs to be compiled with -m -C "-lraylib"
+include "std/io.zr"
+include "std/os.zr"
+
 extern InitWindow
 extern SetTargetFPS
 extern WindowShouldClose
