@@ -2,3 +2,5 @@
 /out*
 /TODO
 /vscode
+/fuzz
+/perf.data*

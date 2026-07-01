@@ -15,8 +15,8 @@ use tokenizer::ZernError;
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
         Ok(x) => x,
-        Err(_) => {
-            eprintln!("\x1b[91mERROR\x1b[0m: failed to open {}", args.path);
+        Err(e) => {
+            eprintln!("\x1b[91mERROR\x1b[0m: failed to open {}: {e}", args.path);
             process::exit(1);
         }
     };

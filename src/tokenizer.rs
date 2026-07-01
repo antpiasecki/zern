@@ -245,6 +245,9 @@ impl Tokenizer {
                     return error!(self.loc, "unterminated char literal");
                 }
                 _ = self.match_char('\\'); // if its an escape sequence skip \ and read one more
+                if self.eof() {
+                    return error!(self.loc, "unterminated char literal");
+                }
                 self.advance();
                 if !self.match_char('\'') {
                     return error!(self.loc, "expected ' after char literal");
@@ -257,6 +260,12 @@ impl Tokenizer {
                 while !self.eof() {
                     if self.peek() == '\\' {
                         self.advance();
+                        if self.eof() {
+                            return error!(
+                                self.loc,
+                                format!("unterminated string, started at {}", start_loc)
+                            );
+                        }
                     } else if self.peek() == '"' {
                         break;
                     } else if self.peek() == '\n' {
@@ -340,7 +349,10 @@ impl Tokenizer {
     fn scan_number(&mut self) -> Result<(), ZernError> {
         let mut is_float = false;
 
-        if self.match_char('x') {
+        if self.source[self.current - 1] == '0' && self.match_char('x') {
+            if !self.peek().is_ascii_hexdigit() {
+                return error!(self.loc, "expected a digit after '0x'");
+            }
             while self.peek().is_ascii_hexdigit() {
                 self.advance();
             }

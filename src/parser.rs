@@ -154,6 +154,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
     is_inside_function: bool,
+    depth: usize,
 }
 
 impl Parser {
@@ -162,6 +163,7 @@ impl Parser {
             tokens,
             current: 0,
             is_inside_function: false,
+            depth: 0,
         }
     }
 
@@ -446,7 +448,14 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ZernError> {
-        self.or_and()
+        self.depth += 1;
+        if self.depth > 200 {
+            return error!(self.previous().loc, "maximum expression depth reached");
+        }
+
+        let out = self.or_and();
+        self.depth -= 1;
+        out
     }
 
     fn or_and(&mut self) -> Result<Expr, ZernError> {

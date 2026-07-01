@@ -5,31 +5,35 @@ use crate::{
     tokenizer::{ZernError, error},
 };
 
-pub type Type = String;
-
 pub struct StructField {
     pub offset: usize,
-    pub field_type: Type,
+    pub field_type: String,
+}
+
+#[derive(Clone)]
+pub enum FnParams {
+    Normal(Vec<String>),
+    Variadic,
 }
 
 #[derive(Clone)]
 pub struct FnType {
-    pub return_type: Type,
-    pub params: Option<Vec<Type>>,
+    pub return_type: String,
+    pub params: FnParams,
 }
 
 impl FnType {
     fn new(return_type: &str, params: Vec<&str>) -> FnType {
         FnType {
             return_type: return_type.to_string(),
-            params: Some(params.iter().map(|x| x.to_string()).collect()),
+            params: FnParams::Normal(params.iter().map(|x| x.to_string()).collect()),
         }
     }
 
     fn new_variadic(return_type: &str) -> FnType {
         FnType {
             return_type: return_type.to_string(),
-            params: None,
+            params: FnParams::Variadic,
         }
     }
 }
@@ -74,9 +78,15 @@ impl SymbolTable {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 let mut value = if value.lexeme.starts_with("0x") {
-                    u64::from_str_radix(&value.lexeme[2..], 16).unwrap()
+                    match u64::from_str_radix(&value.lexeme[2..], 16) {
+                        Ok(v) => v,
+                        Err(_) => return error!(value.loc, "failed to parse hex numeric constant"),
+                    }
                 } else {
-                    value.lexeme.parse().unwrap()
+                    match value.lexeme.parse() {
+                        Ok(v) => v,
+                        Err(_) => return error!(value.loc, "failed to parse numeric constant"),
+                    }
                 } as i64;
                 if *neg {
                     value = -value;
@@ -110,7 +120,7 @@ impl SymbolTable {
                         name.lexeme.clone(),
                         FnType {
                             return_type,
-                            params: Some(
+                            params: FnParams::Normal(
                                 params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
                             ),
                         },
@@ -119,7 +129,7 @@ impl SymbolTable {
                         name.lexeme.clone(),
                         FnType {
                             return_type,
-                            params: None,
+                            params: FnParams::Variadic,
                         },
                     ),
                 };

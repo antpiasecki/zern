@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::{Expr, ExprKind, Params, Stmt},
-    symbol_table::{SymbolTable, Type},
+    symbol_table::{FnParams, SymbolTable},
     tokenizer::{TokenType, ZernError, error},
 };
 
@@ -36,7 +36,7 @@ macro_rules! expect_types {
 static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "any"];
 
 pub struct Env {
-    scopes: Vec<HashMap<String, Type>>,
+    scopes: Vec<HashMap<String, String>>,
 }
 
 impl Env {
@@ -59,7 +59,7 @@ impl Env {
         self.scopes.last_mut().unwrap().insert(name, var_type);
     }
 
-    fn get_var_type(&self, name: &str) -> Option<&Type> {
+    fn get_var_type(&self, name: &str) -> Option<&String> {
         for scope in self.scopes.iter().rev() {
             if let Some(var) = scope.get(name) {
                 return Some(var);
@@ -365,7 +365,7 @@ impl<'a> TypeChecker<'a> {
         Ok(())
     }
 
-    pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<Type, ZernError> {
+    pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<String, ZernError> {
         let expr_type = match &expr.kind {
             ExprKind::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
@@ -464,24 +464,31 @@ impl<'a> TypeChecker<'a> {
                 if let ExprKind::Variable(callee_name) = &callee.kind {
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
-                        if let Some(params) = fn_type.params.clone() {
-                            if params.len() != args.len() {
-                                return error!(
-                                    &paren.loc,
-                                    format!(
-                                        "expected {} arguments, got {}",
-                                        params.len(),
-                                        args.len()
-                                    )
-                                );
+                        match &fn_type.params {
+                            FnParams::Normal(params) => {
+                                if params.len() != args.len() {
+                                    return error!(
+                                        &paren.loc,
+                                        format!(
+                                            "expected {} arguments, got {}",
+                                            params.len(),
+                                            args.len()
+                                        )
+                                    );
+                                }
+                                for (i, arg) in args.iter().enumerate() {
+                                    expect_type!(
+                                        self.typecheck_expr(env, arg)?,
+                                        params[i],
+                                        paren.loc
+                                    );
+                                }
                             }
-                            for (i, arg) in args.iter().enumerate() {
-                                expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
-                            }
-                        } else {
-                            // its a variadic function, cant check arg types
-                            for arg in args {
-                                self.typecheck_expr(env, arg)?;
+                            FnParams::Variadic => {
+                                // cant check arg types
+                                for arg in args {
+                                    self.typecheck_expr(env, arg)?;
+                                }
                             }
                         }
                         Ok(fn_type.return_type.clone())
@@ -587,35 +594,38 @@ impl<'a> TypeChecker<'a> {
                     }
                 };
 
-                if let Some(params) = &func_type.params {
-                    if params.len() != args.len() + 1 {
-                        return error!(
-                            method.loc,
-                            format!(
-                                "expected {} arguments, got {}",
-                                params.len() - 1,
-                                args.len()
-                            )
-                        );
+                match &func_type.params {
+                    FnParams::Normal(params) => {
+                        if params.len() != args.len() + 1 {
+                            return error!(
+                                method.loc,
+                                format!(
+                                    "expected {} arguments, got {}",
+                                    params.len() - 1,
+                                    args.len()
+                                )
+                            );
+                        }
+                        if params[0] != receiver_type {
+                            return error!(
+                                method.loc,
+                                format!(
+                                    "first parameter of the method must be of type {}",
+                                    receiver_type
+                                )
+                            );
+                        }
+                        for (i, arg) in args.iter().enumerate() {
+                            expect_type!(self.typecheck_expr(env, arg)?, params[i + 1], method.loc);
+                        }
+                        Ok(func_type.return_type.clone())
                     }
-                    if params[0] != receiver_type {
-                        return error!(
-                            method.loc,
-                            format!(
-                                "first parameter of the method must be of type {}",
-                                receiver_type
-                            )
-                        );
+                    FnParams::Variadic => {
+                        for arg in args {
+                            self.typecheck_expr(env, arg)?;
+                        }
+                        Ok(func_type.return_type.clone())
                     }
-                    for (i, arg) in args.iter().enumerate() {
-                        expect_type!(self.typecheck_expr(env, arg)?, params[i + 1], method.loc);
-                    }
-                    Ok(func_type.return_type.clone())
-                } else {
-                    for arg in args {
-                        self.typecheck_expr(env, arg)?;
-                    }
-                    Ok(func_type.return_type.clone())
                 }
             }
         }?;
