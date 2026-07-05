@@ -38,14 +38,14 @@ func Array.push[xs: Array, x: any] : void
 func Array.free[xs: Array] : void
     if xs->data != 0
         xs->data->free()
-    mem.free(xs)
+    (xs as ptr)->free()
 
 func Array.free_with_items[xs: Array] : void
     if xs->data != 0
         for i in 0..xs->size
-            mem.free(xs->nth(i))
+            (xs->nth(i) as ptr)->free()
         xs->data->free()
-    mem.free(xs)
+    (xs as ptr)->free()
 
 func Array.pop[xs: Array] : any
     if xs->size == 0
@@ -137,7 +137,7 @@ func str.split[haystack: str, needle: str]: Array
             return result
         else
             for i in 0..haystack_len
-                result->push(haystack->substr(i, 1))
+                result->push(haystack->substr_n(i, 1))
             return result
 
     start := 0
@@ -150,13 +150,13 @@ func str.split[haystack: str, needle: str]: Array
                     match = false
                     break
             if match
-                result->push(haystack->substr(start, i - start))
+                result->push(haystack->substr_n(start, i - start))
                 start = i + needle_len
                 i += needle_len
                 continue
         i += 1
 
-    result->push(haystack->substr(start, haystack_len - start))
+    result->push(haystack->substr_n(start, haystack_len - start))
     return result
 
 const HashMap._TABLE_SIZE = 100
@@ -214,11 +214,32 @@ func HashMap.delete[map: HashMap, key: str] : void
                 map->table->set(index, current->next)
             
             current->key->free()
-            mem.free(current)
+            (current as ptr)->free()
             return
 
         prev = current
         current = current->next
+
+func HashMap.keys[map: HashMap] : Array
+    out := []
+    for i in 0..HashMap._TABLE_SIZE
+        current : HashMap._Node = map->table->nth(i)
+        while current as ptr
+            out->push(current->key)
+            current = current->next
+    return out
+
+func HashMap.free_with_keys[map: HashMap] : void
+    for i in 0..HashMap._TABLE_SIZE
+        current : HashMap._Node = map->table->nth(i)
+        while current as ptr
+            tmp := current
+            current = current->next
+            tmp->key->free()
+            (tmp as ptr)->free()
+
+    map->table->free()
+    (map as ptr)->free()
 
 func HashMap._djb2[key: str] : i64
     hash := 5381 
@@ -226,15 +247,3 @@ func HashMap._djb2[key: str] : i64
         hash = ((hash << 5) + hash) + key[i]
     hash = (hash & 0x7fffffffffffffff) // prevent negative
     return hash % HashMap._TABLE_SIZE
-
-func HashMap.free[map: HashMap] : void
-    for i in 0..HashMap._TABLE_SIZE
-        current : HashMap._Node = map->table->nth(i)
-        while current as ptr
-            tmp := current
-            current = current->next
-            tmp->key->free()
-            mem.free(tmp)
-
-    map->table->free()
-    mem.free(map)

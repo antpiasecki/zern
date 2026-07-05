@@ -596,6 +596,15 @@ impl<'a> TypeChecker<'a> {
 
                 match &func_type.params {
                     FnParams::Normal(params) => {
+                        if params.is_empty() || params[0] != receiver_type {
+                            return error!(
+                                method.loc,
+                                format!(
+                                    "first parameter of the method must be of type {}",
+                                    receiver_type
+                                )
+                            );
+                        }
                         if params.len() != args.len() + 1 {
                             return error!(
                                 method.loc,
@@ -603,15 +612,6 @@ impl<'a> TypeChecker<'a> {
                                     "expected {} arguments, got {}",
                                     params.len() - 1,
                                     args.len()
-                                )
-                            );
-                        }
-                        if params[0] != receiver_type {
-                            return error!(
-                                method.loc,
-                                format!(
-                                    "first parameter of the method must be of type {}",
-                                    receiver_type
                                 )
                             );
                         }

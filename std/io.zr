@@ -85,9 +85,7 @@ func io.read_line[] : str
         if c == '\n'
             break
         b->append_char(c)
-    s := b->build()
-    b->destroy()
-    return s
+    return b->build_and_free_buffer()
 
 func io.read_text_file[path: str] : str, bool
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)

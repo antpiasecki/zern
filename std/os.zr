@@ -9,7 +9,7 @@ func os.exit[code: i64] : void
 func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
 
-func os.getenv[name: str] : str
+func os.getenv[name: str] : str, bool
     name_len := name->len()
     i := 0
     while true
@@ -17,15 +17,24 @@ func os.getenv[name: str] : str
         if entry as ptr == 0
             break
         if entry->equal_n(name, name_len) && entry[name_len] == '='
-            return (entry as ptr + name_len + 1) as str
+            return (entry as ptr + name_len + 1) as str, true
         i += 1
-    return ""
+    return 0 as str, false
 
 func os.basename[path: str] : str
-    i := path->len() - 1
+    len := path->len()
+    end := len
+    while end > 0 && path[end - 1] == '/'
+        end -= 1
+
+    if end == 0
+        return "/"
+
+    i := end - 1
     while i >= 0 && path[i] != '/'
         i -= 1
-    return path->substr(i + 1, path->len() - i - 1)
+
+    return path->substr_n(i + 1, end - i - 1)
 
 struct os.Timespec
     tv_sec: i64

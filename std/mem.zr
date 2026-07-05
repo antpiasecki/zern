@@ -72,9 +72,6 @@ func mem.alloc[size: i64] : ptr
     
     return blk as ptr + MEM_BLOCK_SIZE
 
-func mem.free[x: any] : void
-    ptr.free(x as ptr)
-
 func ptr.free[x: ptr] : void
     if x == 0
         return
@@ -237,4 +234,4 @@ func Blob.alloc[size: i64] : Blob
 
 func Blob.free[buf: Blob] : void
     buf->data->free()
-    mem.free(buf)
+    (buf as ptr)->free()

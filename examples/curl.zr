@@ -12,7 +12,7 @@ func main[argc: i64, argv: ptr] : i64
         io.println("ERROR: invalid url (Did you forget \"http://\"?)")
         return 1
 
-    if !url->substr(0, 7)->equal("http://")
+    if !url->substr_n(0, 7)->equal("http://")
         io.println("ERROR: only http scheme is supported")
         return 1
     
@@ -24,23 +24,19 @@ func main[argc: i64, argv: ptr] : i64
             break
         i += 1
 
-    host := url->substr(host_start, i - host_start)
+    host := url->substr_n(host_start, i - host_start)
     path := "/"
     if i < url_len
-        path = url->substr(i, url_len - i)
+        path = url->substr_n(i, url_len - i)
     
     s, ok := net.connect(host, 80)
     if !ok
         panic("failed to connect")
 
-    req := new str.Builder
-    req->append("GET ")
-    req->append(path)
-    req->append(" HTTP/1.0\r\nHost: ")
-    req->append(host)
-    req->append("\r\nConnection: close\r\n\r\n")
-    net.send(s, req->data, req->size)
-    req->destroy()
+    // seems reasonable
+    req := _stackalloc(4096)
+    req_size := str.format_into(req as str, 4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
+    net.send(s, req, req_size)
 
     header_buf := mem.alloc(8192) as str
     header_size := 0

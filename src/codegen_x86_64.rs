@@ -812,7 +812,6 @@ _builtin_environ:
                 if *use_heap {
                     emit!(&mut self.output, "    mov rdi, {}", memory_size);
                     emit!(&mut self.output, "    call mem.alloc");
-                    emit!(&mut self.output, "    push rax");
                 } else {
                     let aligned_size = (memory_size + 15) & !15;
                     emit!(&mut self.output, "    sub rsp, {}", aligned_size);
