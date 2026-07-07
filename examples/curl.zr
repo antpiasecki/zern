@@ -6,7 +6,7 @@ func main[argc: i64, argv: ptr] : i64
         io.println("ERROR: url is missing")
         return 1
 
-    url := mem.read64(argv + 8) as str
+    url := os.arg(argv, 1)
 
     if url->len() <= 7
         io.println("ERROR: invalid url (Did you forget \"http://\"?)")
@@ -34,9 +34,9 @@ func main[argc: i64, argv: ptr] : i64
         panic("failed to connect")
 
     // seems reasonable
-    req := _stackalloc(4096)
-    req_size := str.format_into(req as str, 4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
-    net.send(s, req, req_size)
+    req := _stackalloc(4096) as str
+    req_size := req->format_into(4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
+    net.send(s, req as ptr, req_size)
 
     header_buf := mem.alloc(8192) as str
     header_size := 0

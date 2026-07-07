@@ -1,0 +1,96 @@
+// needs to be compiled with -m -C "-lpthread"
+include "std/net.zr"
+
+extern pthread_create
+extern pthread_detach
+
+struct ConnData
+    sock: i64
+    addr: str
+
+func handle_connection[conn: ConnData] : void
+    req := _stackalloc(10001) as str
+    n := net.read(conn->sock, req as ptr, 10000)
+    if n <= 0
+        net.close(conn->sock)
+        conn->addr->free()
+        (conn as ptr)->free()
+        return
+
+    req[n] = 0
+
+    pos := req->find("\r\n")
+    if pos == -1
+        panic("TODO: bad request")
+
+    first_line := req->substr_n(0, pos)
+    parts := first_line->split(" ")
+    method := parts->nth(0) as str
+    path := parts->nth(1) as str
+
+    if !method->equal("GET")
+        // TODO: method not supported
+        return
+    
+    if path->equal("/")
+        // TODO: index
+        return
+    
+    // TODO: ANY validation
+    file_path := "."->concat(path)
+
+    file_size, ok := os.get_file_size(file_path)
+    if !ok
+        // TODO: not found
+        return
+
+    fd := _builtin_syscall(SYS_openat, AT_FDCWD, file_path, O_RDONLY, 0)
+    if fd < 0
+        // TODO: not found
+        return
+    
+    resp := "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"
+    net.send(conn->sock, resp as ptr, resp->len())
+    
+    offset := 0
+    while offset < file_size
+        sent := _builtin_syscall(SYS_sendfile, conn->sock, fd, ^offset, IP_MAXPACKET)
+        if sent <= 0
+            break
+
+    net.close(conn->sock)
+
+    _builtin_syscall(SYS_close, fd)
+    file_path->free()
+    first_line->free()
+    parts->free_with_items()
+    conn->addr->free()
+    (conn as ptr)->free()
+
+func main[argc: i64, argv: ptr] : i64
+    port := 8000
+
+    if argc > 1
+        port = os.arg(argv, 1)->parse_i64()
+
+    server_sock, ok := net.listen("0.0.0.0", port)
+    if !ok
+        panic("failed to listen")
+
+    io.printf("Listening on :%d...\n", port)
+
+    addr := _stackalloc(16)
+    while true
+        conn := net.accept(server_sock, addr)
+        if conn < 0
+            io.println("ERROR: failed to accept connection")
+            continue
+
+        conn_data := new* ConnData
+        conn_data->sock = conn
+        conn_data->addr = mem.alloc(30) as str
+        conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr + 2))
+
+        thread := 0
+        pthread_create(^thread, 0, ^handle_connection, conn_data)
+        pthread_detach(thread)

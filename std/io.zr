@@ -1,4 +1,11 @@
 include "std/str.zr"
+include "std/os.zr"
+
+func panic[msg: str] : void
+    io.printf("PANIC: %s\n", msg)
+    // for gdb backtrace
+    _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
+    os.exit(1)
 
 func io.printf[..] : void
     s := _var_arg(0) as ptr

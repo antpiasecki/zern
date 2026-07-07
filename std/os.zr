@@ -9,6 +9,9 @@ func os.exit[code: i64] : void
 func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
 
+func os.arg[argv: ptr, n: i64] : str
+    return mem.read64(argv + n * 8) as str
+
 func os.getenv[name: str] : str, bool
     name_len := name->len()
     i := 0
@@ -95,6 +98,15 @@ func os.run_shell_command[command: str] : i64, bool
 
 func os.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
+
+func os.get_file_size[path: str] : i64, bool
+    st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
+
+    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    if rc != 0
+        return 0, false
+
+    return mem.read64(st + 48), true
 
 func os.is_a_directory[path: str] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now

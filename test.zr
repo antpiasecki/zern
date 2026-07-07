@@ -67,11 +67,12 @@ func main[] : i64
 
     tr := new TestRunner
     tr->build_blacklist = []
-    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "udp_server.zr", "chip8.zr", "tcp_server.zr"]
+    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "udp_server.zr", "chip8.zr", "serve.zr"]
     tr->custom_build_flags = HashMap.new()
     tr->custom_build_flags->insert("raylib.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("chip8.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
+    tr->custom_build_flags->insert("serve.zr", "-m -C \"-lpthread\"")
     tr->custom_run_args = HashMap.new()
     tr->custom_run_args->insert("curl.zr", "http://example.com")
 

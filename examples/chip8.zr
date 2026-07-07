@@ -278,7 +278,7 @@ func main[argc: i64, argv: ptr] : i64
     disassemble := false
 
     for i in 1..argc
-        arg := mem.read64(argv + i * 8) as str
+        arg := os.arg(argv, i)
         if arg->equal("-d")
             disassemble = true
         else
