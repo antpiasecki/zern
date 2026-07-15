@@ -1,4 +1,4 @@
-include "std/containers.zr"
+include "containers.zr"
 
 const json.OBJECT = 0
 const json.ARRAY  = 1
@@ -75,6 +75,9 @@ func json.Value.free[v: json.Value] : void
         (v->value as str)->free()
 
     (v as ptr)->free()
+
+func json.val[x: any] : any
+    return (x as json.Value)->value
 
 func json.parse[s: str] : json.Value
     i := 0

@@ -1,4 +1,4 @@
-include "std/io.zr"
+include "$/io.zr"
 
 func main[] : i64
     out := 0

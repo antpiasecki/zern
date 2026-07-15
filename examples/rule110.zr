@@ -1,5 +1,5 @@
-include "std/io.zr"
-include "std/containers.zr"
+include "$/io.zr"
+include "$/containers.zr"
 
 func rule110_step[state: Array] : void
     new_state := []

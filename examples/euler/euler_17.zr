@@ -1,5 +1,5 @@
-include "std/io.zr"
-include "std/containers.zr"
+include "$/io.zr"
+include "$/containers.zr"
 
 func main[] : i64
     s1 := [0, 3, 3, 5, 4, 4, 3, 5, 5, 4]

@@ -1,5 +1,5 @@
 // needs to be compiled with -m -C "-lsqlite3"
-include "std/io.zr"
+include "$/io.zr"
 
 extern sqlite3_open
 extern sqlite3_exec

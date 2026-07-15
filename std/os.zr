@@ -1,7 +1,7 @@
-include "std/posix.zr"
-include "std/linux_syscalls.zr"
-include "std/str.zr"
-include "std/containers.zr"
+include "posix.zr"
+include "linux_syscalls.zr"
+include "str.zr"
+include "containers.zr"
 
 func os.exit[code: i64] : void
     _builtin_syscall(SYS_exit, code)

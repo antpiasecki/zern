@@ -11,6 +11,8 @@ A very cool language
 
 ## Syntax
 ```rust
+include "$/io.zr"
+
 func main[] : i64
     answer := os.urandom_i64()->abs() % 100
 

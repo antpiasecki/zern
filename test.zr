@@ -1,5 +1,5 @@
-include "std/io.zr"
-include "std/os.zr"
+include "$/io.zr"
+include "$/os.zr"
 
 struct TestRunner
     build_blacklist: Array

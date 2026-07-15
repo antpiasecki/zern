@@ -7,15 +7,10 @@ mod typechecker;
 use std::{
     collections::HashSet,
     fs,
-    path::Path,
     process::{self, Command},
 };
 
 use tokenizer::ZernError;
-
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
@@ -26,10 +21,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         }
     };
 
-    let filename = Path::new(&args.path).file_name().unwrap().to_str().unwrap();
-
     let mut included_paths = HashSet::new();
-    let tokenizer = tokenizer::Tokenizer::new(filename.to_owned(), source, &mut included_paths);
+    let tokenizer = tokenizer::Tokenizer::new(args.path, source, &mut included_paths);
     let parser = parser::Parser::new(tokenizer.tokenize()?);
     let statements = parser.parse()?;
 

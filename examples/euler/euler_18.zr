@@ -1,5 +1,5 @@
-include "std/io.zr"
-include "std/containers.zr"
+include "$/io.zr"
+include "$/containers.zr"
 
 func findmax[triangle: Array, row: i64, col: i64] : i64
     if row == 14

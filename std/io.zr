@@ -1,11 +1,15 @@
-include "std/str.zr"
-include "std/os.zr"
+include "str.zr"
+include "os.zr"
 
 func panic[msg: str] : void
     io.printf("PANIC: %s\n", msg)
     // for gdb backtrace
     _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
     os.exit(1)
+
+func assert[cond: bool, msg: str] : void
+    if !cond
+        panic(msg)
 
 func io.printf[..] : void
     s := _var_arg(0) as ptr
@@ -133,7 +137,7 @@ func io.read_binary_file[path: str] : Blob, bool
 
     return buf, true
 
-func io.write_file[path: str, content: str] : bool
+func io.write_text_file[path: str, content: str] : bool
     return io.write_binary_file(path, content as ptr, content->len())
 
 func io.write_binary_file[path: str, content: ptr, size: i64] : bool

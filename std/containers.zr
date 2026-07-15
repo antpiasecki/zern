@@ -1,4 +1,4 @@
-include "std/mem.zr"
+include "mem.zr"
 
 struct Array
     data: ptr

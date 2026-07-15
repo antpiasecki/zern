@@ -1,5 +1,5 @@
 // needs to be compiled with -m -C "-lpthread"
-include "std/net.zr"
+include "$/net.zr"
 
 extern pthread_create
 extern pthread_detach

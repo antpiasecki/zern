@@ -1,4 +1,4 @@
-include "std/io.zr"
+include "$/io.zr"
 
 func num_divisors[n: i64] : i64
     end := n->isqrt()

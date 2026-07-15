@@ -1,4 +1,4 @@
-include "std/io.zr"
+include "$/io.zr"
 
 func collatz_num[n: i64] : i64
     if n % 2 == 0

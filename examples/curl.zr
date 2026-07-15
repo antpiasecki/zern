@@ -1,5 +1,5 @@
-include "std/io.zr"
-include "std/net.zr"
+include "$/io.zr"
+include "$/net.zr"
 
 func main[argc: i64, argv: ptr] : i64
     if argc < 2

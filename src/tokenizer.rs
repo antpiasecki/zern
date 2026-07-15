@@ -449,28 +449,40 @@ impl<'a> Tokenizer<'a> {
         self.include_file(path)
     }
 
-    fn include_file(&mut self, path: String) -> Result<(), ZernError> {
-        let canonical = match fs::canonicalize(&path) {
+    fn include_file(&mut self, mut path: String) -> Result<(), ZernError> {
+        if path.starts_with("$/") {
+            path = find_std_path()
+                .join(&path[2..])
+                .to_string_lossy()
+                .into_owned();
+        }
+
+        let base_dir = Path::new(&self.loc.filename).parent().unwrap();
+        let resolved_path = base_dir.join(&path);
+
+        let canonical = match fs::canonicalize(&resolved_path) {
             Ok(p) => p,
             Err(e) => {
                 return error!(self.loc, format!("failed to resolve {}: {}", path, e));
             }
         };
 
-        if !self.included_paths.insert(canonical) {
+        if !self.included_paths.insert(canonical.clone()) {
             return Ok(());
         }
 
-        let source = match fs::read_to_string(&path) {
+        let source = match fs::read_to_string(&canonical) {
             Ok(x) => x,
             Err(_) => {
                 return error!(self.loc, format!("failed to include {}", path));
             }
         };
 
-        let filename = Path::new(&path).file_name().unwrap().to_str().unwrap();
-
-        let tokenizer = Tokenizer::new(filename.to_owned(), source, &mut *self.included_paths);
+        let tokenizer = Tokenizer::new(
+            canonical.to_string_lossy().into_owned(),
+            source,
+            &mut *self.included_paths,
+        );
         self.tokens.extend(tokenizer.tokenize()?);
         self.tokens.pop(); // remove inner Eof
 
@@ -549,4 +561,16 @@ impl<'a> Tokenizer<'a> {
     fn eof(&self) -> bool {
         self.current >= self.source.len()
     }
+}
+
+fn find_std_path() -> PathBuf {
+    let path = std::env::current_exe().unwrap();
+
+    for dir in path.ancestors() {
+        let candidate = dir.join("std");
+        if candidate.is_dir() {
+            return candidate;
+        }
+    }
+    panic!("could not find zern std directory");
 }

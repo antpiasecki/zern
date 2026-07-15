@@ -1,5 +1,5 @@
-include "std/linux_syscalls.zr"
-include "std/num.zr"
+include "linux_syscalls.zr"
+include "num.zr"
 
 const MEM_BLOCK_SIZE = 32
 
