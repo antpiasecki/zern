@@ -233,7 +233,7 @@ func str.hex_encode[s: str, s_len: i64] : str
 func str._hex_digit_to_int[d: u8] : u8
     if d->is_digit()
         return d - '0'
-    lower : u8 = d | 32 
+    lower := d | 32 
     if lower >= 'a' && lower <= 'f'
         return lower - 'a' + 10
     panic("invalid hex digit passed to str._hex_digit_to_int")

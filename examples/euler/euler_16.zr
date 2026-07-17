@@ -7,7 +7,7 @@ func main[] : i64
     for j in 0..1000
         carry := 0
         for i in 0..n->size
-            tmp : i64 = n->nth(i) * 2 + carry
+            tmp := n->nth(i) * 2 + carry
             n->set(i, tmp % 10)
             carry = tmp / 10
         while carry > 0

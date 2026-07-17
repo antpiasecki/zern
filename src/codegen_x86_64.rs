@@ -215,11 +215,7 @@ _builtin_environ:
     pub fn compile_stmt(&mut self, env: &mut Env, stmt: &Stmt) -> Result<(), ZernError> {
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
-            Stmt::Declare {
-                name,
-                var_type,
-                initializer,
-            } => {
+            Stmt::Declare { name, initializer } => {
                 // TODO: move to typechecker?
                 if env.get_var(&name.lexeme).is_some() {
                     return error!(
@@ -228,12 +224,9 @@ _builtin_environ:
                     );
                 }
 
-                let var_type: String = match var_type {
-                    Some(t) => t.lexeme.clone(),
-                    None => match self.expr_types[&initializer.id].as_str() {
-                        "opaque" => return error!(name.loc, "cannot infer type from opaque"),
-                        t => t.into(),
-                    },
+                let var_type: String = match self.expr_types[&initializer.id].as_str() {
+                    "opaque" => return error!(name.loc, "cannot infer type from opaque"),
+                    t => t.into(),
                 };
 
                 self.compile_expr(env, initializer)?;

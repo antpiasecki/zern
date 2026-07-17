@@ -8,7 +8,7 @@ func rule110_step[state: Array<bool>] : void
         left := false
         if i - 1 >= 0
             left = state->nth(i - 1)
-        center : bool = state->nth(i)
+        center := state->nth(i)
         right := false
         if i + 1 < state->size
             right = state->nth(i + 1)

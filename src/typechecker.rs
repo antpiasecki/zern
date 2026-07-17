@@ -91,30 +91,13 @@ impl<'a> TypeChecker<'a> {
             Stmt::Expression(expr) => {
                 self.typecheck_expr(env, expr)?;
             }
-            Stmt::Declare {
-                name,
-                var_type,
-                initializer,
-            } => {
-                let mut actual_type = self.typecheck_expr(env, initializer)?;
+            Stmt::Declare { name, initializer } => {
+                let actual_type = self.typecheck_expr(env, initializer)?;
                 if actual_type.contains(',') {
                     return error!(
                         &name.loc,
                         "cannot assign multi-return call to a single variable"
                     );
-                }
-                if let Some(var_type) = var_type {
-                    if !self.is_valid_type_name(&var_type.lexeme) {
-                        return error!(
-                            &name.loc,
-                            "unrecognized type: ".to_owned() + &var_type.lexeme
-                        );
-                    }
-                    expect_type!(actual_type.clone(), var_type.lexeme, var_type.loc);
-
-                    if actual_type == "opaque" {
-                        actual_type = var_type.lexeme.clone();
-                    }
                 }
 
                 env.define_var(name.lexeme.clone(), actual_type);
@@ -447,7 +430,7 @@ impl<'a> TypeChecker<'a> {
                 let right_type = self.typecheck_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        expect_types!(right_type, ["i64"], op.loc);
+                        expect_type!(right_type.clone(), "i64", op.loc);
                         Ok(right_type)
                     }
                     TokenType::Bang => {

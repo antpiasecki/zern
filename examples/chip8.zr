@@ -201,7 +201,7 @@ func CHIP8.step[c: CHIP8] : void
         else if n == 0x3
             c->reg[x] = c->reg[x] ^ c->reg[y]
         else if n == 0x4
-            res : u8 = c->reg[x] + c->reg[y]
+            res := c->reg[x] + c->reg[y]
             c->reg[0xf] = (res > 0xff) as u8
             c->reg[x] = res
         else if n == 0x5
@@ -230,8 +230,8 @@ func CHIP8.step[c: CHIP8] : void
         for row in 0..n
             for col in 0..8
                 if (c->memory[c->I + row] & (0x80 >> col)) != 0
-                    pixel_x : u8 = (c->reg[x] + col) % 64
-                    pixel_y : u8 = (c->reg[y] + row) % 32
+                    pixel_x := (c->reg[x] + col) % 64
+                    pixel_y := (c->reg[y] + row) % 32
                     offset := pixel_x as i64 + (pixel_y * 64)
 
                     if c->display[offset] == 1

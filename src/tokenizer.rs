@@ -2,7 +2,6 @@ use std::{
     cmp::Ordering,
     collections::HashSet,
     fmt, fs,
-    os::unix::fs::FileTypeExt,
     path::{Path, PathBuf},
 };
 

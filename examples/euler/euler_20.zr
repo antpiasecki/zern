@@ -4,7 +4,7 @@ include "$/containers.zr"
 func multiply[n: Array<i64>, x: i64] : void
     carry := 0
     for i in 0..n->size
-        prod : i64 = n->nth(i) * x + carry
+        prod := n->nth(i) * x + carry
         n->set(i, prod % 10)
         carry = prod / 10
     while carry > 0

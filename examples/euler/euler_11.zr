@@ -30,10 +30,10 @@ func main[] : i64
 
     for i in 0..N-3
         for j in 0..N-3
-            h  : i64 = grid->nth(i)->nth(j) * grid->nth(i)->nth(j+1) * grid->nth(i)->nth(j+2) * grid->nth(i)->nth(j+3)
-            v  : i64 = grid->nth(j)->nth(i) * grid->nth(j+1)->nth(i) * grid->nth(j+2)->nth(i) * grid->nth(j+3)->nth(i)
-            d1 : i64 = grid->nth(i)->nth(j) * grid->nth(i+1)->nth(j+1) * grid->nth(i+2)->nth(j+2) * grid->nth(i+3)->nth(j+3)
-            d2 : i64 = grid->nth(i)->nth(N-j-1) * grid->nth(i+1)->nth(N-j-2) * grid->nth(i+2)->nth(N-j-3) * grid->nth(i+3)->nth(N-j-4)
+            h := grid->nth(i)->nth(j) * grid->nth(i)->nth(j+1) * grid->nth(i)->nth(j+2) * grid->nth(i)->nth(j+3)
+            v := grid->nth(j)->nth(i) * grid->nth(j+1)->nth(i) * grid->nth(j+2)->nth(i) * grid->nth(j+3)->nth(i)
+            d1 := grid->nth(i)->nth(j) * grid->nth(i+1)->nth(j+1) * grid->nth(i+2)->nth(j+2) * grid->nth(i+3)->nth(j+3)
+            d2 := grid->nth(i)->nth(N-j-1) * grid->nth(i+1)->nth(N-j-2) * grid->nth(i+2)->nth(N-j-3) * grid->nth(i+3)->nth(N-j-4)
             out = math.max(out, math.max(h, math.max(v, math.max(d1, d2))))
 
     io.println_i64(out)

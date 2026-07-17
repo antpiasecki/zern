@@ -23,7 +23,6 @@ pub enum Stmt {
     Expression(Expr),
     Declare {
         name: Token,
-        var_type: Option<Token>,
         initializer: Expr,
     },
     Assign {
@@ -371,20 +370,10 @@ impl Parser {
             let name = self.consume(TokenType::Identifier, "expected variable name")?;
             self.consume(TokenType::Colon, "expected ':'")?;
 
-            let var_type = if self.match_token(&[TokenType::Equal]) {
-                None
-            } else {
-                let var_type = self.parse_type_ref()?;
-                self.consume(TokenType::Equal, "expected '=' after variable type")?;
-                Some(var_type)
-            };
+            self.consume(TokenType::Equal, "expected '=' after ':'")?;
 
             let initializer = self.expression()?;
-            Ok(Stmt::Declare {
-                name,
-                var_type,
-                initializer,
-            })
+            Ok(Stmt::Declare { name, initializer })
         } else if self.match_token(&[TokenType::KeywordIf]) {
             self.if_statement()
         } else if self.match_token(&[TokenType::KeywordWhile]) {

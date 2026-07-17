@@ -51,7 +51,7 @@ func i64.to_str_buf[n: i64, buf: ptr] : void
         buf[1] = 0
         return
 
-    neg : bool = n < 0
+    neg := n < 0
     if neg
         // MIN_I64 will fail but i so dont care
         n = -n

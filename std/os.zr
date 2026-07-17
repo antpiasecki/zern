@@ -136,7 +136,7 @@ func os.list_directory[path: str] : Array<str>, bool
         pos := 0
         while pos < n
             len := mem.read16(buf + pos + 16)
-            name : ptr = buf + pos + 19
+            name := buf + pos + 19
             if name[0]
                 skip := false
                 // skip if name is exactly '.' or '..'

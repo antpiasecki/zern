@@ -73,25 +73,25 @@ func Array.concat[a: Array<$>, b: Array<$>] : Array<$>
     mem.copy(b->data, new_array->data + a->size * 8, b->size * 8)
     return new_array
 
-func Array.quicksort[arr: Array<$>] : void
+func Array.quicksort[arr: Array<i64>] : void
     arr->_do_quicksort(0, arr->size - 1)
 
-func Array._do_quicksort[arr: Array<$>, low: i64, high: i64] : void
+func Array._do_quicksort[arr: Array<i64>, low: i64, high: i64] : void
     if low < high
         i := arr->_partition(low, high)
         arr->_do_quicksort(low, i - 1)
         arr->_do_quicksort(i + 1, high)
 
-func Array._partition[arr: Array<$>, low: i64, high: i64] : i64
-    pivot : i64 = arr->nth(high)
+func Array._partition[arr: Array<i64>, low: i64, high: i64] : i64
+    pivot := arr->nth(high)
     i := low - 1
     for j in (low)..high
         if arr->nth(j) as i64 <= pivot
             i += 1
-            temp : i64 = arr->nth(i)
+            temp := arr->nth(i)
             arr->set(i, arr->nth(j))
             arr->set(j, temp)
-    temp : i64 = arr->nth(i + 1)
+    temp := arr->nth(i + 1)
     arr->set(i + 1, arr->nth(high))
     arr->set(high, temp)
     return i + 1
@@ -178,7 +178,7 @@ func HashMap.new[] : HashMap
 
 func HashMap.insert[map: HashMap<$>, key: str, value: $] : void
     index := HashMap._djb2(key)
-    current : HashMap._Node = map->table->nth(index)
+    current := map->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -194,7 +194,7 @@ func HashMap.insert[map: HashMap<$>, key: str, value: $] : void
 
 func HashMap.get[map: HashMap<$>, key: str] : $, bool
     index := HashMap._djb2(key)
-    current : HashMap._Node = map->table->nth(index)
+    current := map->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -205,7 +205,7 @@ func HashMap.get[map: HashMap<$>, key: str] : $, bool
 
 func HashMap.delete[map: HashMap<$>, key: str] : void
     index := HashMap._djb2(key)
-    current : HashMap._Node = map->table->nth(index)
+    current := map->table->nth(index)
     prev := 0 as HashMap._Node
 
     while current as ptr
@@ -225,7 +225,7 @@ func HashMap.delete[map: HashMap<$>, key: str] : void
 func HashMap.keys[map: HashMap<$>] : Array<str>
     out := [] as Array<str>
     for i in 0..HashMap._TABLE_SIZE
-        current : HashMap._Node = map->table->nth(i)
+        current := map->table->nth(i)
         while current as ptr
             out->push(current->key)
             current = current->next
@@ -233,7 +233,7 @@ func HashMap.keys[map: HashMap<$>] : Array<str>
 
 func HashMap.free_with_keys[map: HashMap<$>] : void
     for i in 0..HashMap._TABLE_SIZE
-        current : HashMap._Node = map->table->nth(i)
+        current := map->table->nth(i)
         while current as ptr
             tmp := current
             current = current->next
