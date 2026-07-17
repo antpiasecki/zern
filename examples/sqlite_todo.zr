@@ -20,13 +20,13 @@ func main[] : i64
     db := 0
     stmt := 0
 
-    rc = sqlite3_open("todo.db", ^db)
+    rc = sqlite3_open("todo.db", ^db) as i64
     if rc
         panic("failed to open db")
 
-    rc = sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS todo(id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL);", 0, 0, 0)
+    rc = sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS todo(id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL);", 0, 0, 0) as i64
     if rc
-        panic(sqlite3_errmsg(db))
+        panic(sqlite3_errmsg(db) as str)
     
     while true
         io.println("1. List tasks")
@@ -43,7 +43,7 @@ func main[] : i64
             io.println("============")
             sqlite3_prepare_v2(db, "SELECT * FROM todo", -1, ^stmt, 0)
 
-            while sqlite3_step(stmt) == SQLITE_ROW
+            while sqlite3_step(stmt) as i64 == SQLITE_ROW
                 id := sqlite3_column_int(stmt, 0) as i64
                 task := sqlite3_column_text(stmt, 1) as str
                 io.printf("%d - %s\n", id, task)
@@ -55,8 +55,8 @@ func main[] : i64
 
             sqlite3_prepare_v2(db, "INSERT INTO todo(task) VALUES (?);", -1, ^stmt, 0)
             sqlite3_bind_text(stmt, 1, task, -1, 0)
-            if sqlite3_step(stmt) != SQLITE_DONE
-                panic(sqlite3_errmsg(db))
+            if sqlite3_step(stmt) as i64 != SQLITE_DONE
+                panic(sqlite3_errmsg(db) as str)
 
             io.println("\nTask added\n")
         else if choice == 3
@@ -65,8 +65,8 @@ func main[] : i64
 
             sqlite3_prepare_v2(db, "DELETE FROM todo WHERE id = ?;", -1, ^stmt, 0)
             sqlite3_bind_int(stmt, 1, id, -1, 0)
-            if sqlite3_step(stmt) != SQLITE_DONE
-                panic(sqlite3_errmsg(db))
+            if sqlite3_step(stmt) as i64 != SQLITE_DONE
+                panic(sqlite3_errmsg(db) as str)
 
             io.println("\nTask deleted\n")
 

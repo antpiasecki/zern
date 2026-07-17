@@ -23,7 +23,7 @@ func mem.Block._split[blk: mem.Block, needed: i64] : void
         if blk->next as ptr
             blk->next->prev = new_blk
         else
-            mem.write64(_builtin_heap_tail(), new_blk)
+            mem.write64(_builtin_heap_tail(), new_blk as ptr as i64)
 
         blk->size = needed
         blk->next = new_blk
@@ -46,7 +46,7 @@ func mem._request_space[size: i64] : mem.Block
         tail->next = blk
         blk->prev = tail
 
-    mem.write64(_builtin_heap_tail(), blk)
+    mem.write64(_builtin_heap_tail(), blk as ptr as i64)
     return blk
 
 func mem.alloc[size: i64] : ptr
@@ -66,7 +66,7 @@ func mem.alloc[size: i64] : ptr
     blk := mem._request_space(size)
     
     if !mem.read64(_builtin_heap_head())
-        mem.write64(_builtin_heap_head(), blk)
+        mem.write64(_builtin_heap_head(), blk as ptr as i64)
     
     blk->_split(size)
     
@@ -91,7 +91,7 @@ func ptr.free[x: ptr] : void
             if next->next as ptr
                 next->next->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
-                mem.write64(_builtin_heap_tail(), blk)
+                mem.write64(_builtin_heap_tail(), blk as ptr as i64)
 
     prev := blk->prev
     if prev as ptr && prev->free
@@ -102,7 +102,7 @@ func ptr.free[x: ptr] : void
             if blk->next as ptr
                 blk->next->prev = prev
             if mem.read64(_builtin_heap_tail()) == blk as ptr
-                mem.write64(_builtin_heap_tail(), prev)
+                mem.write64(_builtin_heap_tail(), prev as ptr as i64)
             blk = prev
 
     block_total := blk->size + MEM_BLOCK_SIZE
@@ -110,11 +110,11 @@ func ptr.free[x: ptr] : void
         if blk->prev as ptr
             blk->prev->next = blk->next
         else
-            mem.write64(_builtin_heap_head(), blk->next)
+            mem.write64(_builtin_heap_head(), blk->next as ptr as i64)
         if blk->next as ptr
             blk->next->prev = blk->prev
         else
-            mem.write64(_builtin_heap_tail(), blk->prev)
+            mem.write64(_builtin_heap_tail(), blk->prev as ptr as i64)
         _builtin_syscall(SYS_munmap, blk, block_total)
 
 func ptr.realloc[x: ptr, new_size: i64] : ptr
@@ -146,7 +146,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
             if next->next as ptr
                 next->next->prev = blk
             if mem.read64(_builtin_heap_tail()) == next as ptr
-                mem.write64(_builtin_heap_tail(), blk)
+                mem.write64(_builtin_heap_tail(), blk as ptr as i64)
             blk->_split(new_size)
             return x
 
@@ -219,7 +219,7 @@ func mem.write16be[x: ptr, d: i64] : void
     x[0] = (d >> 8) & 0xff
     x[1] = d & 0xff
 
-func mem.write64[x: ptr, d: any] : void
+func mem.write64[x: ptr, d: i64] : void
     _builtin_set64(x, d)
 
 struct Blob

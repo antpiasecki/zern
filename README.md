@@ -7,7 +7,7 @@ A very cool language
 * Compiles to x86-64 Assembly
 * No libc required!
 * Produces tiny static executables (11KB for `hello.zr`)
-* Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), variadics, dynamic arrays, hashmaps, DNS resolver, etc.
+* Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), generics, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
 ```rust

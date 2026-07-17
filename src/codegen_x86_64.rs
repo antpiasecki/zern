@@ -231,7 +231,7 @@ _builtin_environ:
                 let var_type: String = match var_type {
                     Some(t) => t.lexeme.clone(),
                     None => match self.expr_types[&initializer.id].as_str() {
-                        "any" => return error!(name.loc, "cannot infer type from any"),
+                        "opaque" => return error!(name.loc, "cannot infer type from opaque"),
                         t => t.into(),
                     },
                 };
@@ -660,12 +660,7 @@ _builtin_environ:
                 self.compile_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        if self.expr_types[&right.id] == "f64" {
-                            emit!(&mut self.output, "    mov rbx, 0x8000000000000000");
-                            emit!(&mut self.output, "    xor rax, rbx");
-                        } else {
-                            emit!(&mut self.output, "    neg rax");
-                        }
+                        emit!(&mut self.output, "    neg rax");
                     }
                     TokenType::Bang => {
                         emit!(&mut self.output, "    test rax, rax");
@@ -806,7 +801,8 @@ _builtin_environ:
                 struct_name,
                 use_heap,
             } => {
-                let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
+                let struct_fields =
+                    &self.symbol_table.structs[self.strip_generic(&struct_name.lexeme)];
                 let memory_size = struct_fields.len() * 8;
 
                 if *use_heap {
@@ -835,7 +831,8 @@ _builtin_environ:
             }
             ExprKind::MethodCall { expr, method, args } => {
                 let receiver_type = &self.expr_types[&expr.id];
-                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+                let base_type = self.strip_generic(receiver_type);
+                let func_name = format!("{}.{}", base_type, method.lexeme);
 
                 self.compile_expr(env, expr)?;
                 emit!(&mut self.output, "    push rax");
@@ -910,8 +907,12 @@ _builtin_environ:
         }
     }
 
+    fn strip_generic<'b>(&self, type_name: &'b str) -> &'b str {
+        type_name.split('<').next().unwrap_or(type_name)
+    }
+
     fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {
-        let struct_name = &self.expr_types[&left.id];
+        let struct_name = self.strip_generic(&self.expr_types[&left.id]);
 
         let fields = match self.symbol_table.structs.get(struct_name) {
             Some(f) => f,

@@ -26,14 +26,14 @@ func main[] : i64
     InitWindow(800, 600, "Hello, World!")
     SetTargetFPS(60)
 
-    while !WindowShouldClose()
-        if IsKeyDown(KEY_W) & 255
+    while !(WindowShouldClose() as bool)
+        if IsKeyDown(KEY_W) as u8 & 255
             y -= 10
-        if IsKeyDown(KEY_S) & 255
+        if IsKeyDown(KEY_S) as u8 & 255
             y += 10
-        if IsKeyDown(KEY_A) & 255
+        if IsKeyDown(KEY_A) as u8 & 255
             x -= 10
-        if IsKeyDown(KEY_D) & 255
+        if IsKeyDown(KEY_D) as u8 & 255
             x += 10
 
         BeginDrawing()

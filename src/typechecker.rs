@@ -9,7 +9,7 @@ use crate::{
 macro_rules! expect_type {
     ($expr_type:expr, $expected:expr, $loc:expr) => {{
         let actual = $expr_type;
-        if $expected != "any" && actual != "any" && actual != $expected {
+        if $expected != "$" && actual != "$" && actual != $expected {
             return error!(
                 $loc,
                 format!("expected type '{}', got {}", $expected, actual)
@@ -20,7 +20,7 @@ macro_rules! expect_type {
 
 macro_rules! expect_types {
     ($expr_type:expr, [$( $expected:expr ),+], $loc:expr) => {
-        if $expr_type != "any" && $( $expr_type != $expected )&&+ {
+        if $expr_type != "$" && $( $expr_type != $expected )&&+ {
             return error!(
                 $loc,
                 format!(
@@ -33,7 +33,7 @@ macro_rules! expect_types {
     };
 }
 
-static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "any"];
+static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "opaque"];
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
@@ -110,7 +110,7 @@ impl<'a> TypeChecker<'a> {
                     }
                     expect_type!(actual_type.clone(), var_type.lexeme, var_type.loc);
 
-                    if actual_type == "any" {
+                    if actual_type == "opaque" {
                         actual_type = var_type.lexeme.clone();
                     }
                 }
@@ -150,8 +150,9 @@ impl<'a> TypeChecker<'a> {
                     }
                     ExprKind::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
+                        let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                        let fields = match self.symbol_table.structs.get(&left_type) {
+                        let fields = match self.symbol_table.structs.get(base_name) {
                             Some(f) => f,
                             None => {
                                 return error!(
@@ -171,7 +172,13 @@ impl<'a> TypeChecker<'a> {
                             }
                         };
 
-                        expect_type!(value_type.clone(), f.field_type, field.loc);
+                        let field_type = if let Some(args) = generic_args {
+                            substitute_type(&f.field_type, args[0])
+                        } else {
+                            f.field_type.clone()
+                        };
+
+                        expect_type!(value_type.clone(), field_type, field.loc);
                     }
                     _ => return error!(&op.loc, "invalid assignment target"),
                 }
@@ -214,7 +221,7 @@ impl<'a> TypeChecker<'a> {
             } => {
                 expect_types!(
                     self.typecheck_expr(env, condition)?,
-                    ["i64", "u8", "ptr", "bool"],
+                    ["i64", "u8", "ptr", "bool", "opaque"],
                     keyword.loc
                 );
                 self.typecheck_stmt(env, then_branch)?;
@@ -436,7 +443,7 @@ impl<'a> TypeChecker<'a> {
                 let right_type = self.typecheck_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        expect_types!(right_type, ["f64", "i64"], op.loc);
+                        expect_types!(right_type, ["i64"], op.loc);
                         Ok(right_type)
                     }
                     TokenType::Bang => {
@@ -499,7 +506,7 @@ impl<'a> TypeChecker<'a> {
                         for arg in args {
                             self.typecheck_expr(env, arg)?;
                         }
-                        Ok("any".into())
+                        Ok("opaque".into())
                     }
                 } else {
                     // its an expression that evalutes to function address
@@ -508,14 +515,19 @@ impl<'a> TypeChecker<'a> {
                     for arg in args {
                         self.typecheck_expr(env, arg)?;
                     }
-                    Ok("any".into())
+                    Ok("opaque".into())
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
-                Ok("Array".into())
+                if exprs.is_empty() {
+                    Ok("Array".into())
+                } else {
+                    let first_item_type = self.typecheck_expr(env, &exprs[0])?;
+                    Ok(format!("Array<{}>", first_item_type))
+                }
             }
             ExprKind::Index {
                 expr,
@@ -536,34 +548,42 @@ impl<'a> TypeChecker<'a> {
                 struct_name,
                 use_heap: _,
             } => {
-                if !self.symbol_table.structs.contains_key(&struct_name.lexeme) {
+                let (base_name, _) = parse_generic_type(&struct_name.lexeme);
+                if !self.symbol_table.structs.contains_key(base_name) {
                     return error!(
                         &struct_name.loc,
-                        format!("unknown struct name: {}", &struct_name.lexeme)
+                        format!("unknown struct name: {}", base_name)
                     );
                 }
                 Ok(struct_name.lexeme.clone())
             }
             ExprKind::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
+                let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                let fields = match self.symbol_table.structs.get(&left_type) {
+                let fields = match self.symbol_table.structs.get(base_name) {
                     Some(f) => f,
                     None => {
-                        return error!(&field.loc, format!("unknown struct type: {}", left_type));
+                        return error!(&field.loc, format!("unknown struct type: {}", base_name));
                     }
                 };
 
-                let field = match fields.get(&field.lexeme) {
+                let field_info = match fields.get(&field.lexeme) {
                     Some(o) => o,
                     None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
                 };
 
-                Ok(field.field_type.clone())
+                let field_type = if let Some(args) = generic_args {
+                    substitute_type(&field_info.field_type, args[0])
+                } else {
+                    field_info.field_type.clone()
+                };
+
+                Ok(field_type)
             }
             ExprKind::Cast { expr, type_name } => {
                 let expr_type = self.typecheck_expr(env, expr)?;
-                if expr_type != "any" && type_name.lexeme == "f64" {
+                if expr_type != "opaque" && type_name.lexeme == "f64" {
                     return error!(
                         &type_name.loc,
                         "use _builtin_cvtsi2sd and _builtin_cvttsd2si to cast between integers and f64"
@@ -579,7 +599,8 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::MethodCall { expr, method, args } => {
                 let receiver_type = self.typecheck_expr(env, expr)?;
-                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+                let (base_name, generic_args) = parse_generic_type(&receiver_type);
+                let func_name = format!("{}.{}", base_name, method.lexeme);
 
                 let func_type = match self.symbol_table.functions.get(&func_name) {
                     Some(f) => f,
@@ -588,15 +609,26 @@ impl<'a> TypeChecker<'a> {
                             method.loc,
                             format!(
                                 "method {} not found on on type {}",
-                                method.lexeme, receiver_type
+                                method.lexeme, base_name
                             )
                         );
                     }
                 };
 
+                let substitute = |s: &str| -> String {
+                    if let Some(ref args) = generic_args {
+                        substitute_type(s, args[0])
+                    } else {
+                        s.to_string()
+                    }
+                };
+
                 match &func_type.params {
                     FnParams::Normal(params) => {
-                        if params.is_empty() || params[0] != receiver_type {
+                        let substituted_params: Vec<String> =
+                            params.iter().map(|p| substitute(p)).collect();
+
+                        if substituted_params.is_empty() || substituted_params[0] != receiver_type {
                             return error!(
                                 method.loc,
                                 format!(
@@ -605,26 +637,30 @@ impl<'a> TypeChecker<'a> {
                                 )
                             );
                         }
-                        if params.len() != args.len() + 1 {
+                        if substituted_params.len() != args.len() + 1 {
                             return error!(
                                 method.loc,
                                 format!(
                                     "expected {} arguments, got {}",
-                                    params.len() - 1,
+                                    substituted_params.len() - 1,
                                     args.len()
                                 )
                             );
                         }
                         for (i, arg) in args.iter().enumerate() {
-                            expect_type!(self.typecheck_expr(env, arg)?, params[i + 1], method.loc);
+                            expect_type!(
+                                self.typecheck_expr(env, arg)?,
+                                substituted_params[i + 1].as_str(),
+                                method.loc
+                            );
                         }
-                        Ok(func_type.return_type.clone())
+                        Ok(substitute(&func_type.return_type))
                     }
                     FnParams::Variadic => {
                         for arg in args {
                             self.typecheck_expr(env, arg)?;
                         }
-                        Ok(func_type.return_type.clone())
+                        Ok(substitute(&func_type.return_type))
                     }
                 }
             }
@@ -635,8 +671,21 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {
+        if name == "$" {
+            return true;
+        }
         if name.contains(',') {
             return name.split(',').all(|part| self.is_valid_type_name(part));
+        }
+        if name.contains('<') {
+            let (base, inner) = parse_generic_type(name);
+            if !self.symbol_table.structs.contains_key(base) {
+                return false;
+            }
+            if let Some(args) = inner {
+                return args.iter().all(|arg| self.is_valid_type_name(arg));
+            }
+            return false;
         }
         if BUILTIN_TYPES.contains(&name) {
             return true;
@@ -645,5 +694,38 @@ impl<'a> TypeChecker<'a> {
             return true;
         }
         false
+    }
+}
+
+fn parse_generic_type(s: &str) -> (&str, Option<Vec<&str>>) {
+    if let Some(lt_pos) = s.find('<') {
+        let base = &s[..lt_pos];
+        let inner = &s[lt_pos + 1..s.len() - 1];
+        let mut args = Vec::new();
+        let mut depth = 0;
+        let mut start = 0;
+        for (i, ch) in inner.char_indices() {
+            match ch {
+                '<' => depth += 1,
+                '>' => depth -= 1,
+                ',' if depth == 0 => {
+                    args.push(&inner[start..i]);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        args.push(&inner[start..]);
+        (base, Some(args))
+    } else {
+        (s, None)
+    }
+}
+
+fn substitute_type(type_str: &str, dollar_replacement: &str) -> String {
+    if type_str.contains('$') {
+        type_str.replace('$', dollar_replacement)
+    } else {
+        type_str.to_string()
     }
 }

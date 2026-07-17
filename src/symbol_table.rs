@@ -59,11 +59,11 @@ impl SymbolTable {
                 ("_builtin_cvttsd2si".into(), FnType::new("i64", vec!["f64"])),
                 (
                     "_builtin_f64_to_f32".into(),
-                    FnType::new("any", vec!["f64"]),
+                    FnType::new("opaque", vec!["f64"]),
                 ),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("_builtin_environ".into(), FnType::new("ptr", vec![])),
-                ("_var_arg".into(), FnType::new("any", vec!["i64"])),
+                ("_var_arg".into(), FnType::new("opaque", vec!["i64"])),
                 ("_stackalloc".into(), FnType::new("ptr", vec!["i64"])),
             ]),
             constants: HashMap::new(),
@@ -98,7 +98,7 @@ impl SymbolTable {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 self.functions
-                    .insert(name.lexeme.clone(), FnType::new_variadic("any"));
+                    .insert(name.lexeme.clone(), FnType::new_variadic("opaque"));
             }
             Stmt::Function {
                 name,

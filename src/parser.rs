@@ -175,6 +175,38 @@ impl Parser {
         Ok(statements)
     }
 
+    fn parse_type_ref(&mut self) -> Result<Token, ZernError> {
+        if self.match_token(&[TokenType::Dollar]) {
+            Ok(Token {
+                token_type: TokenType::Identifier,
+                lexeme: "$".to_string(),
+                loc: self.previous().loc.clone(),
+            })
+        } else {
+            let ident = self.consume(TokenType::Identifier, "expected type name")?;
+            let mut type_name = ident.lexeme.clone();
+            if self.match_token(&[TokenType::Less]) {
+                type_name.push('<');
+                loop {
+                    let inner = self.parse_type_ref()?;
+                    type_name.push_str(&inner.lexeme);
+                    if self.match_token(&[TokenType::Comma]) {
+                        type_name.push(',');
+                    } else {
+                        break;
+                    }
+                }
+                self.consume(TokenType::Greater, "expected '>'")?;
+                type_name.push('>');
+            }
+            Ok(Token {
+                token_type: TokenType::Identifier,
+                lexeme: type_name,
+                loc: ident.loc,
+            })
+        }
+    }
+
     fn declaration(&mut self) -> Result<Stmt, ZernError> {
         if !self.is_inside_function {
             if self.match_token(&[TokenType::KeywordFunc]) {
@@ -217,8 +249,7 @@ impl Parser {
                         self.consume(TokenType::Identifier, "expected parameter name")?;
                     self.consume(TokenType::Colon, "expected ':' after parameter name")?;
 
-                    let var_type =
-                        self.consume(TokenType::Identifier, "expected parameter type")?;
+                    let var_type = self.parse_type_ref()?;
 
                     params.push(Param { var_type, var_name });
                     if !self.match_token(&[TokenType::Comma]) {
@@ -233,7 +264,7 @@ impl Parser {
 
         let mut return_types = vec![];
         loop {
-            return_types.push(self.consume(TokenType::Identifier, "expected return type")?);
+            return_types.push(self.parse_type_ref()?);
             if !self.match_token(&[TokenType::Comma]) {
                 break;
             }
@@ -266,7 +297,7 @@ impl Parser {
             let var_name = self.consume(TokenType::Identifier, "expected field name")?;
             self.consume(TokenType::Colon, "expected ':' after field name")?;
 
-            let var_type = self.consume(TokenType::Identifier, "expected field type")?;
+            let var_type = self.parse_type_ref()?;
 
             fields.push(Param { var_type, var_name });
         }
@@ -309,8 +340,8 @@ impl Parser {
             let var_type = if self.match_token(&[TokenType::Equal]) {
                 None
             } else {
-                let var_type = self.consume(TokenType::Identifier, "expected variable type")?;
-                self.consume(TokenType::Equal, "expected '=' after varaible type")?;
+                let var_type = self.parse_type_ref()?;
+                self.consume(TokenType::Equal, "expected '=' after variable type")?;
                 Some(var_type)
             };
 
@@ -559,7 +590,7 @@ impl Parser {
         let mut expr = self.unary()?;
 
         while self.match_token(&[TokenType::KeywordAs]) {
-            let type_name = self.consume(TokenType::Identifier, "expected type after 'as'")?;
+            let type_name = self.parse_type_ref()?;
             expr = Expr::new(ExprKind::Cast {
                 expr: Box::new(expr),
                 type_name,
@@ -688,8 +719,7 @@ impl Parser {
             Ok(Expr::new(ExprKind::ArrayLiteral(xs)))
         } else if self.match_token(&[TokenType::KeywordNew]) {
             let use_heap = self.match_token(&[TokenType::Star]);
-            let struct_name =
-                self.consume(TokenType::Identifier, "expected struct name after 'new'")?;
+            let struct_name = self.parse_type_ref()?;
             Ok(Expr::new(ExprKind::New {
                 struct_name,
                 use_heap,

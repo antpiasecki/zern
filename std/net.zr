@@ -149,7 +149,7 @@ func net.resolve[domain: str] : i64, bool
     if parts->size == 4
         valid := true
         for i in 0..4
-            p := parts->nth(i) as str
+            p := parts->nth(i)
             if p->len() < 1 || p->len() > 3
                 valid = false
                 break
@@ -160,10 +160,10 @@ func net.resolve[domain: str] : i64, bool
             if !valid
                 break
         if valid
-            a := (parts->nth(0) as str)->parse_i64()
-            b := (parts->nth(1) as str)->parse_i64()
-            c := (parts->nth(2) as str)->parse_i64()
-            d := (parts->nth(3) as str)->parse_i64()
+            a := parts->nth(0)->parse_i64()
+            b := parts->nth(1)->parse_i64()
+            c := parts->nth(2)->parse_i64()
+            d := parts->nth(3)->parse_i64()
             if a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255
                 parts->free_with_items()
                 return net.pack_addr(a, b, c, d), true

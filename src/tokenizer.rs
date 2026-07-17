@@ -65,6 +65,7 @@ pub enum TokenType {
 
     Indent,
     Dedent,
+    Dollar,
     Eof,
 }
 
@@ -249,6 +250,7 @@ impl<'a> Tokenizer<'a> {
                     self.add_token(TokenType::Less)?
                 }
             }
+            '$' => self.add_token(TokenType::Dollar)?,
             '\'' => {
                 if self.eof() {
                     return error!(self.loc, "unterminated char literal");

@@ -4,7 +4,7 @@ include "$/containers.zr"
 func main[] : i64
     N := 20
 
-    grid := []
+    grid := [] as Array<Array<i64> >
     grid->push([8, 2, 22, 97, 38, 15, 0, 40, 0, 75, 4, 5, 7, 78, 52, 12, 50, 77, 91, 8])
     grid->push([49, 49, 99, 40, 17, 81, 18, 57, 60, 87, 17, 40, 98, 43, 69, 48, 4, 56, 62, 0])
     grid->push([81, 49, 31, 73, 55, 79, 14, 29, 93, 71, 40, 67, 53, 88, 30, 3, 49, 13, 36, 65])
@@ -30,10 +30,10 @@ func main[] : i64
 
     for i in 0..N-3
         for j in 0..N-3
-            h  : i64 = (grid->nth(i) as Array)->nth(j) * (grid->nth(i) as Array)->nth(j+1) * (grid->nth(i) as Array)->nth(j+2) * (grid->nth(i) as Array)->nth(j+3)
-            v  : i64 = (grid->nth(j) as Array)->nth(i) * (grid->nth(j+1) as Array)->nth(i) * (grid->nth(j+2) as Array)->nth(i) * (grid->nth(j+3) as Array)->nth(i)
-            d1 : i64 = (grid->nth(i) as Array)->nth(j) * (grid->nth(i+1) as Array)->nth(j+1) * (grid->nth(i+2) as Array)->nth(j+2) * (grid->nth(i+3) as Array)->nth(j+3)
-            d2 : i64 = (grid->nth(i) as Array)->nth(N-j-1) * (grid->nth(i+1) as Array)->nth(N-j-2) * (grid->nth(i+2) as Array)->nth(N-j-3) * (grid->nth(i+3) as Array)->nth(N-j-4)
+            h  : i64 = grid->nth(i)->nth(j) * grid->nth(i)->nth(j+1) * grid->nth(i)->nth(j+2) * grid->nth(i)->nth(j+3)
+            v  : i64 = grid->nth(j)->nth(i) * grid->nth(j+1)->nth(i) * grid->nth(j+2)->nth(i) * grid->nth(j+3)->nth(i)
+            d1 : i64 = grid->nth(i)->nth(j) * grid->nth(i+1)->nth(j+1) * grid->nth(i+2)->nth(j+2) * grid->nth(i+3)->nth(j+3)
+            d2 : i64 = grid->nth(i)->nth(N-j-1) * grid->nth(i+1)->nth(N-j-2) * grid->nth(i+2)->nth(N-j-3) * grid->nth(i+3)->nth(N-j-4)
             out = math.max(out, math.max(h, math.max(v, math.max(d1, d2))))
 
     io.println_i64(out)

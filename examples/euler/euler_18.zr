@@ -1,17 +1,17 @@
 include "$/io.zr"
 include "$/containers.zr"
 
-func findmax[triangle: Array, row: i64, col: i64] : i64
+func findmax[triangle: Array<Array<i64> >, row: i64, col: i64] : i64
     if row == 14
-        return (triangle->nth(row) as Array)->nth(col)
+        return triangle->nth(row)->nth(col)
 
     left := findmax(triangle, row + 1, col)
     right := findmax(triangle, row + 1, col + 1)
 
-    return (triangle->nth(row) as Array)->nth(col) + math.max(left, right)
+    return triangle->nth(row)->nth(col) + math.max(left, right)
 
 func main[] : i64
-    triangle := []
+    triangle := [] as Array<Array<i64> >
     triangle->push([75])
     triangle->push([95, 64])
     triangle->push([17, 47, 82])

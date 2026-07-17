@@ -2,10 +2,10 @@ include "$/io.zr"
 include "$/os.zr"
 
 struct TestRunner
-    build_blacklist: Array
-    run_blacklist: Array
-    custom_build_flags: HashMap
-    custom_run_args: HashMap
+    build_blacklist: Array<str>
+    run_blacklist: Array<str>
+    custom_build_flags: HashMap<str>
+    custom_run_args: HashMap<str>
 
 func TestRunner.run_directory[tr: TestRunner, dir: str] : void
     files, ok := os.list_directory(dir)
@@ -66,14 +66,14 @@ func main[] : i64
         os.exit(1)
 
     tr := new TestRunner
-    tr->build_blacklist = []
+    tr->build_blacklist = [] as Array<str>
     tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "udp_server.zr", "chip8.zr", "serve.zr"]
-    tr->custom_build_flags = HashMap.new()
+    tr->custom_build_flags = HashMap.new() as HashMap<str>
     tr->custom_build_flags->insert("raylib.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("chip8.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
     tr->custom_build_flags->insert("serve.zr", "-m -C \"-lpthread\"")
-    tr->custom_run_args = HashMap.new()
+    tr->custom_run_args = HashMap.new() as HashMap<str>
     tr->custom_run_args->insert("curl.zr", "http://example.com")
 
     tr->run_directory("examples")
