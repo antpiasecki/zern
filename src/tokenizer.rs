@@ -2,6 +2,7 @@ use std::{
     cmp::Ordering,
     collections::HashSet,
     fmt, fs,
+    os::unix::fs::FileTypeExt,
     path::{Path, PathBuf},
 };
 
@@ -471,6 +472,19 @@ impl<'a> Tokenizer<'a> {
 
         if !self.included_paths.insert(canonical.clone()) {
             return Ok(());
+        }
+
+        let meta = match std::fs::metadata(&canonical) {
+            Ok(x) => x,
+            Err(_) => {
+                return error!(self.loc, format!("failed to access {}", path));
+            }
+        };
+        if !meta.file_type().is_file() {
+            return error!(
+                self.loc,
+                format!("refusing to read {} because it is not a regular file", path)
+            );
         }
 
         let source = match fs::read_to_string(&canonical) {

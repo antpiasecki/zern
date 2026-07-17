@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    parser::{Expr, ExprKind, Params, Stmt},
+    parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
     symbol_table::{FnParams, SymbolTable},
-    tokenizer::{TokenType, ZernError, error},
+    tokenizer::{Loc, TokenType, ZernError, error},
 };
 
 macro_rules! expect_type {
@@ -73,6 +73,7 @@ pub struct TypeChecker<'a> {
     symbol_table: &'a SymbolTable,
     pub expr_types: HashMap<usize, String>,
     current_function_return_type: String,
+    depth: usize,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -81,6 +82,7 @@ impl<'a> TypeChecker<'a> {
             symbol_table,
             expr_types: HashMap::new(),
             current_function_return_type: String::new(),
+            depth: 0,
         }
     }
 
@@ -373,6 +375,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<String, ZernError> {
+        recursion_guard!(self);
+
         let expr_type = match &expr.kind {
             ExprKind::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
@@ -685,7 +689,7 @@ impl<'a> TypeChecker<'a> {
             if let Some(args) = inner {
                 return args.iter().all(|arg| self.is_valid_type_name(arg));
             }
-            return false;
+            unreachable!();
         }
         if BUILTIN_TYPES.contains(&name) {
             return true;
@@ -700,7 +704,8 @@ impl<'a> TypeChecker<'a> {
 fn parse_generic_type(s: &str) -> (&str, Option<Vec<&str>>) {
     if let Some(lt_pos) = s.find('<') {
         let base = &s[..lt_pos];
-        let inner = &s[lt_pos + 1..s.len() - 1];
+        let close_pos = s.rfind('>').unwrap_or(s.len());
+        let inner = &s[lt_pos + 1..close_pos];
         let mut args = Vec::new();
         let mut depth = 0;
         let mut start = 0;

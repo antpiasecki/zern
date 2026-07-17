@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::tokenizer::{
-    Token,
+    Loc, Token,
     TokenType::{self, Identifier},
     ZernError, error,
 };
@@ -78,6 +78,40 @@ pub enum Stmt {
         fields: Vec<Param>,
     },
 }
+
+// https://stackoverflow.com/a/29963675
+pub struct ScopeCall<F: FnMut()> {
+    pub c: F,
+}
+
+impl<F: FnMut()> Drop for ScopeCall<F> {
+    fn drop(&mut self) {
+        (self.c)();
+    }
+}
+
+macro_rules! recursion_guard {
+    ($self:ident) => {
+        $self.depth += 1;
+        if $self.depth > 200 {
+            return error!(
+                Loc {
+                    filename: "<unknown>".into(),
+                    line: 0,
+                    column: 0,
+                },
+                "maximum expression depth reached"
+            );
+        }
+        let self_ptr = $self as *mut Self;
+        let _scope_call = ScopeCall {
+            c: || unsafe {
+                (*self_ptr).depth -= 1;
+            },
+        };
+    };
+}
+pub(crate) use recursion_guard;
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -479,17 +513,12 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ZernError> {
-        self.depth += 1;
-        if self.depth > 200 {
-            return error!(self.previous().loc, "maximum expression depth reached");
-        }
-
-        let out = self.or_and();
-        self.depth -= 1;
-        out
+        recursion_guard!(self);
+        self.or_and()
     }
 
     fn or_and(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.equality()?;
 
         while self.match_token(&[TokenType::LogicalOr, TokenType::LogicalAnd]) {
@@ -506,6 +535,7 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.comparison()?;
 
         while self.match_token(&[TokenType::DoubleEqual, TokenType::NotEqual]) {
@@ -522,6 +552,7 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.term()?;
 
         while self.match_token(&[
@@ -543,6 +574,7 @@ impl Parser {
     }
 
     fn term(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.factor()?;
 
         while self.match_token(&[
@@ -565,6 +597,7 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.cast()?;
 
         while self.match_token(&[
@@ -587,6 +620,7 @@ impl Parser {
     }
 
     fn cast(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.unary()?;
 
         while self.match_token(&[TokenType::KeywordAs]) {
@@ -601,6 +635,8 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
+
         if self.match_token(&[TokenType::Xor]) {
             let op = self.previous().clone();
             let right = self.unary()?;
@@ -622,6 +658,7 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expr, ZernError> {
+        recursion_guard!(self);
         let mut expr = self.primary()?;
 
         loop {
