@@ -21,7 +21,7 @@ func handle_connection[conn: ConnData] : void
 
     pos := req->find("\r\n")
     if pos == -1
-        panic("TODO: bad request")
+        io.panic("TODO: bad request")
 
     first_line := req->substr_n(0, pos)
     parts := first_line->split(" ")
@@ -75,7 +75,7 @@ func main[argc: i64, argv: ptr] : i64
 
     server_sock, ok := net.listen("0.0.0.0", port)
     if !ok
-        panic("failed to listen")
+        io.panic("failed to listen")
 
     io.printf("Listening on :%d...\n", port)
 

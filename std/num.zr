@@ -2,7 +2,7 @@ include "io.zr"
 
 func i64.abs[n: i64] : i64
     if n == -9223372036854775808
-        panic("MIN_I64 passed to math.abs")
+        io.panic("MIN_I64 passed to math.abs")
     if n < 0
         return -n
     return n
@@ -17,7 +17,7 @@ func i64.sign[n: i64] : i64
 
 func i64.isqrt[n: i64] : i64
     if n < 0
-        panic("negative number passed to math.isqrt")
+        io.panic("negative number passed to math.isqrt")
     if n == 0 || n == 1
         return n
 
@@ -45,7 +45,7 @@ func i64.is_prime[n: i64]: bool
         i += 6
     return true
 
-func i64.to_str_buf[n: i64, buf: ptr] : void
+func i64.to_str_buf[n: i64, buf: str] : void
     if n == 0
         buf[0] = '0'
         buf[1] = 0
@@ -73,7 +73,7 @@ func i64.to_str_buf[n: i64, buf: ptr] : void
         buf[i] = tmp[end + 1 + i]
     buf[len] = 0
 
-func i64.to_hex_str_buf[n: i64, buf: ptr] : void
+func i64.to_hex_str_buf[n: i64, buf: str] : void
     hex_chars := "0123456789abcdef"
 
     if n == 0
@@ -98,23 +98,23 @@ func i64.to_hex_str_buf[n: i64, buf: ptr] : void
     buf[len] = 0
 
 func i64.to_str[n: i64] : str
-    out := mem.alloc(21)
+    out := mem.alloc(21) as str
     n->to_str_buf(out)
-    return out as str
+    return out
 
 func i64.to_hex_str[n: i64] : str
-    out := mem.alloc(17)
+    out := mem.alloc(17) as str
     n->to_hex_str_buf(out)
-    return out as str
+    return out
 
-func f64.to_str_buf[x: i64, buf: ptr] : void
-    bits := x
+func f64.to_str_buf[x: f64, buf: str] : void
+    bits := x as opaque as i64
     sign := (bits >> 63) & 1
     exp := (bits >> 52) & 0x7ff
     mant := bits & 0x000fffffffffffff
 
     if exp == 0x7ff
-        panic("invalid float")
+        io.panic("invalid float")
 
     p := 0
     if sign
@@ -136,7 +136,7 @@ func f64.to_str_buf[x: i64, buf: ptr] : void
     shift := exp - 1075
 
     if shift >= 0
-        (sig << shift)->to_str_buf(buf + p)
+        (sig << shift)->to_str_buf((buf as ptr + p) as str)
         while buf[p]
             p += 1
         buf[p] = '.'
@@ -148,7 +148,7 @@ func f64.to_str_buf[x: i64, buf: ptr] : void
 
     if ns <= 52
         int_part := sig >> ns
-        int_part->to_str_buf(buf + p)
+        int_part->to_str_buf((buf as ptr + p) as str)
         while buf[p]
             p += 1
     else
@@ -196,7 +196,7 @@ func math.max[a: i64, b: i64] : i64
 
 func math.pow[b: i64, e: i64] : i64
     if e < 0
-        panic("negative exponent passed to math.pow")
+        io.panic("negative exponent passed to math.pow")
     out := 1
     while e > 0
         if e & 1

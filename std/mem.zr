@@ -34,7 +34,7 @@ func mem._request_space[size: i64] : mem.Block
 
     blk := _builtin_syscall(SYS_mmap, 0, alloc_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
     if (blk as ptr as i64) == MAP_FAILED
-        panic("mem._request_space: failed to mmap")
+        io.panic("mem._request_space: failed to mmap")
 
     blk->size = alloc_size - MEM_BLOCK_SIZE
     blk->free = false
@@ -51,7 +51,7 @@ func mem._request_space[size: i64] : mem.Block
 
 func mem.alloc[size: i64] : ptr
     if size <= 0
-        panic("mem.alloc: called with nonpositive size")
+        io.panic("mem.alloc: called with nonpositive size")
 
     size = mem.align(size)
 
@@ -122,7 +122,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
         return mem.alloc(new_size)
     
     if new_size < 0
-        panic("mem.realloc: called with negative new_size")
+        io.panic("mem.realloc: called with negative new_size")
 
     if new_size == 0
         x->free()

@@ -31,7 +31,7 @@ func main[argc: i64, argv: ptr] : i64
     
     s, ok := net.connect(host, 80)
     if !ok
-        panic("failed to connect")
+        io.panic("failed to connect")
 
     // seems reasonable
     req := _stackalloc(4096) as str

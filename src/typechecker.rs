@@ -10,10 +10,7 @@ macro_rules! expect_type {
     ($expr_type:expr, $expected:expr, $loc:expr) => {{
         let actual = $expr_type;
         if $expected != "$" && actual != "$" && actual != $expected {
-            return error!(
-                $loc,
-                format!("expected type '{}', got {}", $expected, actual)
-            );
+            return error!($loc, format!("expected type {}, got {}", $expected, actual));
         }
     }};
 }
@@ -306,13 +303,6 @@ impl<'a> TypeChecker<'a> {
                                     "unrecognized type: ".to_owned() + &param.var_type.lexeme
                                 );
                             }
-                            if param.var_type.lexeme == "f64" {
-                                return error!(
-                                    &param.var_name.loc,
-                                    "f64 params not implemented yet"
-                                );
-                            }
-
                             env.define_var(
                                 param.var_name.lexeme.clone(),
                                 param.var_type.lexeme.clone(),
@@ -481,7 +471,13 @@ impl<'a> TypeChecker<'a> {
                             FnParams::Variadic => {
                                 // cant check arg types
                                 for arg in args {
-                                    self.typecheck_expr(env, arg)?;
+                                    let arg_type = self.typecheck_expr(env, arg)?;
+                                    if arg_type == "f64" {
+                                        return error!(
+                                            &paren.loc,
+                                            "f64 arguments not supported in variadic calls; cast to opaque to preserve bit pattern"
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -570,10 +566,12 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::Cast { expr, type_name } => {
                 let expr_type = self.typecheck_expr(env, expr)?;
-                if expr_type != "opaque" && type_name.lexeme == "f64" {
+                if (expr_type != "opaque" && type_name.lexeme == "f64")
+                    || (expr_type == "f64" && type_name.lexeme != "opaque")
+                {
                     return error!(
                         &type_name.loc,
-                        "use _builtin_cvtsi2sd and _builtin_cvttsd2si to cast between integers and f64"
+                        "direct casting between numeric types and f64 disallowed; use _builtin_cvtsi2sd and _builtin_cvttsd2si for actual conversion or cast to opaque first to preserve the bit pattern"
                     );
                 }
                 if !self.is_valid_type_name(&type_name.lexeme) {

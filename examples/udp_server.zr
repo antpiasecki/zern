@@ -4,7 +4,7 @@ include "$/net.zr"
 func main[] : i64
     s, ok := net.create_udp_server("127.0.0.1", 8000)
     if !ok
-        panic("net.create_udp_server failed")
+        io.panic("net.create_udp_server failed")
 
     io.println("Listening on port 8000...")
     while true

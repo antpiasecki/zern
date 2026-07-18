@@ -376,26 +376,58 @@ _builtin_environ:
 
                 match params {
                     Params::Normal(params) => {
-                        for (i, param) in params.iter().enumerate() {
+                        let mut int_reg = 0;
+                        let mut fp_reg = 0;
+                        let mut stack_count = 0;
+                        for param in params {
                             let offset = env.define_var(
                                 param.var_name.lexeme.clone(),
                                 param.var_type.lexeme.clone(),
                             );
-                            if let Some(reg) = REGISTERS.get(i) {
-                                emit!(
-                                    &mut self.output,
-                                    "    mov QWORD PTR [rbp-{}], {}",
-                                    offset,
-                                    reg
-                                );
+                            if param.var_type.lexeme == "f64" {
+                                if fp_reg < 8 {
+                                    emit!(
+                                        &mut self.output,
+                                        "    movq QWORD PTR [rbp-{}], xmm{}",
+                                        offset,
+                                        fp_reg
+                                    );
+                                } else {
+                                    emit!(
+                                        &mut self.output,
+                                        "    mov rax, QWORD PTR [rbp+{}]",
+                                        16 + 8 * stack_count
+                                    );
+                                    emit!(
+                                        &mut self.output,
+                                        "    mov QWORD PTR [rbp-{}], rax",
+                                        offset
+                                    );
+                                    stack_count += 1;
+                                }
+                                fp_reg += 1;
                             } else {
-                                let stack_offset = 16 + 8 * (i - REGISTERS.len());
-                                emit!(
-                                    &mut self.output,
-                                    "    mov rax, QWORD PTR [rbp+{}]",
-                                    stack_offset
-                                );
-                                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
+                                if int_reg < 6 {
+                                    emit!(
+                                        &mut self.output,
+                                        "    mov QWORD PTR [rbp-{}], {}",
+                                        offset,
+                                        REGISTERS[int_reg]
+                                    );
+                                } else {
+                                    emit!(
+                                        &mut self.output,
+                                        "    mov rax, QWORD PTR [rbp+{}]",
+                                        16 + 8 * stack_count
+                                    );
+                                    emit!(
+                                        &mut self.output,
+                                        "    mov QWORD PTR [rbp-{}], rax",
+                                        offset
+                                    );
+                                    stack_count += 1;
+                                }
+                                int_reg += 1;
                             }
                         }
                     }

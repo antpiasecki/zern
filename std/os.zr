@@ -45,7 +45,7 @@ struct os.Timespec
 
 func os.sleep[ms: i64] : void
     if ms < 0
-        panic("negative time passed to os.sleep")
+        io.panic("negative time passed to os.sleep")
     req := new os.Timespec
     req->tv_sec = ms / 1000
     req->tv_nsec = (ms % 1000) * 1000000
@@ -62,7 +62,7 @@ func os.urandom_buf[buf: ptr, n: i64] : void
     while pos < n
         ret := _builtin_syscall(SYS_getrandom, buf + pos, n - pos, 0)
         if ret <= 0
-            panic("os.urandom_buf: syscall failed")
+            io.panic("os.urandom_buf: syscall failed")
         pos += ret
 
 func os.urandom[n: i64]: ptr

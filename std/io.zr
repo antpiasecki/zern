@@ -1,15 +1,15 @@
 include "str.zr"
 include "os.zr"
 
-func panic[msg: str] : void
+func io.panic[msg: str] : void
     io.printf("PANIC: %s\n", msg)
     // for gdb backtrace
     _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
     os.exit(1)
 
-func assert[cond: bool, msg: str] : void
+func io.assert[cond: bool, msg: str] : void
     if !cond
-        panic(msg)
+        io.panic(msg)
 
 func io.printf[..] : void
     s := _var_arg(0) as ptr
@@ -32,14 +32,14 @@ func io.printf[..] : void
                 io.print_char(_var_arg(i) as u8)
                 i += 1
             else if s[0] == 'f'
-                io.print_f64(_var_arg(i) as i64)
+                io.print_f64(_var_arg(i) as f64)
                 i += 1
             else if s[0] == '%'
                 io.print_char('%')
             else if s[0] == 0
                 break
             else
-                panic("io.printf: unrecognized format")
+                io.panic("io.printf: unrecognized format")
         else
             io.print_char(s[0])
         s += 1
@@ -64,25 +64,24 @@ func io.print_bool[x: bool] : void
         io.print("false")
 
 func io.print_i64[x: i64] : void
-    s := _stackalloc(21)
+    s := _stackalloc(21) as str
     x->to_str_buf(s)
-    io.print(s as str)
+    io.print(s)
 
 func io.print_i64_hex[x: i64] : void
-    s := _stackalloc(17)
+    s := _stackalloc(17) as str
     x->to_hex_str_buf(s)
-    io.print(s as str)
+    io.print(s)
 
 func io.println_i64[x: i64] : void
-    s := _stackalloc(21)
+    s := _stackalloc(21) as str
     x->to_str_buf(s)
-    io.println(s as str)
+    io.println(s)
 
-// TODO: fix when we implement f64 params
-func io.print_f64[x: i64] : void
-    s := _stackalloc(64)
-    f64.to_str_buf(x, s)
-    io.print(s as str)
+func io.print_f64[x: f64] : void
+    s := _stackalloc(64) as str
+    x->to_str_buf(s)
+    io.print(s)
 
 func io.read_char[] : u8
     c := 0 as u8
