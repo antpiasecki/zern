@@ -116,23 +116,21 @@ func io.read_text_file[path: str] : str, bool
     buffer[n] = 0
     return buffer as str, true
 
-func io.read_binary_file[path: str] : Blob, bool
+func io.read_binary_file[path: str] : Buffer, bool
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, O_RDONLY, 0)
     if fd < 0
-        return 0 as Blob, false
+        return 0 as Buffer, false
     
-    buf := new* Blob
-    buf->size = _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    buf := Buffer.alloc(size)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    buf->data = mem.alloc(buf->size)
-
-    n := _builtin_syscall(SYS_read, fd, buf->data, buf->size)
+    n := _builtin_syscall(SYS_read, fd, buf->data(), size)
     _builtin_syscall(SYS_close, fd)
 
-    if n != buf->size
+    if n != size
         buf->free()
-        return 0 as Blob, false
+        return 0 as Buffer, false
 
     return buf, true
 

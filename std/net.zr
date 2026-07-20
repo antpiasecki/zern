@@ -177,7 +177,7 @@ func net.resolve[domain: str] : i64, bool
         query->free()
         return -1, false
 
-    s->send_to(s->addr, query->data, query->size)
+    s->send_to(s->addr, query->data(), query->len())
     query->free()
     pkt := s->receive(1024)
     s->close_and_free()
@@ -197,42 +197,42 @@ func net.resolve[domain: str] : i64, bool
     pkt->free()
     return out, true
 
-func net.encode_dns_name[domain: str] : Blob
+func net.encode_dns_name[domain: str] : Buffer
     domain_len := domain->len()
-    buf := Blob.alloc(domain_len + 2)
+    buf := Buffer.alloc(domain_len + 2)
     out_pos := 0
     part_start := 0
     i := 0
     while i <= domain_len
         if i == domain_len || domain[i] == '.'
             part_len := i - part_start
-            buf->data[out_pos] = part_len & 0xff
+            buf->data()[out_pos] = part_len & 0xff
             out_pos += 1
-            mem.copy(domain as ptr + part_start, buf->data + out_pos, part_len)
+            mem.copy(domain as ptr + part_start, buf->data() + out_pos, part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1
 
-    buf->data[out_pos] = 0
+    buf->data()[out_pos] = 0
     return buf
 
-func net.build_dns_query[domain_name: str, record_type: i64] : Blob
+func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
     name := net.encode_dns_name(domain_name)
-    out := Blob.alloc(12 + name->size + 4)
+    out := Buffer.alloc(12 + name->len() + 4)
 
     // header
     id := (os.urandom_i64() % 65536)->abs()
-    mem.write16be(out->data + 0, id)
-    mem.write16be(out->data + 2, DNS_RECURSION_DESIRED)
-    mem.write16be(out->data + 4, 1)  // num_questions
-    mem.write16be(out->data + 6, 0)  // num_answers
-    mem.write16be(out->data + 8, 0)  // num_authorities
-    mem.write16be(out->data + 10, 0) // num_additionals
+    mem.write16be(out->data() + 0, id)
+    mem.write16be(out->data() + 2, DNS_RECURSION_DESIRED)
+    mem.write16be(out->data() + 4, 1)  // num_questions
+    mem.write16be(out->data() + 6, 0)  // num_answers
+    mem.write16be(out->data() + 8, 0)  // num_authorities
+    mem.write16be(out->data() + 10, 0) // num_additionals
 
     // question
-    mem.copy(name->data, out->data + 12, name->size)
-    mem.write16be(out->data + 12 + name->size, record_type)
-    mem.write16be(out->data + 12 + name->size + 2, DNS_CLASS_IN)
+    mem.copy(name->data(), out->data() + 12, name->len())
+    mem.write16be(out->data() + 12 + name->len(), record_type)
+    mem.write16be(out->data() + 12 + name->len() + 2, DNS_CLASS_IN)
 
     name->free()
     return out

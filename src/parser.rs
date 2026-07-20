@@ -323,19 +323,18 @@ impl Parser {
     fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected struct name")?;
 
-        self.consume(TokenType::Indent, "expected indent after struct name")?;
-
         let mut fields = vec![];
-        while !self.eof() && !self.check(&TokenType::Dedent) {
-            let var_name = self.consume(TokenType::Identifier, "expected field name")?;
-            self.consume(TokenType::Colon, "expected ':' after field name")?;
+        if self.match_token(&[TokenType::Indent]) {
+            while !self.eof() && !self.check(&TokenType::Dedent) {
+                let var_name = self.consume(TokenType::Identifier, "expected field name")?;
+                self.consume(TokenType::Colon, "expected ':' after field name")?;
 
-            let var_type = self.parse_type_ref()?;
+                let var_type = self.parse_type_ref()?;
 
-            fields.push(Param { var_type, var_name });
+                fields.push(Param { var_type, var_name });
+            }
+            self.consume(TokenType::Dedent, "expected dedent after struct fields")?;
         }
-
-        self.consume(TokenType::Dedent, "expected dedent after struct fields")?;
 
         Ok(Stmt::Struct { name, fields })
     }

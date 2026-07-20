@@ -295,11 +295,11 @@ func main[argc: i64, argv: ptr] : i64
     if !ok
         io.panic("failed to read file")
 
-    for i in 0..buffer->size
-        c->memory[0x200 + i] = buffer->data[i]
+    for i in 0..buffer->len()
+        c->memory[0x200 + i] = buffer->data()[i]
 
     if disassemble
-        c->disassemble(buffer->size / 2)
+        c->disassemble(buffer->len() / 2)
         return 0
     
     InitWindow(640, 320, "CHIP-8")
