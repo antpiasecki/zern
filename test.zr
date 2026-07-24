@@ -33,9 +33,10 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
     build_start_time := os.time()
-    status, ok := os.run_shell_command(build_cmd)
-    if !ok || status != 0
+    status := os.run_shell_command(build_cmd)
+    if !status->ok()
         os.exit(1)
+    (status as ptr)->free()
     build_end_time := os.time()
 
     io.printf("%dms\n", build_end_time - build_start_time)
@@ -52,18 +53,20 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
     run_start_time := os.time()
-    status, ok := os.run_shell_command(run_cmd)
-    if !ok || status != 0
+    status = os.run_shell_command(run_cmd)
+    if !status->ok()
         io.println("Test failed.")
         os.exit(1)
+    (status as ptr)->free()
     run_end_time := os.time()
 
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
 func main[] : i64
-    status, ok := os.run_shell_command("cargo build --release")
-    if !ok || status != 0
+    status := os.run_shell_command("cargo build --release")
+    if !status->ok()
         os.exit(1)
+    (status as ptr)->free()
 
     tr := new TestRunner
     tr->build_blacklist = [] as Array<str>

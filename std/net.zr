@@ -19,7 +19,7 @@ func net.listen[host: str, port: i64] : i64, bool
     
     optval := 1
     if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
-        _builtin_syscall(SYS_close, s)
+        io.close(s)
         return -1, false
     
     packed_host, ok := net.resolve(host)
@@ -30,11 +30,11 @@ func net.listen[host: str, port: i64] : i64, bool
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
-        _builtin_syscall(SYS_close, s)
+        io.close(s)
         return -1, false
 
     if _builtin_syscall(SYS_listen, s, SOMAXCONN) < 0
-        _builtin_syscall(SYS_close, s)
+        io.close(s)
         return -1, false
     
     return s, true
@@ -52,7 +52,7 @@ func net.connect[host: str, port: i64] : i64, bool
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
-        _builtin_syscall(SYS_close, s)
+        io.close(s)
         return -1, false
 
     return s, true
@@ -68,7 +68,7 @@ func net.read[s: i64, buffer: ptr, size: i64] : i64
     return _builtin_syscall(SYS_read, s, buffer, size)
 
 func net.close[s: i64] : void
-    _builtin_syscall(SYS_close, s)
+    io.close(s)
 
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
@@ -99,7 +99,7 @@ func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : net.UDPPacket
     return pkt
 
 func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
-    _builtin_syscall(SYS_close, s->fd)
+    io.close(s->fd)
     s->addr->free()
     (s as ptr)->free()
 

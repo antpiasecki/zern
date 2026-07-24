@@ -238,6 +238,7 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x + 4, d)
 
+// sneaky length-prefixed ptr
 struct Buffer
 
 func Buffer.alloc[n: i64] : Buffer

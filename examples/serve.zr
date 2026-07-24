@@ -44,8 +44,8 @@ func handle_connection[conn: ConnData] : void
         // TODO: not found
         return
 
-    fd := _builtin_syscall(SYS_openat, AT_FDCWD, file_path, O_RDONLY, 0)
-    if fd < 0
+    fd, ok := io.open_for_reading(file_path)
+    if !ok
         // TODO: not found
         return
     
@@ -54,13 +54,13 @@ func handle_connection[conn: ConnData] : void
     
     offset := 0
     while offset < file_size
-        sent := _builtin_syscall(SYS_sendfile, conn->sock, fd, ^offset, IP_MAXPACKET)
+        sent := io.send_file(conn->sock, fd, ^offset, IP_MAXPACKET)
         if sent <= 0
             break
 
     net.close(conn->sock)
 
-    _builtin_syscall(SYS_close, fd)
+    io.close(fd)
     file_path->free()
     first_line->free()
     parts->free_with_items()

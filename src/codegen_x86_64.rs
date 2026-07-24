@@ -225,7 +225,10 @@ _builtin_environ:
                 }
 
                 let var_type: String = match self.expr_types[&initializer.id].as_str() {
-                    "opaque" => return error!(name.loc, "cannot infer type from opaque"),
+                    "opaque" => match &initializer.kind {
+                        ExprKind::Cast { .. } => "opaque".into(),
+                        _ => return error!(name.loc, "cannot infer type from opaque"),
+                    },
                     t => t.into(),
                 };
 
