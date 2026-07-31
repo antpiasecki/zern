@@ -25,7 +25,7 @@ impl Env {
     pub fn new() -> Env {
         Env {
             scopes: vec![HashMap::new()],
-            next_offset: 8,
+            next_offset: 16,
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
             loop_continue_label: String::new(),
@@ -134,7 +134,43 @@ _builtin_heap_tail:
     lea rax, [rip + _heap_tail]
     ret
 
-.section .text._builtin_read64
+.section .text._builtin_cvttsd2si
+_builtin_cvttsd2si:
+    cvttsd2si rax, xmm0
+    ret
+
+.section .text._builtin_f64_to_f32
+_builtin_f64_to_f32:
+    cvtsd2ss xmm0, xmm0
+    movd eax, xmm0
+    ret
+"
+        );
+
+        if self.args.target_windows {
+            emit!(
+                &mut self.output,
+                ".section .text._builtin_read64
+_builtin_read64:
+    mov rax, QWORD PTR [rcx]
+    ret
+
+.section .text._builtin_write64
+_builtin_write64:
+    mov [rcx], rdx
+    ret
+
+.section .text._builtin_cvtsi2sd
+_builtin_cvtsi2sd:
+    cvtsi2sd xmm0, rcx
+    movq rax, xmm0
+    ret
+"
+            );
+        } else {
+            emit!(
+                &mut self.output,
+                ".section .text._builtin_read64
 _builtin_read64:
     mov rax, QWORD PTR [rdi]
     ret
@@ -150,17 +186,6 @@ _builtin_cvtsi2sd:
     movq rax, xmm0
     ret
 
-.section .text._builtin_cvttsd2si
-_builtin_cvttsd2si:
-    cvttsd2si rax, xmm0
-    ret
-
-.section .text._builtin_f64_to_f32
-_builtin_f64_to_f32:
-    cvtsd2ss xmm0, xmm0
-    movd eax, xmm0
-    ret
-
 .section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -173,9 +198,11 @@ _builtin_syscall:
     syscall
     ret
 "
-        );
+            );
+        }
 
         if !self.args.use_crt {
+            // Linux without CRT
             emit!(
                 &mut self.output,
                 "
@@ -205,7 +232,8 @@ _start:
     syscall
 "
             );
-        } else {
+        } else if !self.args.target_windows {
+            // Linux with CRT
             emit!(
                 &mut self.output,
                 "
@@ -383,6 +411,7 @@ _builtin_environ:
                 emit!(&mut self.output, "{}:", name);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
+                emit!(&mut self.output, "    push rbx");
 
                 let prologue_offset = self.output.len();
                 emit!(&mut self.output, "    sub rsp, {:<10}", 0);
@@ -449,12 +478,12 @@ _builtin_environ:
                     }
                     Params::Variadic => {
                         emit!(&mut self.output, "    sub rsp, 48");
-                        emit!(&mut self.output, "    mov [rbp - 8], rdi");
-                        emit!(&mut self.output, "    mov [rbp - 16], rsi");
-                        emit!(&mut self.output, "    mov [rbp - 24], rdx");
-                        emit!(&mut self.output, "    mov [rbp - 32], rcx");
-                        emit!(&mut self.output, "    mov [rbp - 40], r8");
-                        emit!(&mut self.output, "    mov [rbp - 48], r9");
+                        emit!(&mut self.output, "    mov [rbp - 16], rdi");
+                        emit!(&mut self.output, "    mov [rbp - 24], rsi");
+                        emit!(&mut self.output, "    mov [rbp - 32], rdx");
+                        emit!(&mut self.output, "    mov [rbp - 40], rcx");
+                        emit!(&mut self.output, "    mov [rbp - 48], r8");
+                        emit!(&mut self.output, "    mov [rbp - 56], r9");
                         env.next_offset += 48;
                     }
                 }
@@ -466,6 +495,8 @@ _builtin_environ:
                 if !self.output.trim_end().ends_with("    ret") {
                     emit!(&mut self.output, "    mov rax, 0");
                     emit!(&mut self.output, "    mov rsp, rbp");
+                    emit!(&mut self.output, "    sub rsp, 8");
+                    emit!(&mut self.output, "    pop rbx");
                     emit!(&mut self.output, "    pop rbp");
                     emit!(&mut self.output, "    ret");
                 }
@@ -475,7 +506,7 @@ _builtin_environ:
                 }
 
                 // patch the stack size after we know how much we actually need
-                let patch = format!("    sub rsp, {:<10}", (env.next_offset + 15) & !15);
+                let patch = format!("    sub rsp, {:<10}", ((env.next_offset + 15) & !15) - 8);
                 self.output
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
@@ -494,6 +525,8 @@ _builtin_environ:
                     _ => todo!(),
                 }
                 emit!(&mut self.output, "    mov rsp, rbp");
+                emit!(&mut self.output, "    sub rsp, 8");
+                emit!(&mut self.output, "    pop rbx");
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
             }
@@ -795,8 +828,14 @@ _builtin_environ:
                 self.emit_call_cleanup(args.len());
             }
             ExprKind::ArrayLiteral(exprs) => {
-                emit!(&mut self.output, "    mov rdi, 24");
-                emit!(&mut self.output, "    call mem.alloc");
+                if self.args.target_windows {
+                    emit!(&mut self.output, "    mov rcx, 24");
+                    emit!(&mut self.output, "    .extern malloc");
+                    emit!(&mut self.output, "    call malloc");
+                } else {
+                    emit!(&mut self.output, "    mov rdi, 24");
+                    emit!(&mut self.output, "    call mem.alloc");
+                }
                 emit!(&mut self.output, "    push rax");
                 emit!(&mut self.output, "    mov rdi, rax");
                 emit!(&mut self.output, "    mov rsi, 24");
@@ -859,8 +898,14 @@ _builtin_environ:
                 let memory_size = struct_fields.len() * 8;
 
                 if *use_heap {
-                    emit!(&mut self.output, "    mov rdi, {}", memory_size);
-                    emit!(&mut self.output, "    call mem.alloc");
+                    if self.args.target_windows {
+                        emit!(&mut self.output, "    mov rcx, {}", memory_size);
+                        emit!(&mut self.output, "    .extern malloc");
+                        emit!(&mut self.output, "    call malloc");
+                    } else {
+                        emit!(&mut self.output, "    mov rdi, {}", memory_size);
+                        emit!(&mut self.output, "    call mem.alloc");
+                    }
                 } else {
                     let aligned_size = (memory_size + 15) & !15;
                     emit!(&mut self.output, "    sub rsp, {}", aligned_size);
@@ -1041,6 +1086,7 @@ _builtin_environ:
         emit!(&mut self.output, "    inc rax");
         emit!(&mut self.output, "    shl rax, 3");
         emit!(&mut self.output, "    neg rax");
+        emit!(&mut self.output, "    sub rax, 8");
         emit!(&mut self.output, "    mov rax, [rbp + rax]");
         emit!(&mut self.output, "    jmp {}", done_label);
 
