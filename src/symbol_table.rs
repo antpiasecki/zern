@@ -52,7 +52,7 @@ impl SymbolTable {
                 ("_builtin_heap_tail".into(), FnType::new("ptr", vec![])),
                 ("_builtin_read64".into(), FnType::new("i64", vec!["ptr"])),
                 (
-                    "_builtin_set64".into(),
+                    "_builtin_write64".into(),
                     FnType::new("void", vec!["ptr", "i64"]),
                 ),
                 ("_builtin_cvtsi2sd".into(), FnType::new("f64", vec!["i64"])),

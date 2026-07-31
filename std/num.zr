@@ -52,9 +52,6 @@ func i64.to_str_buf[n: i64, buf: str] : void
         return
 
     neg := n < 0
-    if neg
-        // MIN_I64 will fail but i so dont care
-        n = -n
     tmp := _stackalloc(21)
     end := 20
     tmp[end] = 0
@@ -62,7 +59,10 @@ func i64.to_str_buf[n: i64, buf: str] : void
     for i in 0..19
         if n == 0
             break
-        tmp[end] = '0' + (n % 10)
+        digit := n % 10
+        if digit < 0
+            digit = -digit
+        tmp[end] = '0' + digit
         n = n / 10
         end -= 1
     if neg

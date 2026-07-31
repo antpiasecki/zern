@@ -22,7 +22,7 @@ func os.getenv[name: str] : str, bool
         if entry->equal_n(name, name_len) && entry[name_len] == '='
             return (entry as ptr + name_len + 1) as str, true
         i += 1
-    return 0 as str, false
+    return "", false
 
 func os.basename[path: str] : str
     len := path->len()

@@ -22,7 +22,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     };
 
     let mut included_paths = HashSet::new();
-    let tokenizer = tokenizer::Tokenizer::new(args.path, source, &mut included_paths);
+    let tokenizer = tokenizer::Tokenizer::new(args.path.clone(), source, &mut included_paths);
     let parser = parser::Parser::new(tokenizer.tokenize()?);
     let statements = parser.parse()?;
 
@@ -36,22 +36,34 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&symbol_table, &typechecker.expr_types);
-    codegen.emit_prologue(args.use_crt)?;
+    let mut codegen =
+        codegen_x86_64::CodegenX86_64::new(&args, &symbol_table, &typechecker.expr_types);
+    codegen.emit_prologue()?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
     }
 
     if !args.emit_only {
-        let out = args.out.unwrap_or_else(|| "out".into());
+        let out = args.out.clone().unwrap_or_else(|| "out".into());
 
         fs::write(format!("{out}.s"), codegen.get_output()).unwrap();
 
         let debug_flag = if args.emit_debug { "-g" } else { "" };
 
-        run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s"));
+        if args.target_windows {
+            run_command(format!(
+                "x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s"
+            ));
+        } else {
+            run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s"));
+        }
 
-        if args.use_crt {
+        if args.target_windows {
+            run_command(format!(
+                "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto -Wl,--gc-sections {}",
+                args.cflags
+            ));
+        } else if args.use_crt {
             run_command(format!(
                 "cc -no-pie -o {out} {out}.o -flto -Wl,--gc-sections {}",
                 args.cflags
@@ -72,7 +84,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         }
     } else {
         fs::write(
-            args.out.unwrap_or_else(|| "out.s".into()),
+            args.out.clone().unwrap_or_else(|| "out.s".into()),
             codegen.get_output(),
         )
         .unwrap();
@@ -99,6 +111,7 @@ struct Args {
     emit_debug: bool,
     run_exe: bool,
     use_crt: bool,
+    target_windows: bool,
     cflags: String,
 }
 
@@ -113,6 +126,7 @@ impl Args {
             emit_debug: false,
             run_exe: false,
             use_crt: false,
+            target_windows: false,
             cflags: String::new(),
         };
 
@@ -133,6 +147,8 @@ impl Args {
                 out.use_crt = true;
             } else if arg == "-g" {
                 out.emit_debug = true;
+            } else if arg == "-w" {
+                out.target_windows = true;
             } else if arg == "-C" {
                 match args.next() {
                     Some(s) => out.cflags = s,
@@ -142,7 +158,17 @@ impl Args {
                     }
                 }
             } else if arg == "-h" || arg == "--help" {
-                println!("Usage: zern [-o path] [-r] [-m] [-g] [-C cflags] [--emit-only] path");
+                println!(
+                    "Usage: zern [-o path] [-r] [-m] [-g] [-w] [-C cflags] [--emit-only] path"
+                );
+                println!();
+                println!("  -o <path>   - specifies the output path");
+                println!("  -r          - runs the output executable after compilation");
+                println!("  -m          - link against the C runtime");
+                println!("  -w          - build a Windows executable");
+                println!("  -g          - emit debug information in the binary");
+                println!("  -C <flags>  - flags to pass to the C compiler");
+                println!("  --emit-only - only emit the assembly");
                 process::exit(0);
             } else if arg.starts_with('-') {
                 eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {arg}");
@@ -162,6 +188,11 @@ impl Args {
 
         if !out.use_crt && !out.cflags.is_empty() {
             eprintln!("You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
+            process::exit(1);
+        }
+
+        if !out.use_crt && out.target_windows {
+            eprintln!("Using the -w flag without -m is not implemented yet. Add it.");
             process::exit(1);
         }
 

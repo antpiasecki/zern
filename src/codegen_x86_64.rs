@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
+    Args,
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
@@ -68,19 +69,19 @@ macro_rules! emit {
     };
 }
 
-static REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-
 pub struct CodegenX86_64<'a> {
     output: String,
     data_section: String,
     label_counter: usize,
     data_counter: usize,
+    pub args: &'a Args,
     pub symbol_table: &'a SymbolTable,
     pub expr_types: &'a HashMap<usize, String>,
 }
 
 impl<'a> CodegenX86_64<'a> {
     pub fn new(
+        args: &'a Args,
         symbol_table: &'a SymbolTable,
         expr_types: &'a HashMap<usize, String>,
     ) -> CodegenX86_64<'a> {
@@ -89,6 +90,7 @@ impl<'a> CodegenX86_64<'a> {
             data_section: String::new(),
             label_counter: 0,
             data_counter: 1,
+            args,
             symbol_table,
             expr_types,
         }
@@ -103,13 +105,19 @@ impl<'a> CodegenX86_64<'a> {
         format!(".section .data\n{}{}", self.data_section, self.output)
     }
 
-    pub fn emit_prologue(&mut self, use_crt: bool) -> Result<(), ZernError> {
+    pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
+        if !self.args.target_windows {
+            emit!(
+                &mut self.output,
+                ".section .note.GNU-stack
+    .byte 0
+"
+            );
+        }
+
         emit!(
             &mut self.output,
             ".intel_syntax noprefix
-
-.section .note.GNU-stack
-    .byte 0
 
 .section .bss
     _heap_head: .zero 8
@@ -131,8 +139,8 @@ _builtin_read64:
     mov rax, QWORD PTR [rdi]
     ret
 
-.section .text._builtin_set64
-_builtin_set64:
+.section .text._builtin_write64
+_builtin_write64:
     mov [rdi], rsi
     ret
 
@@ -167,7 +175,7 @@ _builtin_syscall:
 "
         );
 
-        if !use_crt {
+        if !self.args.use_crt {
             emit!(
                 &mut self.output,
                 "
@@ -368,7 +376,9 @@ _builtin_environ:
                 if *exported || name == "main" {
                     emit!(&mut self.output, ".globl {0}", name);
                 }
-                emit!(&mut self.output, ".type {0}, @function", name);
+                if !self.args.target_windows {
+                    emit!(&mut self.output, ".type {0}, @function", name);
+                }
                 emit!(&mut self.output, ".section .text.{}", name);
                 emit!(&mut self.output, "{}:", name);
                 emit!(&mut self.output, "    push rbp");
@@ -379,6 +389,8 @@ _builtin_environ:
 
                 match params {
                     Params::Normal(params) => {
+                        let max_reg = if self.args.target_windows { 4 } else { 6 };
+                        let stack_base = if self.args.target_windows { 48 } else { 16 };
                         let mut int_reg = 0;
                         let mut fp_reg = 0;
                         let mut stack_count = 0;
@@ -388,7 +400,7 @@ _builtin_environ:
                                 param.var_type.lexeme.clone(),
                             );
                             if param.var_type.lexeme == "f64" {
-                                if fp_reg < 8 {
+                                if fp_reg < max_reg {
                                     emit!(
                                         &mut self.output,
                                         "    movq QWORD PTR [rbp-{}], xmm{}",
@@ -399,7 +411,7 @@ _builtin_environ:
                                     emit!(
                                         &mut self.output,
                                         "    mov rax, QWORD PTR [rbp+{}]",
-                                        16 + 8 * stack_count
+                                        stack_base + 8 * stack_count
                                     );
                                     emit!(
                                         &mut self.output,
@@ -410,18 +422,19 @@ _builtin_environ:
                                 }
                                 fp_reg += 1;
                             } else {
-                                if int_reg < 6 {
+                                if int_reg < max_reg {
+                                    let registers = self.registers();
                                     emit!(
                                         &mut self.output,
                                         "    mov QWORD PTR [rbp-{}], {}",
                                         offset,
-                                        REGISTERS[int_reg]
+                                        registers[int_reg]
                                     );
                                 } else {
                                     emit!(
                                         &mut self.output,
                                         "    mov rax, QWORD PTR [rbp+{}]",
-                                        16 + 8 * stack_count
+                                        stack_base + 8 * stack_count
                                     );
                                     emit!(
                                         &mut self.output,
@@ -457,7 +470,9 @@ _builtin_environ:
                     emit!(&mut self.output, "    ret");
                 }
 
-                emit!(&mut self.output, ".size {0}, . - {0}", name);
+                if !self.args.target_windows {
+                    emit!(&mut self.output, ".size {0}, . - {0}", name);
+                }
 
                 // patch the stack size after we know how much we actually need
                 let patch = format!("    sub rsp, {:<10}", (env.next_offset + 15) & !15);
@@ -737,9 +752,19 @@ _builtin_environ:
                     return Ok(());
                 }
 
-                for arg in args {
-                    self.compile_expr(env, arg)?;
-                    emit!(&mut self.output, "    push rax");
+                if self.args.target_windows {
+                    if args.len() % 2 == 1 {
+                        emit!(&mut self.output, "    sub rsp, 8");
+                    }
+                    for arg in args.iter().rev() {
+                        self.compile_expr(env, arg)?;
+                        emit!(&mut self.output, "    push rax");
+                    }
+                } else {
+                    for arg in args {
+                        self.compile_expr(env, arg)?;
+                        emit!(&mut self.output, "    push rax");
+                    }
                 }
 
                 let arg_types: Vec<String> = args
@@ -862,11 +887,23 @@ _builtin_environ:
                 let base_type = self.strip_generic(receiver_type);
                 let func_name = format!("{}.{}", base_type, method.lexeme);
 
-                self.compile_expr(env, expr)?;
-                emit!(&mut self.output, "    push rax");
-                for arg in args {
-                    self.compile_expr(env, arg)?;
+                if self.args.target_windows {
+                    if (1 + args.len()) % 2 == 1 {
+                        emit!(&mut self.output, "    sub rsp, 8");
+                    }
+                    for arg in args.iter().rev() {
+                        self.compile_expr(env, arg)?;
+                        emit!(&mut self.output, "    push rax");
+                    }
+                    self.compile_expr(env, expr)?;
                     emit!(&mut self.output, "    push rax");
+                } else {
+                    self.compile_expr(env, expr)?;
+                    emit!(&mut self.output, "    push rax");
+                    for arg in args {
+                        self.compile_expr(env, arg)?;
+                        emit!(&mut self.output, "    push rax");
+                    }
                 }
 
                 let mut arg_types = vec![];
@@ -884,9 +921,35 @@ _builtin_environ:
     fn emit_call_setup(&mut self, arg_types: &[String]) {
         let arg_count = arg_types.len();
 
-        let to_register = arg_count.min(6);
+        let registers = self.registers();
         let mut fp_idx = 0;
         let mut int_idx = 0;
+
+        if self.args.target_windows {
+            let to_register = arg_count.min(4);
+
+            emit!(&mut self.output, "    sub rsp, 32");
+            for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
+                emit!(
+                    &mut self.output,
+                    "    mov rax, QWORD PTR [rsp + {}]",
+                    32 + 8 * i
+                );
+                if arg_type == "f64" {
+                    emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
+                    fp_idx += 1;
+                } else {
+                    emit!(&mut self.output, "    mov {}, rax", registers[int_idx]);
+                    int_idx += 1;
+                }
+            }
+
+            emit!(&mut self.output, "    mov al, {}", fp_idx);
+            emit!(&mut self.output, "    add rsp, 32");
+            return;
+        }
+
+        let to_register = arg_count.min(6);
         for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
             let offset = 8 * (arg_count - 1 - i);
             emit!(
@@ -898,7 +961,7 @@ _builtin_environ:
                 emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
                 fp_idx += 1;
             } else {
-                emit!(&mut self.output, "    mov {}, rax", REGISTERS[int_idx]);
+                emit!(&mut self.output, "    mov {}, rax", registers[int_idx]);
                 int_idx += 1;
             }
         }
@@ -925,6 +988,12 @@ _builtin_environ:
     }
 
     fn emit_call_cleanup(&mut self, arg_count: usize) {
+        if self.args.target_windows {
+            let pad = if arg_count % 2 == 1 { 8 } else { 0 };
+            emit!(&mut self.output, "    add rsp, {}", 8 * arg_count + pad);
+            return;
+        }
+
         let num_stack = arg_count.saturating_sub(6);
         if num_stack > 0 {
             emit!(
@@ -984,5 +1053,13 @@ _builtin_environ:
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())
+    }
+
+    fn registers(&self) -> &'static [&'static str] {
+        if self.args.target_windows {
+            &["rcx", "rdx", "r8", "r9"]
+        } else {
+            &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
+        }
     }
 }

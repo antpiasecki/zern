@@ -232,7 +232,7 @@ func mem.write32be[x: ptr, d: i64] : void
     x[3] = d & 0xff
 
 func mem.write64[x: ptr, d: i64] : void
-    _builtin_set64(x, d)
+    _builtin_write64(x, d)
 
 func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
