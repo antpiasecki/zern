@@ -1,0 +1,43 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Stage install layout
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          rm -rf staging
+          mkdir -p staging/bin staging/zern/std
+          cp target/release/zern staging/zern/zern
+          cp -r std/. staging/zern/std/
+          cp LICENSE staging/zern/LICENSE
+          cp README.md staging/zern/README.md
+          ln -s ../zern/zern staging/bin/zern
+
+      - name: Create tarball
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          tar -czf "zern-v${version}-linux-x86_64.tar.gz" -C staging .
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            zern-v*-linux-x86_64.tar.gz

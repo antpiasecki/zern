@@ -248,6 +248,13 @@ impl<'a> TypeChecker<'a> {
                     .collect::<Vec<_>>()
                     .join(",");
 
+                if return_types.len() > 2 {
+                    return error!(
+                        &return_types[2].loc,
+                        "functions cannot return more than two values"
+                    );
+                }
+
                 if name.lexeme == "main" {
                     if return_type != "i64" {
                         return error!(&name.loc, "main function must return i64");

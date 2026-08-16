@@ -522,7 +522,7 @@ _builtin_environ:
                         self.compile_expr(env, &exprs[0])?;
                     }
                     0 => {}
-                    _ => todo!(),
+                    _ => unreachable!(), // guaranteed by typechecker
                 }
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    sub rsp, 8");

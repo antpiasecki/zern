@@ -7,7 +7,7 @@ mod typechecker;
 use std::{
     collections::HashSet,
     fs,
-    process::{self, Command},
+    process::{Command, exit},
 };
 
 use tokenizer::ZernError;
@@ -17,7 +17,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         Ok(x) => x,
         Err(e) => {
             eprintln!("\x1b[91mERROR\x1b[0m: failed to open {}: {e}", args.path);
-            process::exit(1);
+            exit(1);
         }
     };
 
@@ -100,7 +100,7 @@ fn run_command(cmd: String) {
         .unwrap()
         .success()
     {
-        process::exit(1);
+        exit(1);
     }
 }
 
@@ -136,7 +136,7 @@ impl Args {
                     Some(s) => out.out = Some(s),
                     None => {
                         eprintln!("\x1b[91mERROR\x1b[0m: -o option requires a path");
-                        process::exit(1);
+                        exit(1);
                     }
                 }
             } else if arg == "--emit-only" {
@@ -154,7 +154,7 @@ impl Args {
                     Some(s) => out.cflags = s,
                     None => {
                         eprintln!("\x1b[91mERROR\x1b[0m: -C option requires a value");
-                        process::exit(1);
+                        exit(1);
                     }
                 }
             } else if arg == "-h" || arg == "--help" {
@@ -169,31 +169,31 @@ impl Args {
                 println!("  -g          - emit debug information in the binary");
                 println!("  -C <flags>  - flags to pass to the C compiler");
                 println!("  --emit-only - only emit the assembly");
-                process::exit(0);
+                exit(0);
             } else if arg.starts_with('-') {
                 eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {arg}");
-                process::exit(1);
+                exit(1);
             } else if out.path.is_empty() {
                 out.path = arg
             } else {
                 eprintln!("\x1b[91mERROR\x1b[0m: unrecognized argument: {arg}");
-                process::exit(1);
+                exit(1);
             }
         }
 
         if out.path.is_empty() {
             eprintln!("\x1b[91mERROR\x1b[0m: you must provide a path");
-            process::exit(1);
+            exit(1);
         }
 
         if !out.use_crt && !out.cflags.is_empty() {
             eprintln!("You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
-            process::exit(1);
+            exit(1);
         }
 
         if !out.use_crt && out.target_windows {
             eprintln!("Using the -w flag without -m is not implemented yet. Add it.");
-            process::exit(1);
+            exit(1);
         }
 
         out
@@ -205,6 +205,6 @@ fn main() {
 
     if let Err(err) = compile_file(args) {
         eprintln!("{}", err);
-        process::exit(1);
+        exit(1);
     }
 }
