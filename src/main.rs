@@ -31,6 +31,10 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         symbol_table.register_declaration(stmt)?;
     }
 
+    symbol_table
+        .constants
+        .insert("_WINDOWS".into(), args.target_windows as i64);
+
     let mut typechecker = typechecker::TypeChecker::new(&symbol_table);
     for stmt in &statements {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;

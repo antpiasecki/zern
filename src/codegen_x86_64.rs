@@ -477,6 +477,9 @@ _builtin_environ:
                         }
                     }
                     Params::Variadic => {
+                        if self.args.target_windows {
+                            todo!("variadic functions not implemented on Windows");
+                        }
                         emit!(&mut self.output, "    sub rsp, 48");
                         emit!(&mut self.output, "    mov [rbp - 16], rdi");
                         emit!(&mut self.output, "    mov [rbp - 24], rsi");
@@ -771,6 +774,9 @@ _builtin_environ:
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {
+                    if self.args.target_windows {
+                        todo!("_var_arg not implemented on Windows");
+                    }
                     return self.emit_var_arg(env, &args[0]);
                 }
 

@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,28 +17,46 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
 
-      - name: Build release binary
+      - name: Install mingw-w64
+        run: sudo apt-get update -y && sudo apt-get install -y mingw-w64
+
+      - name: Build release binary (Linux)
         run: cargo build --release
 
-      - name: Stage install layout
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          rm -rf staging
-          mkdir -p staging/bin staging/zern/std
-          cp target/release/zern staging/zern/zern
-          cp -r std/. staging/zern/std/
-          cp LICENSE staging/zern/LICENSE
-          cp README.md staging/zern/README.md
-          ln -s ../zern/zern staging/bin/zern
+      - name: Build release binary (Windows)
+        run: cargo build --release --target x86_64-pc-windows-gnu
 
-      - name: Create tarball
+      - name: Stage Linux install layout
         run: |
           version="${GITHUB_REF_NAME#v}"
-          tar -czf "zern-v${version}-linux-x86_64.tar.gz" -C staging .
+          rm -rf staging-linux
+          mkdir -p staging-linux/bin staging-linux/zern/std
+          cp target/release/zern staging-linux/zern/zern
+          cp -r std/. staging-linux/zern/std/
+          cp LICENSE staging-linux/zern/LICENSE
+          ln -s ../zern/zern staging-linux/bin/zern
+
+      - name: Stage Windows install layout
+        run: |
+          rm -rf staging-windows
+          mkdir -p staging-windows/zern/std
+          cp target/x86_64-pc-windows-gnu/release/zern.exe staging-windows/zern/zern.exe
+          cp -r std/. staging-windows/zern/std/
+          cp LICENSE staging-windows/zern/LICENSE
+
+      - name: Create release archives
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          tar -czf "zern-v${version}-linux-x86_64.tar.gz" -C staging-linux .
+          cd staging-windows
+          zip -r "../zern-v${version}-windows-x86_64.zip" .
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             zern-v*-linux-x86_64.tar.gz
+            zern-v*-windows-x86_64.zip
