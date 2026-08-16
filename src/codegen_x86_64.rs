@@ -478,16 +478,22 @@ _builtin_environ:
                     }
                     Params::Variadic => {
                         if self.args.target_windows {
-                            todo!("variadic functions not implemented on Windows");
+                            emit!(&mut self.output, "    sub rsp, 32");
+                            emit!(&mut self.output, "    mov [rbp - 16], rcx");
+                            emit!(&mut self.output, "    mov [rbp - 24], rdx");
+                            emit!(&mut self.output, "    mov [rbp - 32], r8");
+                            emit!(&mut self.output, "    mov [rbp - 40], r9");
+                            env.next_offset += 32;
+                        } else {
+                            emit!(&mut self.output, "    sub rsp, 48");
+                            emit!(&mut self.output, "    mov [rbp - 16], rdi");
+                            emit!(&mut self.output, "    mov [rbp - 24], rsi");
+                            emit!(&mut self.output, "    mov [rbp - 32], rdx");
+                            emit!(&mut self.output, "    mov [rbp - 40], rcx");
+                            emit!(&mut self.output, "    mov [rbp - 48], r8");
+                            emit!(&mut self.output, "    mov [rbp - 56], r9");
+                            env.next_offset += 48;
                         }
-                        emit!(&mut self.output, "    sub rsp, 48");
-                        emit!(&mut self.output, "    mov [rbp - 16], rdi");
-                        emit!(&mut self.output, "    mov [rbp - 24], rsi");
-                        emit!(&mut self.output, "    mov [rbp - 32], rdx");
-                        emit!(&mut self.output, "    mov [rbp - 40], rcx");
-                        emit!(&mut self.output, "    mov [rbp - 48], r8");
-                        emit!(&mut self.output, "    mov [rbp - 56], r9");
-                        env.next_offset += 48;
                     }
                 }
 
@@ -774,9 +780,6 @@ _builtin_environ:
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {
-                    if self.args.target_windows {
-                        todo!("_var_arg not implemented on Windows");
-                    }
                     return self.emit_var_arg(env, &args[0]);
                 }
 
@@ -1083,11 +1086,13 @@ _builtin_environ:
 
         let stack_label = self.label();
         let done_label = self.label();
+        let register_count = if self.args.target_windows { 4 } else { 6 };
+        let stack_base = if self.args.target_windows { 48 } else { 16 };
 
-        emit!(&mut self.output, "    cmp r10, 6");
+        emit!(&mut self.output, "    cmp r10, {}", register_count);
         emit!(&mut self.output, "    jge {}", stack_label);
 
-        // < 6
+        // register-backed variadic arguments
         emit!(&mut self.output, "    mov rax, r10");
         emit!(&mut self.output, "    inc rax");
         emit!(&mut self.output, "    shl rax, 3");
@@ -1096,12 +1101,16 @@ _builtin_environ:
         emit!(&mut self.output, "    mov rax, [rbp + rax]");
         emit!(&mut self.output, "    jmp {}", done_label);
 
-        // >= 6
+        // stack-backed variadic arguments
         emit!(&mut self.output, "{}:", stack_label);
         emit!(&mut self.output, "    mov rax, r10");
-        emit!(&mut self.output, "    sub rax, 6");
+        emit!(&mut self.output, "    sub rax, {}", register_count);
         emit!(&mut self.output, "    shl rax, 3");
-        emit!(&mut self.output, "    mov rax, [rbp + 16 + rax]");
+        emit!(
+            &mut self.output,
+            "    mov rax, [rbp + {} + rax]",
+            stack_base
+        );
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())

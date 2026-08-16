@@ -98,13 +98,18 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 }
 
 fn run_command(cmd: String) {
-    if !Command::new("sh")
-        .args(["-c", &cmd])
-        .status()
-        .unwrap()
-        .success()
-    {
-        exit(1);
+    #[cfg(not(windows))]
+    let result = Command::new("sh").args(["-c", &cmd]).status();
+    #[cfg(windows)]
+    let result = Command::new("cmd").args(["/c", &cmd]).status();
+
+    match result {
+        Ok(status) if status.success() => {}
+        Ok(status) => exit(status.code().unwrap_or(1)),
+        Err(e) => {
+            eprintln!("failed to run command '{cmd}': {e}");
+            exit(1);
+        }
     }
 }
 

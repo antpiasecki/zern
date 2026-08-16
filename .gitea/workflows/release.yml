@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 jobs:
   build:
@@ -31,7 +30,6 @@ jobs:
 
       - name: Stage Linux install layout
         run: |
-          version="${GITHUB_REF_NAME#v}"
           rm -rf staging-linux
           mkdir -p staging-linux/bin staging-linux/zern/std
           cp target/release/zern staging-linux/zern/zern
@@ -48,14 +46,15 @@ jobs:
           cp LICENSE staging-windows/zern/LICENSE
 
       - name: Create release archives
+        env:
+          RELEASE_TAG: ${{ gitea.ref_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          tar -czf "zern-v${version}-linux-x86_64.tar.gz" -C staging-linux .
+          tar -czf "zern-${RELEASE_TAG}-linux-x86_64.tar.gz" -C staging-linux .
           cd staging-windows
-          zip -r "../zern-v${version}-windows-x86_64.zip" .
+          zip -r "../zern-${RELEASE_TAG}-windows-x86_64.zip" .
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: akkuman/gitea-release-action@v1
         with:
           files: |
             zern-v*-linux-x86_64.tar.gz
