@@ -2,14 +2,14 @@
 include "$/io.zr"
 include "$/os.zr"
 
-extern InitWindow
-extern SetTargetFPS
-extern WindowShouldClose
-extern BeginDrawing
-extern ClearBackground
-extern DrawRectangle
-extern EndDrawing
-extern IsKeyDown
+extern InitWindow[width: i64, height: i64, title: str] : void
+extern SetTargetFPS[fps: i64] : void
+extern WindowShouldClose[] : bool
+extern BeginDrawing[] : void
+extern ClearBackground[color: i64] : void
+extern DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void
+extern EndDrawing[] : void
+extern IsKeyDown[key: i64] : bool
 
 struct CHIP8
     memory: ptr

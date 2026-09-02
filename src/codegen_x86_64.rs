@@ -593,7 +593,7 @@ _builtin_environ:
             Stmt::Continue => {
                 emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
             }
-            Stmt::Extern(name) => {
+            Stmt::Extern { name, .. } => {
                 emit!(&mut self.output, ".extern {}", name.lexeme);
             }
             Stmt::Struct { .. } => {

@@ -71,7 +71,11 @@ pub enum Stmt {
     },
     Break,
     Continue,
-    Extern(Token),
+    Extern {
+        name: Token,
+        params: Params,
+        return_type: Token,
+    },
     Struct {
         name: Token,
         fields: Vec<Param>,
@@ -269,6 +273,23 @@ impl Parser {
 
     fn func_declaration(&mut self, exported: bool) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
+
+        let (params, return_types) = self.parse_function_type()?;
+
+        self.is_inside_function = true;
+        let body = Box::new(self.block()?);
+        self.is_inside_function = false;
+
+        Ok(Stmt::Function {
+            name,
+            params,
+            return_types,
+            body,
+            exported,
+        })
+    }
+
+    fn parse_function_type(&mut self) -> Result<(Params, Vec<Token>), ZernError> {
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
         let mut is_variadic = false;
@@ -303,21 +324,14 @@ impl Parser {
             }
         }
 
-        self.is_inside_function = true;
-        let body = Box::new(self.block()?);
-        self.is_inside_function = false;
-
-        Ok(Stmt::Function {
-            name,
-            params: if is_variadic {
+        Ok((
+            if is_variadic {
                 Params::Variadic
             } else {
                 Params::Normal(params)
             },
             return_types,
-            body,
-            exported,
-        })
+        ))
     }
 
     fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
@@ -348,9 +362,13 @@ impl Parser {
     }
 
     fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {
-        Ok(Stmt::Extern(
-            self.consume(TokenType::Identifier, "expected extern name")?,
-        ))
+        let name = self.consume(TokenType::Identifier, "expected extern name")?;
+        let (params, return_types) = self.parse_function_type()?;
+        Ok(Stmt::Extern {
+            name,
+            params,
+            return_type: return_types[0].clone(),
+        })
     }
 
     fn block(&mut self) -> Result<Stmt, ZernError> {

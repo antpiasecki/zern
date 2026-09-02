@@ -93,12 +93,32 @@ impl SymbolTable {
                 }
                 self.constants.insert(name.lexeme.clone(), value);
             }
-            Stmt::Extern(name) => {
+            Stmt::Extern {
+                name,
+                params,
+                return_type,
+            } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
-                self.functions
-                    .insert(name.lexeme.clone(), FnType::new_variadic("opaque"));
+                match params {
+                    Params::Normal(params) => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type: return_type.lexeme.clone(),
+                            params: FnParams::Normal(
+                                params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
+                            ),
+                        },
+                    ),
+                    Params::Variadic => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type: return_type.lexeme.clone(),
+                            params: FnParams::Variadic,
+                        },
+                    ),
+                };
             }
             Stmt::Function {
                 name,

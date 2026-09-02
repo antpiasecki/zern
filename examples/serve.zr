@@ -1,8 +1,8 @@
 // needs to be compiled with -m -C "-lpthread"
 include "$/net.zr"
 
-extern pthread_create
-extern pthread_detach
+extern pthread_create[thread: ptr, attr: ptr, start_routine: ptr, arg: ptr] : i64
+extern pthread_detach[thread: i64] : i64
 
 struct ConnData
     sock: i64
@@ -92,5 +92,5 @@ func main[argc: i64, argv: ptr] : i64
         conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr + 2))
 
         thread := 0
-        pthread_create(^thread, 0, ^handle_connection, conn_data)
+        pthread_create(^thread, 0 as ptr, ^handle_connection, conn_data as ptr)
         pthread_detach(thread)

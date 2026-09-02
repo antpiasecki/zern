@@ -337,7 +337,7 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Break => {}
             Stmt::Continue => {}
-            Stmt::Extern(_) => {
+            Stmt::Extern { .. } => {
                 // handled in the SymbolTable
             }
             Stmt::Struct { name: _, fields } => {
