@@ -80,6 +80,7 @@ pub enum Stmt {
         name: Token,
         fields: Vec<Param>,
     },
+    GlobalVariable(Token),
 }
 
 // https://stackoverflow.com/a/29963675
@@ -254,6 +255,11 @@ impl Parser {
             }
             if self.match_token(&[TokenType::KeywordStruct]) {
                 return self.struct_declaration();
+            }
+            if self.match_token(&[TokenType::KeywordVar]) {
+                return Ok(Stmt::GlobalVariable(
+                    self.consume(Identifier, "expected variable name after 'var'")?,
+                ));
             }
             return error!(
                 self.peek().loc,

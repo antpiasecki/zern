@@ -14,12 +14,12 @@ func Array.preallocate_and_zero[xs: Array<$>, size: i64] : void
 
 func Array.nth[xs: Array<$>, n: i64] : $
     if n < 0 || n >= xs->size
-        io.panic("Array.nth out of bounds")
+        io.panic("Array.nth: out of bounds")
     return mem.read64(xs->data + n * 8)
 
 func Array.set[xs: Array<$>, n: i64, x: $] : void
     if n < 0 || n >= xs->size
-        io.panic("Array.set out of bounds")
+        io.panic("Array.set: out of bounds")
     mem.write64(xs->data + n * 8, x)
 
 func Array.push[xs: Array<$>, x: $] : void
@@ -47,19 +47,19 @@ func Array.free_with_items[xs: Array<$>] : void
 
 func Array.pop[xs: Array<$>] : $
     if xs->size == 0
-        io.panic("Array.pop on empty array")
+        io.panic("Array.pop: empty array")
     x := Array.last(xs)
     xs->size = xs->size - 1
     return x
 
 func Array.last[xs: Array<$>] : $
     if xs->size == 0
-        io.panic("Array.last on empty array")
+        io.panic("Array.last: empty array")
     return xs->nth(xs->size - 1)
 
 func Array.slice[xs: Array<$>, start: i64, length: i64] : Array<$>
     if start < 0 || length < 0 || start + length > xs->size
-        io.panic("Array.slice out of bounds")
+        io.panic("Array.slice: out of bounds")
 
     new_array := [] as Array<$>
     new_array->preallocate_and_zero(length)

@@ -60,6 +60,7 @@ pub enum TokenType {
     KeywordStruct,
     KeywordNew,
     KeywordAs,
+    KeywordVar,
     KeywordTrue,
     KeywordFalse,
 
@@ -274,15 +275,13 @@ impl<'a> Tokenizer<'a> {
                 self.add_token(TokenType::CharLiteral)?
             }
             '"' => {
-                let start_loc = self.loc.clone();
-
                 while !self.eof() {
                     if self.peek() == '\\' {
                         self.advance();
                         if self.eof() {
                             return error!(
                                 self.loc,
-                                format!("unterminated string, started at {}", start_loc)
+                                format!("unterminated string, started at {}", self.start_loc)
                             );
                         }
                     } else if self.peek() == '"' {
@@ -297,7 +296,7 @@ impl<'a> Tokenizer<'a> {
                 if self.eof() {
                     return error!(
                         self.loc,
-                        format!("unterminated string, started at {}", start_loc)
+                        format!("unterminated string, started at {}", self.start_loc)
                     );
                 }
 
@@ -428,6 +427,7 @@ impl<'a> Tokenizer<'a> {
             "struct" => TokenType::KeywordStruct,
             "new" => TokenType::KeywordNew,
             "as" => TokenType::KeywordAs,
+            "var" => TokenType::KeywordVar,
             "true" => TokenType::KeywordTrue,
             "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,
@@ -450,7 +450,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         if self.eof() {
-            return error!(self.loc, "unterminated string after 'include '");
+            return error!(self.start_loc, "unterminated string after 'include'");
         }
 
         let path: String = self.source[path_start..self.current].iter().collect();
@@ -470,22 +470,16 @@ impl<'a> Tokenizer<'a> {
         let base_dir = Path::new(&self.loc.filename).parent().unwrap();
         let resolved_path = base_dir.join(&path);
 
-        let canonical = match fs::canonicalize(&resolved_path) {
-            Ok(p) => p,
-            Err(e) => {
-                return error!(self.loc, format!("failed to resolve {}: {}", path, e));
-            }
+        let Ok(canonical) = fs::canonicalize(&resolved_path) else {
+            return error!(self.loc, format!("failed to resolve {}", path));
         };
 
         if !self.included_paths.insert(canonical.clone()) {
             return Ok(());
         }
 
-        let meta = match std::fs::metadata(&canonical) {
-            Ok(x) => x,
-            Err(_) => {
-                return error!(self.loc, format!("failed to access {}", path));
-            }
+        let Ok(meta) = std::fs::metadata(&canonical) else {
+            return error!(self.loc, format!("failed to access {}", path));
         };
         if !meta.file_type().is_file() {
             return error!(
@@ -494,11 +488,8 @@ impl<'a> Tokenizer<'a> {
             );
         }
 
-        let source = match fs::read_to_string(&canonical) {
-            Ok(x) => x,
-            Err(_) => {
-                return error!(self.loc, format!("failed to include {}", path));
-            }
+        let Ok(source) = fs::read_to_string(&canonical) else {
+            return error!(self.loc, format!("failed to include {}", path));
         };
 
         let tokenizer = Tokenizer::new(
@@ -532,9 +523,13 @@ impl<'a> Tokenizer<'a> {
         self.tokens.push(Token {
             token_type,
             lexeme,
-            loc: self.start_loc.clone(),
+            loc: Loc {
+                filename: self.start_loc.filename.clone(),
+                line: self.start_loc.line,
+                column: self.start_loc.column,
+                length: self.current - self.start,
+            },
         });
-        self.tokens.last_mut().unwrap().loc.length = self.current - self.start;
         Ok(())
     }
 

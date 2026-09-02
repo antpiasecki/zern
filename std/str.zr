@@ -61,6 +61,7 @@ func str.equal_n[a: str, b: str, n: i64] : bool
         i += 1
     return true
 
+// return value can be inaccurate if output is too large to fit in the buffer
 func str.format_into[..] : i64
     buf := _var_arg(0) as ptr
     size := _var_arg(1) as i64
@@ -76,46 +77,36 @@ func str.format_into[..] : i64
         if s[0] == '%'
             s += 1
 
+            remaining := size - n - 1
+            if remaining <= 0
+                break
+
             if s[0] == 'd'
-                (_var_arg(i) as i64)->to_str_buf(tmp)
-                tmp_len := tmp->len()
-                remaining := size - n - 1
-                if remaining > 0
-                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                tmp_len := (_var_arg(i) as i64)->to_str_buf(tmp)
+                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 'x'
-                (_var_arg(i) as i64)->to_hex_str_buf(tmp)
-                tmp_len := tmp->len()
-                remaining := size - n - 1
-                if remaining > 0
-                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                tmp_len := (_var_arg(i) as i64)->to_hex_str_buf(tmp)
+                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 's'
-                tmp_str := _var_arg(i) as str
-                tmp_len := tmp_str->len()
-                remaining := size - n - 1
-                if remaining > 0
-                    mem.copy_n(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
+                tmp_len := (_var_arg(i) as str)->len()
+                mem.copy_n(_var_arg(i) as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 'c'
-                if n < size - 1
-                    buf[n] = _var_arg(i) as u8
+                buf[n] = _var_arg(i) as u8
                 n += 1
                 i += 1
             else if s[0] == 'f'
-                (_var_arg(i) as f64)->to_str_buf(tmp)
-                tmp_len := tmp->len()
-                remaining := size - n - 1
-                if remaining > 0
-                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                tmp_len := (_var_arg(i) as f64)->to_str_buf(tmp)
+                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == '%'
-                if n < size - 1
-                    buf[n] = '%'
+                buf[n] = '%'
                 n += 1
             else if s[0] == 0
                 break
@@ -239,12 +230,12 @@ func str._hex_digit_to_int[d: u8] : u8
     lower := d | 32
     if lower >= 'a' && lower <= 'f'
         return lower - 'a' + 10
-    io.panic("invalid hex digit passed to str._hex_digit_to_int")
+    io.panic("str._hex_digit_to_int: invalid hex digit")
 
 func str.hex_decode[s: str] : str
     s_len := s->len()
     if s_len % 2 != 0
-        io.panic("invalid hex string passed to str.hex_decode")
+        io.panic("str.hex_decode: invalid hex string")
 
     out_len := s_len / 2
     out := mem.alloc(out_len + 1) as str

@@ -2,7 +2,7 @@ include "io.zr"
 
 func i64.abs[n: i64] : i64
     if n == -9223372036854775808
-        io.panic("MIN_I64 passed to math.abs")
+        io.panic("math.abs: cannot negate MIN_I64")
     if n < 0
         return -n
     return n
@@ -17,7 +17,7 @@ func i64.sign[n: i64] : i64
 
 func i64.isqrt[n: i64] : i64
     if n < 0
-        io.panic("negative number passed to math.isqrt")
+        io.panic("i64.isqrt: negative n")
     if n == 0 || n == 1
         return n
 
@@ -45,11 +45,11 @@ func i64.is_prime[n: i64]: bool
         i += 6
     return true
 
-func i64.to_str_buf[n: i64, buf: str] : void
+func i64.to_str_buf[n: i64, buf: str] : i64
     if n == 0
         buf[0] = '0'
         buf[1] = 0
-        return
+        return 1
 
     neg := n < 0
     tmp := _stackalloc(21)
@@ -72,14 +72,15 @@ func i64.to_str_buf[n: i64, buf: str] : void
     for i in 0..len
         buf[i] = tmp[end + 1 + i]
     buf[len] = 0
+    return len
 
-func i64.to_hex_str_buf[n: i64, buf: str] : void
+func i64.to_hex_str_buf[n: i64, buf: str] : i64
     hex_chars := "0123456789abcdef"
 
     if n == 0
         buf[0] = '0'
         buf[1] = 0
-        return
+        return 1
 
     mask := (1 << 60) - 1
     tmp := _stackalloc(17)
@@ -96,6 +97,7 @@ func i64.to_hex_str_buf[n: i64, buf: str] : void
         buf[j] = tmp[len - 1 - j]
 
     buf[len] = 0
+    return len
 
 func i64.to_str[n: i64] : str
     out := mem.alloc(21) as str
@@ -107,14 +109,14 @@ func i64.to_hex_str[n: i64] : str
     n->to_hex_str_buf(out)
     return out
 
-func f64.to_str_buf[x: f64, buf: str] : void
+func f64.to_str_buf[x: f64, buf: str] : i64
     bits := x as opaque as i64
     sign := (bits >> 63) & 1
     exp := (bits >> 52) & 0x7ff
     mant := bits & 0x000fffffffffffff
 
     if exp == 0x7ff
-        io.panic("invalid float")
+        io.panic("f64.to_str_buf: invalid float")
 
     p := 0
     if sign
@@ -127,7 +129,7 @@ func f64.to_str_buf[x: f64, buf: str] : void
         buf[p+1] = '.'
         buf[p+2] = '0'
         buf[p+3] = 0
-        return
+        return p + 3
 
     sig := mant
     if exp != 0
@@ -142,7 +144,7 @@ func f64.to_str_buf[x: f64, buf: str] : void
         buf[p] = '.'
         buf[p+1] = '0'
         buf[p+2] = 0
-        return
+        return p + 2
 
     ns := -shift
 
@@ -174,6 +176,7 @@ func f64.to_str_buf[x: f64, buf: str] : void
         p += 1
         frac = frac & mask
     buf[p] = 0
+    return p
 
 func math.gcd[a: i64, b: i64] : i64
     a = a->abs()
@@ -196,7 +199,7 @@ func math.max[a: i64, b: i64] : i64
 
 func math.pow[b: i64, e: i64] : i64
     if e < 0
-        io.panic("negative exponent passed to math.pow")
+        io.panic("math.pow: negative exponent")
     out := 1
     while e > 0
         if e & 1

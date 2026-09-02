@@ -45,7 +45,7 @@ struct os.Timespec
 
 func os.sleep[ms: i64] : void
     if ms < 0
-        io.panic("negative time passed to os.sleep")
+        io.panic("os.sleep: negative argument")
     req := new os.Timespec
     req->tv_sec = ms / 1000
     req->tv_nsec = (ms % 1000) * 1000000

@@ -96,7 +96,7 @@ func ptr.free[x: ptr] : void
 
     blk := (x - mem.Block.SIZE) as mem.Block
     if blk->free
-        io.panic("double free")
+        io.panic("ptr.free: double free detected")
 
     blk->free = true
 
@@ -128,7 +128,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
         return mem.alloc(new_size)
 
     if new_size < 0
-        io.panic("mem.realloc: called with negative new_size")
+        io.panic("mem.realloc: negative new_size")
 
     if new_size == 0
         x->free()
@@ -177,11 +177,13 @@ func mem.zero[x: ptr, size: i64] : void
 
 func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
     if n < 0
-        io.panic("negative n passed to mem.copy_n")
+        io.panic("mem.copy_n: negative size")
     if n == 0
         return
-    if !src || !dst
-        io.panic("null pointer passed to mem.copy_n")
+    if !src
+        io.panic("mem.copy_n: null src pointer")
+    if !dst
+        io.panic("mem.copy_n: null dst pointer")
     if dst > src && dst < src + n
         i := n
         while i - 8 >= 0

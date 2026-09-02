@@ -110,15 +110,17 @@ impl<'a> TypeChecker<'a> {
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
-                        let existing_var_type = match env.get_var_type(&name.lexeme) {
-                            Some(x) => x,
-                            None => {
+                        let existing_var_type: &String =
+                            if let Some(x) = env.get_var_type(&name.lexeme) {
+                                x
+                            } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                                &"i64".into()
+                            } else {
                                 return error!(
                                     name.loc,
                                     format!("undefined variable: {}", &name.lexeme)
                                 );
-                            }
-                        };
+                            };
                         expect_type!(value_type.clone(), *existing_var_type, name.loc);
                     }
                     ExprKind::Index {
@@ -134,24 +136,15 @@ impl<'a> TypeChecker<'a> {
                         let left_type = self.typecheck_expr(env, left)?;
                         let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                        let fields = match self.symbol_table.structs.get(base_name) {
-                            Some(f) => f,
-                            None => {
-                                return error!(
-                                    &field.loc,
-                                    format!("unknown struct type: {}", left_type)
-                                );
-                            }
+                        let Some(fields) = self.symbol_table.structs.get(base_name) else {
+                            return error!(
+                                &field.loc,
+                                format!("unknown struct type: {}", left_type)
+                            );
                         };
 
-                        let f = match fields.get(&field.lexeme) {
-                            Some(o) => o,
-                            None => {
-                                return error!(
-                                    &field.loc,
-                                    format!("unknown field: {}", &field.lexeme)
-                                );
-                            }
+                        let Some(f) = fields.get(&field.lexeme) else {
+                            return error!(&field.loc, format!("unknown field: {}", &field.lexeme));
                         };
 
                         let field_type = if let Some(args) = generic_args {
@@ -350,6 +343,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
+            Stmt::GlobalVariable(_) => {}
         }
         Ok(())
     }
@@ -440,11 +434,12 @@ impl<'a> TypeChecker<'a> {
             ExprKind::Variable(name) => {
                 if self.symbol_table.constants.contains_key(&name.lexeme) {
                     Ok("i64".into())
+                } else if let Some(x) = env.get_var_type(&name.lexeme) {
+                    Ok(x.clone())
+                } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                    Ok("i64".into())
                 } else {
-                    match env.get_var_type(&name.lexeme) {
-                        Some(x) => Ok(x.clone()),
-                        None => error!(name.loc, format!("undefined variable: {}", &name.lexeme)),
-                    }
+                    return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                 }
             }
             ExprKind::Call {
@@ -551,16 +546,12 @@ impl<'a> TypeChecker<'a> {
                 let left_type = self.typecheck_expr(env, left)?;
                 let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                let fields = match self.symbol_table.structs.get(base_name) {
-                    Some(f) => f,
-                    None => {
-                        return error!(&field.loc, format!("unknown struct type: {}", base_name));
-                    }
+                let Some(fields) = self.symbol_table.structs.get(base_name) else {
+                    return error!(&field.loc, format!("unknown struct type: {}", base_name));
                 };
 
-                let field_info = match fields.get(&field.lexeme) {
-                    Some(o) => o,
-                    None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
+                let Some(field_info) = fields.get(&field.lexeme) else {
+                    return error!(&field.loc, format!("unknown field: {}", &field.lexeme));
                 };
 
                 let field_type = if let Some(args) = generic_args {
@@ -594,14 +585,11 @@ impl<'a> TypeChecker<'a> {
                 let (base_name, generic_args) = parse_generic_type(&receiver_type);
                 let func_name = format!("{}.{}", base_name, method.lexeme);
 
-                let func_type = match self.symbol_table.functions.get(&func_name) {
-                    Some(f) => f,
-                    None => {
-                        return error!(
-                            method.loc,
-                            format!("method {} not found on type {}", method.lexeme, base_name)
-                        );
-                    }
+                let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
+                    return error!(
+                        method.loc,
+                        format!("method {} not found on type {}", method.lexeme, base_name)
+                    );
                 };
 
                 let substitute = |s: &str| -> String {
@@ -687,29 +675,28 @@ impl<'a> TypeChecker<'a> {
 }
 
 fn parse_generic_type(s: &str) -> (&str, Option<Vec<&str>>) {
-    if let Some(lt_pos) = s.find('<') {
-        let base = &s[..lt_pos];
-        let close_pos = s.rfind('>').unwrap_or(s.len());
-        let inner = &s[lt_pos + 1..close_pos];
-        let mut args = Vec::new();
-        let mut depth = 0;
-        let mut start = 0;
-        for (i, ch) in inner.char_indices() {
-            match ch {
-                '<' => depth += 1,
-                '>' => depth -= 1,
-                ',' if depth == 0 => {
-                    args.push(&inner[start..i]);
-                    start = i + 1;
-                }
-                _ => {}
+    let Some(lt_pos) = s.find('<') else {
+        return (s, None);
+    };
+    let base = &s[..lt_pos];
+    let close_pos = s.rfind('>').unwrap_or(s.len());
+    let inner = &s[lt_pos + 1..close_pos];
+    let mut args = Vec::new();
+    let mut depth = 0;
+    let mut start = 0;
+    for (i, ch) in inner.char_indices() {
+        match ch {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                args.push(&inner[start..i]);
+                start = i + 1;
             }
+            _ => {}
         }
-        args.push(&inner[start..]);
-        (base, Some(args))
-    } else {
-        (s, None)
     }
+    args.push(&inner[start..]);
+    (base, Some(args))
 }
 
 fn substitute_type(type_str: &str, dollar_replacement: &str) -> String {

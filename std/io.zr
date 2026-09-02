@@ -7,10 +7,6 @@ func io.panic[msg: str] : void
     _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
     os.exit(1)
 
-func io.assert[cond: bool, msg: str] : void
-    if !cond
-        io.panic(msg)
-
 func io.printf[..] : void
     s := _var_arg(0) as ptr
     i := 1

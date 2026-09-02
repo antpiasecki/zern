@@ -71,9 +71,10 @@ macro_rules! emit {
 
 pub struct CodegenX86_64<'a> {
     output: String,
-    data_section: String,
+    rodata: String,
+    bss: String,
     label_counter: usize,
-    data_counter: usize,
+    rodata_counter: usize,
     pub args: &'a Args,
     pub symbol_table: &'a SymbolTable,
     pub expr_types: &'a HashMap<usize, String>,
@@ -87,9 +88,10 @@ impl<'a> CodegenX86_64<'a> {
     ) -> CodegenX86_64<'a> {
         CodegenX86_64 {
             output: String::new(),
-            data_section: String::new(),
-            label_counter: 0,
-            data_counter: 1,
+            rodata: String::new(),
+            bss: String::new(),
+            label_counter: 1,
+            rodata_counter: 1,
             args,
             symbol_table,
             expr_types,
@@ -102,7 +104,10 @@ impl<'a> CodegenX86_64<'a> {
     }
 
     pub fn get_output(&self) -> String {
-        format!(".section .data\n{}{}", self.data_section, self.output)
+        format!(
+            ".section .rodata\n{}\n.section .bss\n.align 8\n{}\n{}",
+            self.rodata, self.bss, self.output
+        )
     }
 
     pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
@@ -253,7 +258,9 @@ _builtin_environ:
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
             Stmt::Declare { name, initializer } => {
                 // TODO: move to typechecker?
-                if env.get_var(&name.lexeme).is_some() {
+                if env.get_var(&name.lexeme).is_some()
+                    || self.symbol_table.globals.contains_key(&name.lexeme)
+                {
                     return error!(
                         name.loc,
                         format!("variable already defined: {}", &name.lexeme)
@@ -277,13 +284,21 @@ _builtin_environ:
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
-                        // already ensured by the typechecker
-                        let var = env.get_var(&name.lexeme).unwrap();
-                        emit!(
-                            &mut self.output,
-                            "    mov QWORD PTR [rbp-{}], rax",
-                            var.stack_offset,
-                        );
+                        if let Some(var) = env.get_var(&name.lexeme) {
+                            emit!(
+                                &mut self.output,
+                                "    mov QWORD PTR [rbp-{}], rax",
+                                var.stack_offset,
+                            );
+                        } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                            emit!(
+                                &mut self.output,
+                                "    mov [{}+rip], rax",
+                                self.symbol_table.globals[&name.lexeme],
+                            );
+                        } else {
+                            unreachable!();
+                        }
                     }
                     ExprKind::Index {
                         expr,
@@ -599,6 +614,13 @@ _builtin_environ:
             Stmt::Struct { .. } => {
                 // handled in SymbolTable
             }
+            Stmt::GlobalVariable(name) => {
+                emit!(
+                    &mut self.bss,
+                    "    {}: .skip 8",
+                    self.symbol_table.globals[&name.lexeme]
+                );
+            }
         }
         Ok(())
     }
@@ -720,7 +742,7 @@ _builtin_environ:
                     // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
-                    let label = format!("str_{:03}", self.data_counter);
+                    let label = format!("str_{:03}", self.rodata_counter);
 
                     let charcodes = value
                         .chars()
@@ -728,8 +750,8 @@ _builtin_environ:
                         .chain(std::iter::once("0".into()))
                         .collect::<Vec<_>>()
                         .join(",");
-                    emit!(&mut self.data_section, "    {}: .byte {}", label, charcodes);
-                    self.data_counter += 1;
+                    emit!(&mut self.rodata, "    {}: .byte {}", label, charcodes);
+                    self.rodata_counter += 1;
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                 }
@@ -763,13 +785,21 @@ _builtin_environ:
                         self.symbol_table.constants[&name.lexeme]
                     );
                 } else {
-                    // already ensured by the typechecker
-                    let var = env.get_var(&name.lexeme).unwrap();
-                    emit!(
-                        &mut self.output,
-                        "    mov rax, QWORD PTR [rbp-{}]",
-                        var.stack_offset,
-                    );
+                    if let Some(var) = env.get_var(&name.lexeme) {
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, QWORD PTR [rbp-{}]",
+                            var.stack_offset,
+                        );
+                    } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                        emit!(
+                            &mut self.output,
+                            "    mov rax, [{}+rip]",
+                            self.symbol_table.globals[&name.lexeme],
+                        );
+                    } else {
+                        unreachable!();
+                    }
                 }
             }
             ExprKind::Call {
@@ -877,21 +907,20 @@ _builtin_environ:
                 ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    lea rax, [rip + {}]", name.lexeme);
-                    } else {
-                        let var = match env.get_var(&name.lexeme) {
-                            Some(x) => x,
-                            None => {
-                                return error!(
-                                    name.loc,
-                                    format!("undefined variable: {}", &name.lexeme)
-                                );
-                            }
-                        };
+                    } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                        emit!(
+                            &mut self.output,
+                            "    lea rax, [rip + {}]",
+                            self.symbol_table.globals[&name.lexeme]
+                        );
+                    } else if let Some(var) = env.get_var(&name.lexeme) {
                         emit!(
                             &mut self.output,
                             "    lea rax, QWORD PTR [rbp-{}]",
                             var.stack_offset,
                         );
+                    } else {
+                        return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }
                 }
                 _ => {
@@ -1065,16 +1094,12 @@ _builtin_environ:
     fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {
         let struct_name = self.strip_generic(&self.expr_types[&left.id]);
 
-        let fields = match self.symbol_table.structs.get(struct_name) {
-            Some(f) => f,
-            None => {
-                return error!(&field.loc, format!("unknown struct type: {}", struct_name));
-            }
+        let Some(fields) = self.symbol_table.structs.get(struct_name) else {
+            return error!(&field.loc, format!("unknown struct type: {}", struct_name));
         };
 
-        let field = match fields.get(&field.lexeme) {
-            Some(o) => o,
-            None => return error!(&field.loc, format!("unknown field: {}", &field.lexeme)),
+        let Some(field) = fields.get(&field.lexeme) else {
+            return error!(&field.loc, format!("unknown field: {}", &field.lexeme));
         };
 
         Ok(field.offset)
