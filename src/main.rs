@@ -16,7 +16,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
         Ok(x) => x,
         Err(e) => {
-            eprintln!("\x1b[91mERROR\x1b[0m: failed to open {}: {e}", args.path);
+            eprintln!("ERROR: failed to open {}: {e}", args.path);
             exit(1);
         }
     };
@@ -144,7 +144,8 @@ impl Args {
                 match args.next() {
                     Some(s) => out.out = Some(s),
                     None => {
-                        eprintln!("\x1b[91mERROR\x1b[0m: -o option requires a path");
+                        eprintln!("ERROR: -o option requires a path");
+                        print_usage();
                         exit(1);
                     }
                 }
@@ -162,46 +163,44 @@ impl Args {
                 match args.next() {
                     Some(s) => out.cflags = s,
                     None => {
-                        eprintln!("\x1b[91mERROR\x1b[0m: -C option requires a value");
+                        eprintln!("ERROR: -C option requires a value");
+                        print_usage();
                         exit(1);
                     }
                 }
             } else if arg == "-h" || arg == "--help" {
-                println!(
-                    "Usage: zern [-o path] [-r] [-m] [-g] [-w] [-C cflags] [--emit-only] path"
-                );
-                println!();
-                println!("  -o <path>   - specifies the output path");
-                println!("  -r          - runs the output executable after compilation");
-                println!("  -m          - link against the C runtime");
-                println!("  -w          - build a Windows executable");
-                println!("  -g          - emit debug information in the binary");
-                println!("  -C <flags>  - flags to pass to the C compiler");
-                println!("  --emit-only - only emit the assembly");
+                print_usage();
                 exit(0);
             } else if arg.starts_with('-') {
-                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized option: {arg}");
+                eprintln!("ERROR: unrecognized option: {arg}");
+                print_usage();
                 exit(1);
             } else if out.path.is_empty() {
                 out.path = arg
             } else {
-                eprintln!("\x1b[91mERROR\x1b[0m: unrecognized argument: {arg}");
+                eprintln!("ERROR: unrecognized argument: {arg}");
+                print_usage();
                 exit(1);
             }
         }
 
         if out.path.is_empty() {
-            eprintln!("\x1b[91mERROR\x1b[0m: you must provide a path");
+            eprintln!("ERROR: You must provide a path");
+            print_usage();
             exit(1);
         }
 
         if !out.use_crt && !out.cflags.is_empty() {
-            eprintln!("You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
+            eprintln!(
+                "ERROR: You can't set CFLAGS if you're not using the C runtime. Add the -m flag."
+            );
             exit(1);
         }
 
         if !out.use_crt && out.target_windows {
-            eprintln!("Using the -w flag without -m is not implemented yet. Add it.");
+            eprintln!(
+                "ERROR: Using the -w flag without -m is not implemented yet. Add -m to flags."
+            );
             exit(1);
         }
 
@@ -209,11 +208,46 @@ impl Args {
     }
 }
 
+fn print_usage() {
+    println!("Usage: zern [-o path] [-r] [-m] [-g] [-w] [-C cflags] [--emit-only] path");
+    println!();
+    println!("  -o <path>   - specifies the output path");
+    println!("  -r          - runs the output executable after compilation");
+    println!("  -m          - link against the C runtime");
+    println!("  -w          - build a Windows executable");
+    println!("  -g          - emit debug information in the binary");
+    println!("  -C <flags>  - flags to pass to the C compiler");
+    println!("  --emit-only - only emit the assembly");
+}
+
+fn print_error(e: ZernError) {
+    eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc, e.message);
+    if e.loc.filename != "<unknown>" && e.loc.line > 0 {
+        if let Ok(src) = fs::read_to_string(&e.loc.filename) {
+            if let Some(line) = src.lines().nth(e.loc.line - 1) {
+                let line_num_str = e.loc.line.to_string();
+                eprintln!("{} | {}", line_num_str, line);
+
+                let col0 = e.loc.column.saturating_sub(1);
+                let underline_len = e.loc.length.max(1);
+                let caret_line = format!("{}{}", " ".repeat(col0), "^".repeat(underline_len));
+
+                eprintln!(
+                    "{:>width$} | \x1b[91m{}\x1b[0m",
+                    "",
+                    caret_line,
+                    width = line_num_str.len()
+                );
+            }
+        }
+    }
+}
+
 fn main() {
     let args = Args::parse(std::env::args());
 
     if let Err(err) = compile_file(args) {
-        eprintln!("{}", err);
+        print_error(err);
         exit(1);
     }
 }

@@ -75,14 +75,6 @@ pub struct ZernError {
     pub message: String,
 }
 
-impl fmt::Display for ZernError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} \x1b[91mERROR\x1b[0m: {}", self.loc, self.message)
-    }
-}
-
-impl std::error::Error for ZernError {}
-
 macro_rules! error {
     ($loc:expr, $msg:expr) => {
         Err(ZernError {
@@ -99,6 +91,18 @@ pub struct Loc {
     pub filename: String,
     pub line: usize,
     pub column: usize,
+    pub length: usize,
+}
+
+impl Default for Loc {
+    fn default() -> Self {
+        Self {
+            filename: "<unknown>".to_string(),
+            line: 0,
+            column: 0,
+            length: 1,
+        }
+    }
 }
 
 impl fmt::Display for Loc {
@@ -122,6 +126,7 @@ pub struct Tokenizer<'a> {
     start: usize,
     current: usize,
     loc: Loc,
+    start_loc: Loc,
     included_paths: &'a mut HashSet<PathBuf>,
 }
 
@@ -142,7 +147,9 @@ impl<'a> Tokenizer<'a> {
                 filename,
                 line: 1,
                 column: 1,
+                length: 1,
             },
+            start_loc: Loc::default(),
             included_paths,
         }
     }
@@ -150,6 +157,7 @@ impl<'a> Tokenizer<'a> {
     pub fn tokenize(mut self) -> Result<Vec<Token>, ZernError> {
         while !self.eof() {
             self.start = self.current;
+            self.start_loc = self.loc.clone();
             self.scan_token()?;
         }
         self.tokens.push(Token {
@@ -524,8 +532,9 @@ impl<'a> Tokenizer<'a> {
         self.tokens.push(Token {
             token_type,
             lexeme,
-            loc: self.loc.clone(),
+            loc: self.start_loc.clone(),
         });
+        self.tokens.last_mut().unwrap().loc.length = self.current - self.start;
         Ok(())
     }
 
