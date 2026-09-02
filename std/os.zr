@@ -16,7 +16,7 @@ func os.getenv[name: str] : str, bool
     name_len := name->len()
     i := 0
     while true
-        entry := mem.read64(_builtin_environ() + i * 8) as str
+        entry := mem.read64(_builtin_environ as ptr + i * 8) as str
         if entry as ptr == 0
             break
         if entry->equal_n(name, name_len) && entry[name_len] == '='
@@ -93,7 +93,7 @@ func os.run_shell_command[command: str] : os.CmdResult
 
     if pid == 0
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
-        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ())
+        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
         os.exit(1)
     else
         status := 0

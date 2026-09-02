@@ -105,7 +105,12 @@ impl<'a> CodegenX86_64<'a> {
 
     pub fn get_output(&self) -> String {
         format!(
-            ".section .rodata\n{}\n.section .bss\n.align 8\n{}\n{}",
+            ".section .rodata
+{}
+.section .bss
+.align 8
+{}
+{}",
             self.rodata, self.bss, self.output
         )
     }
@@ -123,21 +128,6 @@ impl<'a> CodegenX86_64<'a> {
         emit!(
             &mut self.output,
             ".intel_syntax noprefix
-
-.section .bss
-    _heap_head: .zero 8
-    _heap_tail: .zero 8
-    _environ: .zero 8
-
-.section .text._builtin_heap_head
-_builtin_heap_head:
-    lea rax, [rip + _heap_head]
-    ret
-
-.section .text._builtin_heap_tail
-_builtin_heap_tail:
-    lea rax, [rip + _heap_tail]
-    ret
 
 .section .text._builtin_cvttsd2si
 _builtin_cvttsd2si:
@@ -211,12 +201,6 @@ _builtin_syscall:
             emit!(
                 &mut self.output,
                 "
-.section .text._builtin_environ
-_builtin_environ:
-    lea rax, [rip + _environ]
-    mov rax, [rax]
-    ret
-
 .globl _start
 .section .text
 _start:
@@ -226,7 +210,7 @@ _start:
     mov rsi, rsp
     // save environ
     lea rdx, [rsi + rdi*8 + 8]
-    lea rax, [rip + _environ]
+    lea rax, [rip + _builtin_environ]
     mov [rax], rdx
     // align stack
     and rsp, -16
@@ -237,16 +221,14 @@ _start:
     syscall
 "
             );
+            emit!(&mut self.bss, "    _builtin_environ: .zero 8");
         } else if !self.args.target_windows {
             // Linux with CRT
             emit!(
                 &mut self.output,
                 "
-.section .text._builtin_environ
-_builtin_environ:
-    .extern environ
-    mov rax, [rip + environ]
-    ret
+.extern environ
+.set _builtin_environ, environ
 "
             );
         }
