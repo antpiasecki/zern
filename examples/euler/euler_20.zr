@@ -20,5 +20,5 @@ func main[] : i64
     sum := 0
     for i in 0..n->size
         sum += n->nth(i)
-    
+
     io.println_i64(sum)

@@ -63,14 +63,14 @@ func Array.slice[xs: Array<$>, start: i64, length: i64] : Array<$>
 
     new_array := [] as Array<$>
     new_array->preallocate_and_zero(length)
-    mem.copy(xs->data + start * 8, new_array->data, length * 8)
+    mem.copy_n(xs->data + start * 8, new_array->data, length * 8)
     return new_array
 
 func Array.concat[a: Array<$>, b: Array<$>] : Array<$>
     new_array := [] as Array<$>
     new_array->preallocate_and_zero(a->size + b->size)
-    mem.copy(a->data, new_array->data, a->size * 8)
-    mem.copy(b->data, new_array->data + a->size * 8, b->size * 8)
+    mem.copy_n(a->data, new_array->data, a->size * 8)
+    mem.copy_n(b->data, new_array->data + a->size * 8, b->size * 8)
     return new_array
 
 func Array.quicksort[arr: Array<i64>] : void
@@ -132,7 +132,7 @@ func str.split[haystack: str, needle: str]: Array<str>
     haystack_len := haystack->len()
     needle_len := needle->len()
     result := [] as Array<str>
-    
+
     if !needle_len
         if !haystack_len
             return result
@@ -200,7 +200,7 @@ func HashMap.get[map: HashMap<$>, key: str] : $, bool
         if current->key->equal(key)
             return current->value, true
         current = current->next
-    
+
     return 0 as $, false
 
 func HashMap.delete[map: HashMap<$>, key: str] : void
@@ -214,7 +214,7 @@ func HashMap.delete[map: HashMap<$>, key: str] : void
                 prev->next = current->next
             else
                 map->table->set(index, current->next)
-            
+
             current->key->free()
             (current as ptr)->free()
             return
@@ -244,7 +244,7 @@ func HashMap.free_with_keys[map: HashMap<$>] : void
     (map as ptr)->free()
 
 func HashMap._djb2[key: str] : i64
-    hash := 5381 
+    hash := 5381
     for i in 0..key->len()
         hash = ((hash << 5) + hash) + key[i]
     hash = (hash & 0x7fffffffffffffff) // prevent negative

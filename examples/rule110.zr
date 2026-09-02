@@ -15,7 +15,7 @@ func rule110_step[state: Array<bool>] : void
 
         new_state->push(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
 
-    mem.copy(new_state->data, state->data, state->size * 8)
+    mem.copy_n(new_state->data, state->data, state->size * 8)
     new_state->free()
 
 func print_state[state: Array<bool>]: void

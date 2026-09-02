@@ -283,25 +283,25 @@ func main[argc: i64, argv: ptr] : i64
             disassemble = true
         else
             path = arg
-    
+
     if path as i64 == 0
         io.println("Usage: chip8 -d <path>")
         return 1
-    
+
     c := new CHIP8
     c->init()
 
-    buffer, ok := io.read_binary_file(path)
+    buffer, ok := io.read_file(path)
     if !ok
         io.panic("failed to read file")
 
-    for i in 0..buffer->len()
+    for i in 0..buffer->size
         c->memory[0x200 + i] = buffer->data()[i]
 
     if disassemble
-        c->disassemble(buffer->len() / 2)
+        c->disassemble(buffer->size / 2)
         return 0
-    
+
     InitWindow(640, 320, "CHIP-8")
     SetTargetFPS(60)
 
@@ -311,10 +311,10 @@ func main[argc: i64, argv: ptr] : i64
         if c->sound_timer > 0
             c->sound_timer = c->sound_timer - 1
             // TODO: buzzer
-        
+
         for i in 0..25
             c->step()
-        
+
         BeginDrawing()
 
         ClearBackground(0xffffffff)

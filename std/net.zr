@@ -16,12 +16,12 @@ func net.listen[host: str, port: i64] : i64, bool
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
         return -1, false
-    
+
     optval := 1
     if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
         io.close(s)
         return -1, false
-    
+
     packed_host, ok := net.resolve(host)
     if !ok
         return -1, false
@@ -36,14 +36,14 @@ func net.listen[host: str, port: i64] : i64, bool
     if _builtin_syscall(SYS_listen, s, SOMAXCONN) < 0
         io.close(s)
         return -1, false
-    
+
     return s, true
 
 func net.connect[host: str, port: i64] : i64, bool
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
         return -1, false
-    
+
     packed_host, ok := net.resolve(host)
     if !ok
         return -1, false
@@ -88,15 +88,14 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : net.UDPPacket
-    pkt := new* net.UDPPacket
-    pkt->data = mem.alloc(size)
-    pkt->source_addr = mem.alloc(16)
-    mem.zero(pkt->source_addr, 16)
+func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : Buffer, ptr
+    data := Buffer.alloc(size)
+    sa := mem.alloc(16)
 
     addrlen := 16
-    pkt->size = _builtin_syscall(SYS_recvfrom, s->fd, pkt->data, size, 0, pkt->source_addr, ^addrlen)
-    return pkt
+    size = _builtin_syscall(SYS_recvfrom, s->fd, data->data(), size, 0, sa, ^addrlen)
+    data = data->realloc(size)
+    return data, sa
 
 func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     io.close(s->fd)
@@ -134,9 +133,8 @@ func net.UDPSocket.send_to[s: net.UDPSocket, addr: ptr, data: ptr, size: i64] : 
     _builtin_syscall(SYS_sendto, s->fd, data, size, 0, addr, 16)
 
 struct net.UDPPacket
-    data: ptr
+    data: Buffer
     source_addr: ptr
-    size: i64
 
 func net.UDPPacket.free[pkt: net.UDPPacket] : void
     pkt->data->free()
@@ -177,24 +175,25 @@ func net.resolve[domain: str] : i64, bool
         query->free()
         return -1, false
 
-    s->send_to(s->addr, query->data(), query->len())
+    s->send_to(s->addr, query->data(), query->size)
     query->free()
-    pkt := s->receive(1024)
+    data, sa := s->receive(1024)
     s->close_and_free()
 
     // TODO: do actual parsing
 
     pos := 12 // skip header (12 bytes)
 
-    while pkt->data[pos] != 0
-        pos += pkt->data[pos] + 1 // skip question
+    while data->data()[pos] != 0
+        pos += data->data()[pos] + 1 // skip question
 
     pos += 5  // skip null byte, type(2), class(2)
 
     pos += 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
-    out := net.pack_addr(pkt->data[pos] as i64, pkt->data[pos+1] as i64, pkt->data[pos+2] as i64, pkt->data[pos+3] as i64)
-    pkt->free()
+    out := net.pack_addr(data->data()[pos] as i64, data->data()[pos+1] as i64, data->data()[pos+2] as i64, data->data()[pos+3] as i64)
+    data->free()
+    sa->free()
     return out, true
 
 func net.encode_dns_name[domain: str] : Buffer
@@ -208,7 +207,7 @@ func net.encode_dns_name[domain: str] : Buffer
             part_len := i - part_start
             buf->data()[out_pos] = part_len & 0xff
             out_pos += 1
-            mem.copy(domain as ptr + part_start, buf->data() + out_pos, part_len)
+            mem.copy_n(domain as ptr + part_start, buf->data() + out_pos, part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1
@@ -218,7 +217,7 @@ func net.encode_dns_name[domain: str] : Buffer
 
 func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
     name := net.encode_dns_name(domain_name)
-    out := Buffer.alloc(12 + name->len() + 4)
+    out := Buffer.alloc(12 + name->size + 4)
 
     // header
     id := (os.urandom_i64() % 65536)->abs()
@@ -230,9 +229,9 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
     mem.write16be(out->data() + 10, 0) // num_additionals
 
     // question
-    mem.copy(name->data(), out->data() + 12, name->len())
-    mem.write16be(out->data() + 12 + name->len(), record_type)
-    mem.write16be(out->data() + 12 + name->len() + 2, DNS_CLASS_IN)
+    mem.copy_n(name->data(), out->data() + 12, name->size)
+    mem.write16be(out->data() + 12 + name->size, record_type)
+    mem.write16be(out->data() + 12 + name->size + 2, DNS_CLASS_IN)
 
     name->free()
     return out

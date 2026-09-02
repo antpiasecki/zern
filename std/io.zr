@@ -97,30 +97,11 @@ func io.read_line[] : str
         b->append_char(c)
     return b->build_and_free_buffer()
 
-func io.read_text_file[path: str] : str, bool
-    fd, ok := io.open_for_reading(path)
-    if !ok
-        return 0 as str, false
-
-    size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
-    _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
-
-    buffer := mem.alloc(size + 1)
-    n := _builtin_syscall(SYS_read, fd, buffer, size)
-    io.close(fd)
-
-    if n != size
-        buffer->free()
-        return 0 as str, false
-
-    buffer[n] = 0
-    return buffer as str, true
-
-func io.read_binary_file[path: str] : Buffer, bool
+func io.read_file[path: str] : Buffer, bool
     fd, ok := io.open_for_reading(path)
     if !ok
         return 0 as Buffer, false
-    
+
     size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
     buf := Buffer.alloc(size)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)

@@ -31,11 +31,11 @@ func handle_connection[conn: ConnData] : void
     if !method->equal("GET")
         // TODO: method not supported
         return
-    
+
     if path->equal("/")
         // TODO: index
         return
-    
+
     // TODO: ANY validation
     file_path := "."->concat(path)
 
@@ -48,10 +48,10 @@ func handle_connection[conn: ConnData] : void
     if !ok
         // TODO: not found
         return
-    
+
     resp := "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"
     net.send(conn->sock, resp as ptr, resp->len())
-    
+
     offset := 0
     while offset < file_size
         sent := io.send_file(conn->sock, fd, ^offset, IP_MAXPACKET)

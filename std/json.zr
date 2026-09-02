@@ -53,7 +53,7 @@ func json.Value.dump[v: json.Value] : str
             s->append("false")
     else
         io.panic("json.Value.dump: unknown value type")
-    
+
     return s->build_and_free_buffer()
 
 func json.Value.free[v: json.Value] : void
@@ -64,7 +64,7 @@ func json.Value.free[v: json.Value] : void
             value, _ := map->get(keys->nth(i))
             value->free()
         keys->free()
-        
+
         map->free_with_keys()
     else if v->type == json.ARRAY
         arr := v->value as Array<json.Value>
@@ -90,14 +90,14 @@ func json._parse_value[s: str, i: ptr] : json.Value
 
     if s[mem.read64(i)] == 0
         io.panic("json.parse: unexpected EOF")
-    
+
     if s[mem.read64(i)] == '{'
         mem.write64(i, mem.read64(i) + 1)
         json._skip_whitespace(s, i)
 
         out->type = json.OBJECT
         out->value = HashMap.new() as opaque
-        
+
         if s[mem.read64(i)] != '}'
             while true
                 json._skip_whitespace(s, i)
@@ -118,7 +118,7 @@ func json._parse_value[s: str, i: ptr] : json.Value
                     mem.write64(i, mem.read64(i) + 1)
                 else
                     break
-        
+
         json._skip_whitespace(s, i)
         if s[mem.read64(i)] != '}'
             io.panic("json.parse: expected '}'")
@@ -129,7 +129,7 @@ func json._parse_value[s: str, i: ptr] : json.Value
 
         out->type = json.ARRAY
         out->value = [] as opaque
-        
+
         while s[mem.read64(i)] != ']'
             json._skip_whitespace(s, i)
 
@@ -140,7 +140,7 @@ func json._parse_value[s: str, i: ptr] : json.Value
                 mem.write64(i, mem.read64(i) + 1)
             else
                 break
-        
+
         json._skip_whitespace(s, i)
         if s[mem.read64(i)] != ']'
             io.panic("json.parse: expected ']'")

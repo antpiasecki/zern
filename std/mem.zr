@@ -62,14 +62,14 @@ func mem.alloc[size: i64] : ptr
             cur->free = false
             return cur as ptr + mem.Block.SIZE
         cur = cur->next
-    
+
     blk := mem._request_space(size)
-    
+
     if !mem.read64(_builtin_heap_head())
         mem.write64(_builtin_heap_head(), blk as ptr as i64)
-    
+
     blk->_split(size)
-    
+
     return blk as ptr + mem.Block.SIZE
 
 func mem.trim[] : void
@@ -96,7 +96,7 @@ func ptr.free[x: ptr] : void
 
     blk := (x - mem.Block.SIZE) as mem.Block
     if blk->free
-        return
+        io.panic("double free")
 
     blk->free = true
 
@@ -126,7 +126,7 @@ func ptr.free[x: ptr] : void
 func ptr.realloc[x: ptr, new_size: i64] : ptr
     if !x
         return mem.alloc(new_size)
-    
+
     if new_size < 0
         io.panic("mem.realloc: called with negative new_size")
 
@@ -143,7 +143,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
 
     next := blk->next
     expected_next := (blk as ptr + mem.Block.SIZE + blk->size) as mem.Block
-    
+
     if next as ptr && next->free && expected_next as ptr == next as ptr
         combined := blk->size + mem.Block.SIZE + next->size
         if combined >= new_size
@@ -158,7 +158,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
 
     new_ptr := mem.alloc(new_size)
 
-    mem.copy(x, new_ptr, math.min(blk->size, new_size))
+    mem.copy_n(x, new_ptr, math.min(blk->size, new_size))
     x->free()
     return new_ptr
 
@@ -175,7 +175,13 @@ func mem.zero[x: ptr, size: i64] : void
         x[i] = 0 as u8
         i += 1
 
-func mem.copy[src: ptr, dst: ptr, n: i64] : void
+func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
+    if n < 0
+        io.panic("negative n passed to mem.copy_n")
+    if n == 0
+        return
+    if !src || !dst
+        io.panic("null pointer passed to mem.copy_n")
     if dst > src && dst < src + n
         i := n
         while i - 8 >= 0
@@ -240,17 +246,20 @@ func mem.write64be[x: ptr, d: i64] : void
 
 // sneaky length-prefixed ptr
 struct Buffer
+    size: i64
 
 func Buffer.alloc[n: i64] : Buffer
-    out := mem.alloc(8 + n)
-    mem.write64(out, n)
-    return out as Buffer
-
-func Buffer.len[b: Buffer] : i64
-    return mem.read64(b as ptr)
+    out := mem.alloc(8 + n) as Buffer
+    out->size = n
+    return out
 
 func Buffer.data[b: Buffer] : ptr
     return b as ptr + 8
+
+func Buffer.realloc[b: Buffer, new_size: i64] : Buffer
+    new_b := (b as ptr)->realloc(8 + new_size) as Buffer
+    new_b->size = new_size
+    return new_b
 
 func Buffer.free[b: Buffer] : void
     (b as ptr)->free()

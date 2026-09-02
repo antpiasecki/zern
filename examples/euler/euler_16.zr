@@ -13,7 +13,7 @@ func main[] : i64
         while carry > 0
             n->push(carry % 10)
             carry = carry / 10
-    
+
     sum := 0
     for i in 0..n->size
         sum += n->nth(i)

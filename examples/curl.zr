@@ -15,7 +15,7 @@ func main[argc: i64, argv: ptr] : i64
     if !url->substr_n(0, 7)->equal("http://")
         io.println("ERROR: only http scheme is supported")
         return 1
-    
+
     url_len := url->len()
     host_start := 7
     i := host_start
@@ -28,7 +28,7 @@ func main[argc: i64, argv: ptr] : i64
     path := "/"
     if i < url_len
         path = url->substr_n(i, url_len - i)
-    
+
     s, ok := net.connect(host, 80)
     if !ok
         io.panic("failed to connect")

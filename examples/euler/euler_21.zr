@@ -19,5 +19,5 @@ func main[] : i64
         d := divisors_sum(i)
         if i < d && i == divisors_sum(d)
             sum += i + d
-    
+
     io.println_i64(sum)

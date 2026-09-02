@@ -572,6 +572,12 @@ impl<'a> TypeChecker<'a> {
                 Ok(field_type)
             }
             ExprKind::Cast { expr, type_name } => {
+                if !self.is_valid_type_name(&type_name.lexeme) {
+                    return error!(
+                        &type_name.loc,
+                        format!("unknown type: {}", &type_name.lexeme)
+                    );
+                }
                 let expr_type = self.typecheck_expr(env, expr)?;
                 if (expr_type != "opaque" && type_name.lexeme == "f64")
                     || (expr_type == "f64" && type_name.lexeme != "opaque")
@@ -579,12 +585,6 @@ impl<'a> TypeChecker<'a> {
                     return error!(
                         &type_name.loc,
                         "direct casting between numeric types and f64 disallowed; use _builtin_cvtsi2sd and _builtin_cvttsd2si for actual conversion or cast to opaque first to preserve the bit pattern"
-                    );
-                }
-                if !self.is_valid_type_name(&type_name.lexeme) {
-                    return error!(
-                        &type_name.loc,
-                        format!("unknown type: {}", &type_name.lexeme)
                     );
                 }
                 Ok(type_name.lexeme.clone())
@@ -599,10 +599,7 @@ impl<'a> TypeChecker<'a> {
                     None => {
                         return error!(
                             method.loc,
-                            format!(
-                                "method {} not found on on type {}",
-                                method.lexeme, base_name
-                            )
+                            format!("method {} not found on type {}", method.lexeme, base_name)
                         );
                     }
                 };
@@ -716,9 +713,5 @@ fn parse_generic_type(s: &str) -> (&str, Option<Vec<&str>>) {
 }
 
 fn substitute_type(type_str: &str, dollar_replacement: &str) -> String {
-    if type_str.contains('$') {
-        type_str.replace('$', dollar_replacement)
-    } else {
-        type_str.to_string()
-    }
+    type_str.replace('$', dollar_replacement)
 }

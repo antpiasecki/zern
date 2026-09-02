@@ -20,5 +20,5 @@ func main[] : i64
             if wday == 5
                 sun += 1
             wday = (wday + days(year, mon)) % 7
-    
+
     io.println_i64(sun)

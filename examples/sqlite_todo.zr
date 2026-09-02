@@ -27,7 +27,7 @@ func main[] : i64
     rc = sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS todo(id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL);", 0, 0, 0) as i64
     if rc
         io.panic(sqlite3_errmsg(db) as str)
-    
+
     while true
         io.println("1. List tasks")
         io.println("2. Add task")

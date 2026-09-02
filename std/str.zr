@@ -40,7 +40,7 @@ func str.len[s: str] : i64
 func str.make_copy[s: str] : str
     size := s->len() + 1
     dup := mem.alloc(size) as str
-    mem.copy(s as ptr, dup as ptr, size)
+    mem.copy_n(s as ptr, dup as ptr, size)
     return dup
 
 func str.equal[a: str, b: str] : bool
@@ -80,21 +80,24 @@ func str.format_into[..] : i64
                 (_var_arg(i) as i64)->to_str_buf(tmp)
                 tmp_len := tmp->len()
                 remaining := size - n - 1
-                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                if remaining > 0
+                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 'x'
                 (_var_arg(i) as i64)->to_hex_str_buf(tmp)
                 tmp_len := tmp->len()
                 remaining := size - n - 1
-                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                if remaining > 0
+                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 's'
                 tmp_str := _var_arg(i) as str
                 tmp_len := tmp_str->len()
                 remaining := size - n - 1
-                mem.copy(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
+                if remaining > 0
+                    mem.copy_n(tmp_str as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == 'c'
@@ -106,7 +109,8 @@ func str.format_into[..] : i64
                 (_var_arg(i) as f64)->to_str_buf(tmp)
                 tmp_len := tmp->len()
                 remaining := size - n - 1
-                mem.copy(tmp as ptr, buf + n, math.min(tmp_len, remaining))
+                if remaining > 0
+                    mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
                 n += tmp_len
                 i += 1
             else if s[0] == '%'
@@ -133,8 +137,8 @@ func str.concat[a: str, b: str] : str
     a_len := a->len()
     b_len := b->len()
     out := mem.alloc(a_len + b_len + 1) as str
-    mem.copy(a as ptr, out as ptr, a_len)
-    mem.copy(b as ptr, out as ptr + a_len, b_len)
+    mem.copy_n(a as ptr, out as ptr, a_len)
+    mem.copy_n(b as ptr, out as ptr + a_len, b_len)
     out[a_len + b_len] = 0
     return out
 
@@ -147,7 +151,7 @@ func str.find[haystack: str, needle: str] : i64
 
     if needle_len == 0
         return 0
-    
+
     if needle_len > haystack_len
         return -1
 
@@ -167,7 +171,7 @@ func str.find[haystack: str, needle: str] : i64
 
 func str.substr_n[s: str, start: i64, length: i64] : str
     out := mem.alloc(length + 1) as str
-    mem.copy(s as ptr + start, out as ptr, length)
+    mem.copy_n(s as ptr + start, out as ptr, length)
     out[length] = 0
     return out
 
@@ -232,7 +236,7 @@ func str.hex_encode[s: str, s_len: i64] : str
 func str._hex_digit_to_int[d: u8] : u8
     if d->is_digit()
         return d - '0'
-    lower := d | 32 
+    lower := d | 32
     if lower >= 'a' && lower <= 'f'
         return lower - 'a' + 10
     io.panic("invalid hex digit passed to str._hex_digit_to_int")
@@ -276,12 +280,12 @@ func str.Builder.append_char[b: str.Builder, c: u8] : void
 func str.Builder.append[b: str.Builder, s: str] : void
     len := s->len()
     b->_grow(len)
-    mem.copy(s as ptr, b->data + b->size, len)
+    mem.copy_n(s as ptr, b->data + b->size, len)
     b->size += len
 
 func str.Builder.build[b: str.Builder] : str
     s := mem.alloc(b->size + 1) as str
-    mem.copy(b->data, s as ptr, b->size)
+    mem.copy_n(b->data, s as ptr, b->size)
     s[b->size] = 0
     return s
 
@@ -295,4 +299,3 @@ func str.Builder.free_buffer[b: str.Builder] : void
         b->data->free()
     b->size = 0
     b->capacity = 0
-

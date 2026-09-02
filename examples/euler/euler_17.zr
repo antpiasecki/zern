@@ -23,7 +23,7 @@ func main[] : i64
             sum += s1->nth(i) + 7 + 3 + s2->nth(j)
         for j in 20..100
             sum += s1->nth(i) + 7 + 3 + s3->nth(j / 10) + s1->nth(j % 10)
-    
+
     sum += s1->nth(1) + 8
 
     io.println_i64(sum)
