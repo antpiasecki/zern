@@ -17,6 +17,7 @@ func json.Value.dump[v: json.Value] : str
     if v->type == json.OBJECT
         map := v->value as HashMap<json.Value>
         keys := map->keys()
+        defer keys->free()
         s->append_char('{')
         for i in 0..keys->size
             if i > 0
@@ -28,7 +29,6 @@ func json.Value.dump[v: json.Value] : str
             value, _ := map->get(keys->nth(i))
             s->append(value->dump())
         s->append_char('}')
-        keys->free()
     else if v->type == json.ARRAY
         arr := v->value as Array<json.Value>
         s->append_char('[')
@@ -59,18 +59,18 @@ func json.Value.dump[v: json.Value] : str
 func json.Value.free[v: json.Value] : void
     if v->type == json.OBJECT
         map := v->value as HashMap<json.Value>
+        defer map->free_with_keys()
         keys := map->keys()
         for i in 0..keys->size
             value, _ := map->get(keys->nth(i))
             value->free()
         keys->free()
 
-        map->free_with_keys()
     else if v->type == json.ARRAY
         arr := v->value as Array<json.Value>
+        defer arr->free()
         for i in 0..arr->size
             arr->nth(i)->free()
-        arr->free()
     else if v->type == json.STRING
         (v->value as str)->free()
 
@@ -102,6 +102,7 @@ func json._parse_value[s: str, i: ptr] : json.Value
             while true
                 json._skip_whitespace(s, i)
                 key := json._parse_string(s, i)
+                defer key->free()
                 json._skip_whitespace(s, i)
 
                 if s[mem.read64(i)] != ':'
@@ -111,7 +112,6 @@ func json._parse_value[s: str, i: ptr] : json.Value
 
                 value := json._parse_value(s, i)
                 (out->value as HashMap<json.Value>)->insert(key, value)
-                key->free()
 
                 json._skip_whitespace(s, i)
                 if s[mem.read64(i)] == ','
@@ -163,9 +163,9 @@ func json._parse_value[s: str, i: ptr] : json.Value
         len := mem.read64(i) - start
 
         num_str := s->substr_n(start, len)
+        defer num_str->free()
         out->type = json.NUMBER
         out->value = num_str->parse_i64() as opaque
-        num_str->free()
     else if s[mem.read64(i)] == 'n' && s[mem.read64(i)+1] == 'u' && s[mem.read64(i)+2] == 'l' && s[mem.read64(i)+3] == 'l'
         out->type = json.NULL
         mem.write64(i, mem.read64(i) + 4)

@@ -9,15 +9,18 @@ func main[] : i64
     io.println("Listening on port 8000...")
     while true
         data, sa := s->receive(IP_MAXPACKET)
-        if data->size <= 0
-            data->free()
-            continue
+        handle_pkt(s, data, sa)
 
-        io.printf("%d.%d.%d.%d:%d\n", sa[4], sa[5], sa[6], sa[7], mem.read16be(sa + 2))
+func handle_pkt[s: i64, data: Buffer, sa: ptr] : void
+    defer data->free()
+    defer sa->free()
 
-        io.print_n(data->data(), data->size)
-        io.println("")
+    if data->size <= 0
+        continue
 
-        s->send_to(sa, data->data(), data->size)
-        data->free()
-        sa->free()
+    io.printf("%d.%d.%d.%d:%d\n", sa[4], sa[5], sa[6], sa[7], mem.read16be(sa + 2))
+
+    io.print_n(data->data(), data->size)
+    io.println("")
+
+    s->send_to(sa, data->data(), data->size)

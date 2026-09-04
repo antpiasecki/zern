@@ -50,16 +50,10 @@ impl SymbolTable {
         SymbolTable {
             functions: HashMap::from([
                 ("_builtin_read64".into(), FnType::new("i64", vec!["ptr"])),
-                (
-                    "_builtin_write64".into(),
-                    FnType::new("void", vec!["ptr", "i64"]),
-                ),
+                ("_builtin_write64".into(), FnType::new("void", vec!["ptr", "i64"])),
                 ("_builtin_cvtsi2sd".into(), FnType::new("f64", vec!["i64"])),
                 ("_builtin_cvttsd2si".into(), FnType::new("i64", vec!["f64"])),
-                (
-                    "_builtin_f64_to_f32".into(),
-                    FnType::new("opaque", vec!["f64"]),
-                ),
+                ("_builtin_f64_to_f32".into(), FnType::new("opaque", vec!["f64"])),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("_var_arg".into(), FnType::new("opaque", vec!["i64"])),
                 ("_stackalloc".into(), FnType::new("ptr", vec!["i64"])),
@@ -105,9 +99,7 @@ impl SymbolTable {
                         name.lexeme.clone(),
                         FnType {
                             return_type: return_type.lexeme.clone(),
-                            params: FnParams::Normal(
-                                params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
-                            ),
+                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
                         },
                     ),
                     Params::Variadic => self.functions.insert(
@@ -139,9 +131,7 @@ impl SymbolTable {
                         name.lexeme.clone(),
                         FnType {
                             return_type,
-                            params: FnParams::Normal(
-                                params.iter().map(|x| x.var_type.lexeme.clone()).collect(),
-                            ),
+                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
                         },
                     ),
                     Params::Variadic => self.functions.insert(

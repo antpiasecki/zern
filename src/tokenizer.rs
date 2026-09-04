@@ -61,6 +61,7 @@ pub enum TokenType {
     KeywordNew,
     KeywordAs,
     KeywordVar,
+    KeywordDefer,
     KeywordTrue,
     KeywordFalse,
 
@@ -132,11 +133,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(
-        filename: String,
-        source: String,
-        included_paths: &'a mut HashSet<PathBuf>,
-    ) -> Tokenizer<'a> {
+    pub fn new(filename: String, source: String, included_paths: &'a mut HashSet<PathBuf>) -> Tokenizer<'a> {
         Tokenizer {
             source: source.chars().collect(),
             tokens: vec![],
@@ -279,10 +276,7 @@ impl<'a> Tokenizer<'a> {
                     if self.peek() == '\\' {
                         self.advance();
                         if self.eof() {
-                            return error!(
-                                self.loc,
-                                format!("unterminated string, started at {}", self.start_loc)
-                            );
+                            return error!(self.loc, format!("unterminated string, started at {}", self.start_loc));
                         }
                     } else if self.peek() == '"' {
                         break;
@@ -294,10 +288,7 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 if self.eof() {
-                    return error!(
-                        self.loc,
-                        format!("unterminated string, started at {}", self.start_loc)
-                    );
+                    return error!(self.loc, format!("unterminated string, started at {}", self.start_loc));
                 }
 
                 self.advance();
@@ -332,9 +323,7 @@ impl<'a> Tokenizer<'a> {
                 });
             }
             Ordering::Less => {
-                while !self.indent_stack.is_empty()
-                    && *self.indent_stack.last().unwrap() > new_indent
-                {
+                while !self.indent_stack.is_empty() && *self.indent_stack.last().unwrap() > new_indent {
                     self.indent_stack.pop();
                     self.tokens.push(Token {
                         token_type: TokenType::Dedent,
@@ -342,8 +331,7 @@ impl<'a> Tokenizer<'a> {
                         loc: self.loc.clone(),
                     });
                 }
-                if self.indent_stack.is_empty() || *self.indent_stack.last().unwrap() != new_indent
-                {
+                if self.indent_stack.is_empty() || *self.indent_stack.last().unwrap() != new_indent {
                     return error!(self.loc, "invalid indentation");
                 }
             }
@@ -381,10 +369,7 @@ impl<'a> Tokenizer<'a> {
             while self.peek().is_ascii_digit() {
                 self.advance();
             }
-            if self.current + 1 < self.source.len()
-                && self.peek() == '.'
-                && self.source[self.current + 1] != '.'
-            {
+            if self.current + 1 < self.source.len() && self.peek() == '.' && self.source[self.current + 1] != '.' {
                 is_float = true;
                 self.advance();
                 while self.peek().is_ascii_digit() {
@@ -428,6 +413,7 @@ impl<'a> Tokenizer<'a> {
             "new" => TokenType::KeywordNew,
             "as" => TokenType::KeywordAs,
             "var" => TokenType::KeywordVar,
+            "defer" => TokenType::KeywordDefer,
             "true" => TokenType::KeywordTrue,
             "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,
@@ -461,10 +447,7 @@ impl<'a> Tokenizer<'a> {
 
     fn include_file(&mut self, mut path: String) -> Result<(), ZernError> {
         if path.starts_with("$/") {
-            path = find_std_path()
-                .join(&path[2..])
-                .to_string_lossy()
-                .into_owned();
+            path = find_std_path().join(&path[2..]).to_string_lossy().into_owned();
         }
 
         let base_dir = Path::new(&self.loc.filename).parent().unwrap();
@@ -551,10 +534,7 @@ impl<'a> Tokenizer<'a> {
                 Some('\'') => result.push('\''),
                 Some('"') => result.push('"'),
                 Some(c) => {
-                    return error!(
-                        self.loc.clone(),
-                        format!("unknown escape sequence: \\{}", c)
-                    );
+                    return error!(self.loc.clone(), format!("unknown escape sequence: \\{}", c));
                 }
                 None => return error!(self.loc.clone(), "unexpected end of escape sequence"),
             }
@@ -570,11 +550,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn peek(&self) -> char {
-        if self.eof() {
-            '\0'
-        } else {
-            self.source[self.current]
-        }
+        if self.eof() { '\0' } else { self.source[self.current] }
     }
 
     fn eof(&self) -> bool {

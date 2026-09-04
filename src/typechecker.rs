@@ -91,10 +91,7 @@ impl<'a> TypeChecker<'a> {
             Stmt::Declare { name, initializer } => {
                 let actual_type = self.typecheck_expr(env, initializer)?;
                 if actual_type.contains(',') {
-                    return error!(
-                        &name.loc,
-                        "cannot assign multi-return call to a single variable"
-                    );
+                    return error!(&name.loc, "cannot assign multi-return call to a single variable");
                 }
 
                 env.define_var(name.lexeme.clone(), actual_type);
@@ -102,32 +99,21 @@ impl<'a> TypeChecker<'a> {
             Stmt::Assign { left, op, value } => {
                 let value_type = self.typecheck_expr(env, value)?;
                 if value_type.contains(',') {
-                    return error!(
-                        &op.loc,
-                        "cannot assign multi-return call to a single variable"
-                    );
+                    return error!(&op.loc, "cannot assign multi-return call to a single variable");
                 }
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
-                        let existing_var_type: &String =
-                            if let Some(x) = env.get_var_type(&name.lexeme) {
-                                x
-                            } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                                &"i64".into()
-                            } else {
-                                return error!(
-                                    name.loc,
-                                    format!("undefined variable: {}", &name.lexeme)
-                                );
-                            };
+                        let existing_var_type: &String = if let Some(x) = env.get_var_type(&name.lexeme) {
+                            x
+                        } else if self.symbol_table.globals.contains_key(&name.lexeme) {
+                            &"i64".into()
+                        } else {
+                            return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
+                        };
                         expect_type!(value_type.clone(), *existing_var_type, name.loc);
                     }
-                    ExprKind::Index {
-                        expr,
-                        bracket,
-                        index,
-                    } => {
+                    ExprKind::Index { expr, bracket, index } => {
                         expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
@@ -137,10 +123,7 @@ impl<'a> TypeChecker<'a> {
                         let (base_name, generic_args) = parse_generic_type(&left_type);
 
                         let Some(fields) = self.symbol_table.structs.get(base_name) else {
-                            return error!(
-                                &field.loc,
-                                format!("unknown struct type: {}", left_type)
-                            );
+                            return error!(&field.loc, format!("unknown struct type: {}", left_type));
                         };
 
                         let Some(f) = fields.get(&field.lexeme) else {
@@ -162,10 +145,7 @@ impl<'a> TypeChecker<'a> {
                 let value_type = self.typecheck_expr(env, value)?;
                 let types: Vec<&str> = value_type.split(',').collect();
                 if types.len() != targets.len() {
-                    return error!(
-                        &op.loc,
-                        "destructure target count does not match return count"
-                    );
+                    return error!(&op.loc, "destructure target count does not match return count");
                 }
                 for (target, ty) in targets.iter().zip(types.iter()) {
                     match env.get_var_type(&target.lexeme) {
@@ -214,12 +194,7 @@ impl<'a> TypeChecker<'a> {
                 );
                 self.typecheck_stmt(env, body)?;
             }
-            Stmt::For {
-                var,
-                start,
-                end,
-                body,
-            } => {
+            Stmt::For { var, start, end, body } => {
                 expect_type!(self.typecheck_expr(env, start)?, "i64", var.loc);
                 expect_type!(self.typecheck_expr(env, end)?, "i64", var.loc);
 
@@ -242,10 +217,7 @@ impl<'a> TypeChecker<'a> {
                     .join(",");
 
                 if return_types.len() > 2 {
-                    return error!(
-                        &return_types[2].loc,
-                        "functions cannot return more than two values"
-                    );
+                    return error!(&return_types[2].loc, "functions cannot return more than two values");
                 }
 
                 if name.lexeme == "main" {
@@ -256,24 +228,15 @@ impl<'a> TypeChecker<'a> {
                     match params {
                         Params::Normal(params) => {
                             if !params.is_empty() && params.len() != 2 {
-                                return error!(
-                                    &name.loc,
-                                    "main function must accept 0 or 2 parameters"
-                                );
+                                return error!(&name.loc, "main function must accept 0 or 2 parameters");
                             }
 
                             if params.len() == 2 {
                                 if params[0].var_type.lexeme != "i64" {
-                                    return error!(
-                                        &name.loc,
-                                        "first parameter of the main function must be an i64"
-                                    );
+                                    return error!(&name.loc, "first parameter of the main function must be an i64");
                                 }
                                 if params[1].var_type.lexeme != "ptr" {
-                                    return error!(
-                                        &name.loc,
-                                        "second parameter of the main function must be a ptr"
-                                    );
+                                    return error!(&name.loc, "second parameter of the main function must be a ptr");
                                 }
                             }
                         }
@@ -284,10 +247,7 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 if !self.is_valid_type_name(&return_type) {
-                    return error!(
-                        &return_types[0].loc,
-                        "unrecognized type: ".to_owned() + &return_type
-                    );
+                    return error!(&return_types[0].loc, "unrecognized type: ".to_owned() + &return_type);
                 }
 
                 self.current_function_return_type = return_type.clone();
@@ -303,10 +263,7 @@ impl<'a> TypeChecker<'a> {
                                     "unrecognized type: ".to_owned() + &param.var_type.lexeme
                                 );
                             }
-                            env.define_var(
-                                param.var_name.lexeme.clone(),
-                                param.var_type.lexeme.clone(),
-                            );
+                            env.define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
                         }
                     }
                     Params::Variadic => {}
@@ -336,14 +293,14 @@ impl<'a> TypeChecker<'a> {
             Stmt::Struct { name: _, fields } => {
                 for field in fields {
                     if !self.is_valid_type_name(&field.var_type.lexeme) {
-                        return error!(
-                            &field.var_type.loc,
-                            format!("unknown type: {}", &field.var_type.lexeme)
-                        );
+                        return error!(&field.var_type.loc, format!("unknown type: {}", &field.var_type.lexeme));
                     }
                 }
             }
             Stmt::GlobalVariable(_) => {}
+            Stmt::Defer { keyword: _, block } => {
+                self.typecheck_stmt(env, block)?;
+            }
         }
         Ok(())
     }
@@ -358,11 +315,7 @@ impl<'a> TypeChecker<'a> {
                 match op.token_type {
                     TokenType::Plus | TokenType::Minus => {
                         expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
-                        expect_types!(
-                            self.typecheck_expr(env, right)?,
-                            ["i64", "ptr", "u8"],
-                            op.loc
-                        );
+                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr", "u8"], op.loc);
                         Ok(left_type)
                     }
                     TokenType::Star
@@ -384,27 +337,15 @@ impl<'a> TypeChecker<'a> {
                     | TokenType::Less
                     | TokenType::LessEqual => {
                         expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
-                        expect_types!(
-                            self.typecheck_expr(env, right)?,
-                            ["i64", "ptr", "u8"],
-                            op.loc
-                        );
+                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr", "u8"], op.loc);
                         Ok("bool".into())
                     }
                     _ => unreachable!(),
                 }
             }
             ExprKind::Logical { left, op, right } => {
-                expect_types!(
-                    self.typecheck_expr(env, left)?,
-                    ["bool", "i64", "ptr"],
-                    op.loc
-                );
-                expect_types!(
-                    self.typecheck_expr(env, right)?,
-                    ["bool", "i64", "ptr"],
-                    op.loc
-                );
+                expect_types!(self.typecheck_expr(env, left)?, ["bool", "i64", "ptr"], op.loc);
+                expect_types!(self.typecheck_expr(env, right)?, ["bool", "i64", "ptr"], op.loc);
                 Ok("bool".into())
             }
             ExprKind::Grouping(expr) => self.typecheck_expr(env, expr),
@@ -442,11 +383,7 @@ impl<'a> TypeChecker<'a> {
                     return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                 }
             }
-            ExprKind::Call {
-                callee,
-                paren,
-                args,
-            } => {
+            ExprKind::Call { callee, paren, args } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind {
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
@@ -455,19 +392,11 @@ impl<'a> TypeChecker<'a> {
                                 if params.len() != args.len() {
                                     return error!(
                                         &paren.loc,
-                                        format!(
-                                            "expected {} arguments, got {}",
-                                            params.len(),
-                                            args.len()
-                                        )
+                                        format!("expected {} arguments, got {}", params.len(), args.len())
                                     );
                                 }
                                 for (i, arg) in args.iter().enumerate() {
-                                    expect_type!(
-                                        self.typecheck_expr(env, arg)?,
-                                        params[i],
-                                        paren.loc
-                                    );
+                                    expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
                                 }
                             }
                             FnParams::Variadic => {
@@ -514,11 +443,7 @@ impl<'a> TypeChecker<'a> {
                     Ok(format!("Array<{}>", first_item_type))
                 }
             }
-            ExprKind::Index {
-                expr,
-                bracket,
-                index,
-            } => {
+            ExprKind::Index { expr, bracket, index } => {
                 expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                 Ok("u8".into())
@@ -535,10 +460,7 @@ impl<'a> TypeChecker<'a> {
             } => {
                 let (base_name, _) = parse_generic_type(&struct_name.lexeme);
                 if !self.symbol_table.structs.contains_key(base_name) {
-                    return error!(
-                        &struct_name.loc,
-                        format!("unknown struct name: {}", base_name)
-                    );
+                    return error!(&struct_name.loc, format!("unknown struct name: {}", base_name));
                 }
                 Ok(struct_name.lexeme.clone())
             }
@@ -564,10 +486,7 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::Cast { expr, type_name } => {
                 if !self.is_valid_type_name(&type_name.lexeme) {
-                    return error!(
-                        &type_name.loc,
-                        format!("unknown type: {}", &type_name.lexeme)
-                    );
+                    return error!(&type_name.loc, format!("unknown type: {}", &type_name.lexeme));
                 }
                 let expr_type = self.typecheck_expr(env, expr)?;
                 if (expr_type != "opaque" && type_name.lexeme == "f64")
@@ -575,7 +494,8 @@ impl<'a> TypeChecker<'a> {
                 {
                     return error!(
                         &type_name.loc,
-                        "direct casting between numeric types and f64 disallowed; use _builtin_cvtsi2sd and _builtin_cvttsd2si for actual conversion or cast to opaque first to preserve the bit pattern"
+                        "direct casting between numeric types and f64 disallowed; use _builtin_cvtsi2sd".to_string()
+                            + " and _builtin_cvttsd2si for actual conversion or cast to opaque first to preserve the bit pattern"
                     );
                 }
                 Ok(type_name.lexeme.clone())
@@ -602,16 +522,12 @@ impl<'a> TypeChecker<'a> {
 
                 match &func_type.params {
                     FnParams::Normal(params) => {
-                        let substituted_params: Vec<String> =
-                            params.iter().map(|p| substitute(p)).collect();
+                        let substituted_params: Vec<String> = params.iter().map(|p| substitute(p)).collect();
 
                         if substituted_params.is_empty() || substituted_params[0] != receiver_type {
                             return error!(
                                 method.loc,
-                                format!(
-                                    "first parameter of the method must be of type {}",
-                                    receiver_type
-                                )
+                                format!("first parameter of the method must be of type {}", receiver_type)
                             );
                         }
                         if substituted_params.len() != args.len() + 1 {

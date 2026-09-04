@@ -81,6 +81,10 @@ pub enum Stmt {
         fields: Vec<Param>,
     },
     GlobalVariable(Token),
+    Defer {
+        keyword: Token,
+        block: Box<Stmt>,
+    },
 }
 
 // https://stackoverflow.com/a/29963675
@@ -261,10 +265,7 @@ impl Parser {
                     self.consume(Identifier, "expected variable name after 'var'")?,
                 ));
             }
-            return error!(
-                self.peek().loc,
-                "statements not allowed outside function body"
-            );
+            return error!(self.peek().loc, "statements not allowed outside function body");
         }
 
         self.statement()
@@ -298,8 +299,7 @@ impl Parser {
                 is_variadic = true;
             } else {
                 loop {
-                    let var_name =
-                        self.consume(TokenType::Identifier, "expected parameter name")?;
+                    let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
                     self.consume(TokenType::Colon, "expected ':' after parameter name")?;
 
                     let var_type = self.parse_type_ref()?;
@@ -412,6 +412,8 @@ impl Parser {
             Ok(Stmt::Break)
         } else if self.match_token(&[TokenType::KeywordContinue]) {
             Ok(Stmt::Continue)
+        } else if self.match_token(&[TokenType::KeywordDefer]) {
+            self.defer_statement()
         } else if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::Comma) {
             let mut targets = vec![];
             loop {
@@ -429,11 +431,7 @@ impl Parser {
             if self.match_token(&[TokenType::Equal]) {
                 let op = self.previous().clone();
                 let value = self.expression()?;
-                Ok(Stmt::Assign {
-                    left: expr,
-                    op,
-                    value,
-                })
+                Ok(Stmt::Assign { left: expr, op, value })
             } else if self.match_token(&[TokenType::PlusEqual, TokenType::MinusEqual]) {
                 let op = self.previous().clone();
                 let right = self.expression()?;
@@ -467,6 +465,16 @@ impl Parser {
                 Ok(Stmt::Expression(expr))
             }
         }
+    }
+
+    fn defer_statement(&mut self) -> Result<Stmt, ZernError> {
+        let keyword = self.previous().clone();
+        let block = Box::new(if self.check(&TokenType::Indent) {
+            self.block()?
+        } else {
+            Stmt::Expression(self.expression()?)
+        });
+        Ok(Stmt::Defer { keyword, block })
     }
 
     fn if_statement(&mut self) -> Result<Stmt, ZernError> {
@@ -717,8 +725,7 @@ impl Parser {
                         args,
                     });
                 } else {
-                    let field =
-                        self.consume(TokenType::Identifier, "expected field name after '->'")?;
+                    let field = self.consume(TokenType::Identifier, "expected field name after '->'")?;
                     expr = Expr::new(ExprKind::MemberAccess {
                         left: Box::new(expr),
                         field,
@@ -762,10 +769,7 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordNew]) {
             let use_heap = self.match_token(&[TokenType::Star]);
             let struct_name = self.parse_type_ref()?;
-            Ok(Expr::new(ExprKind::New {
-                struct_name,
-                use_heap,
-            }))
+            Ok(Expr::new(ExprKind::New { struct_name, use_heap }))
         } else if self.match_token(&[TokenType::Identifier]) {
             Ok(Expr::new(ExprKind::Variable(self.previous().clone())))
         } else {

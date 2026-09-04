@@ -7,6 +7,9 @@ use crate::{
     tokenizer::{Token, TokenType, ZernError, error},
 };
 
+// defers have 1 in 18 quintillion chance to fail
+const DEFER_MAGIC: u64 = 0xae64f8d23c556e8c;
+
 struct Var {
     pub stack_offset: usize,
     #[allow(unused)]
@@ -16,6 +19,7 @@ struct Var {
 pub struct Env {
     scopes: Vec<HashMap<String, Var>>,
     next_offset: usize,
+    defers: Vec<(usize, Stmt)>,
     loop_begin_label: String,
     loop_end_label: String,
     loop_continue_label: String,
@@ -26,6 +30,7 @@ impl Env {
         Env {
             scopes: vec![HashMap::new()],
             next_offset: 16,
+            defers: Vec::new(),
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
             loop_continue_label: String::new(),
@@ -240,13 +245,8 @@ _start:
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
             Stmt::Declare { name, initializer } => {
                 // TODO: move to typechecker?
-                if env.get_var(&name.lexeme).is_some()
-                    || self.symbol_table.globals.contains_key(&name.lexeme)
-                {
-                    return error!(
-                        name.loc,
-                        format!("variable already defined: {}", &name.lexeme)
-                    );
+                if env.get_var(&name.lexeme).is_some() || self.symbol_table.globals.contains_key(&name.lexeme) {
+                    return error!(name.loc, format!("variable already defined: {}", &name.lexeme));
                 }
 
                 let var_type: String = match self.expr_types[&initializer.id].as_str() {
@@ -267,11 +267,7 @@ _start:
                 match &left.kind {
                     ExprKind::Variable(name) => {
                         if let Some(var) = env.get_var(&name.lexeme) {
-                            emit!(
-                                &mut self.output,
-                                "    mov QWORD PTR [rbp-{}], rax",
-                                var.stack_offset,
-                            );
+                            emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", var.stack_offset);
                         } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                             emit!(
                                 &mut self.output,
@@ -316,10 +312,7 @@ _start:
                         0 => "rax",
                         1 => "rdx",
                         _ => {
-                            return error!(
-                                &op.loc,
-                                "destructuring more than 2 values not implemented yet"
-                            );
+                            return error!(&op.loc, "destructuring more than 2 values not implemented yet");
                         }
                     };
 
@@ -330,12 +323,7 @@ _start:
                             env.define_var(target.lexeme.clone(), types[i].to_string())
                         }
                     };
-                    emit!(
-                        &mut self.output,
-                        "    mov QWORD PTR [rbp-{}], {}",
-                        offset,
-                        reg
-                    );
+                    emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], {}", offset, reg);
                 }
             }
             Stmt::Const { .. } => {
@@ -421,29 +409,17 @@ _start:
                         let mut fp_reg = 0;
                         let mut stack_count = 0;
                         for param in params {
-                            let offset = env.define_var(
-                                param.var_name.lexeme.clone(),
-                                param.var_type.lexeme.clone(),
-                            );
+                            let offset = env.define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
                             if param.var_type.lexeme == "f64" {
                                 if fp_reg < max_reg {
-                                    emit!(
-                                        &mut self.output,
-                                        "    movq QWORD PTR [rbp-{}], xmm{}",
-                                        offset,
-                                        fp_reg
-                                    );
+                                    emit!(&mut self.output, "    movq QWORD PTR [rbp-{}], xmm{}", offset, fp_reg);
                                 } else {
                                     emit!(
                                         &mut self.output,
                                         "    mov rax, QWORD PTR [rbp+{}]",
                                         stack_base + 8 * stack_count
                                     );
-                                    emit!(
-                                        &mut self.output,
-                                        "    mov QWORD PTR [rbp-{}], rax",
-                                        offset
-                                    );
+                                    emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                                     stack_count += 1;
                                 }
                                 fp_reg += 1;
@@ -462,11 +438,7 @@ _start:
                                         "    mov rax, QWORD PTR [rbp+{}]",
                                         stack_base + 8 * stack_count
                                     );
-                                    emit!(
-                                        &mut self.output,
-                                        "    mov QWORD PTR [rbp-{}], rax",
-                                        offset
-                                    );
+                                    emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                                     stack_count += 1;
                                 }
                                 int_reg += 1;
@@ -499,6 +471,7 @@ _start:
                 // fallback to null
                 // very hacky but works
                 if !self.output.trim_end().ends_with("    ret") {
+                    self.emit_defers(env)?;
                     emit!(&mut self.output, "    mov rax, 0");
                     emit!(&mut self.output, "    mov rsp, rbp");
                     emit!(&mut self.output, "    sub rsp, 8");
@@ -517,6 +490,7 @@ _start:
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
+                self.emit_defers(env)?;
                 match exprs.len() {
                     2 => {
                         self.compile_expr(env, &exprs[1])?;
@@ -536,12 +510,7 @@ _start:
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
             }
-            Stmt::For {
-                var,
-                start,
-                end,
-                body,
-            } => {
+            Stmt::For { var, start, end, body } => {
                 let old_loop_begin_label = env.loop_begin_label.clone();
                 let old_loop_end_label = env.loop_end_label.clone();
                 let old_loop_continue_label = env.loop_continue_label.clone();
@@ -557,18 +526,10 @@ _start:
                 self.compile_expr(env, end)?;
                 let end_offset = env.next_offset;
                 env.next_offset += 8;
-                emit!(
-                    &mut self.output,
-                    "    mov QWORD PTR [rbp-{}], rax",
-                    end_offset
-                );
+                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", end_offset);
                 emit!(&mut self.output, "{}:", env.loop_begin_label);
                 emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
-                emit!(
-                    &mut self.output,
-                    "    mov rcx, QWORD PTR [rbp-{}]",
-                    end_offset
-                );
+                emit!(&mut self.output, "    mov rcx, QWORD PTR [rbp-{}]", end_offset);
                 emit!(&mut self.output, "    cmp rax, rcx");
                 emit!(&mut self.output, "    jge {}", env.loop_end_label);
                 self.compile_stmt(env, body)?;
@@ -602,6 +563,15 @@ _start:
                     "    {}: .skip 8",
                     self.symbol_table.globals[&name.lexeme]
                 );
+            }
+            Stmt::Defer { keyword, block } => {
+                if env.loop_begin_label != "" {
+                    return error!(keyword.loc, "defers in loops not implemented yet");
+                }
+                let offset = env.define_var(format!("_defer_{}", env.defers.len()), "bool".into());
+                env.defers.push((offset, *block.clone()));
+                emit!(&mut self.output, "    mov rax, {}", DEFER_MAGIC);
+                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
             }
         }
         Ok(())
@@ -768,11 +738,7 @@ _start:
                     );
                 } else {
                     if let Some(var) = env.get_var(&name.lexeme) {
-                        emit!(
-                            &mut self.output,
-                            "    mov rax, QWORD PTR [rbp-{}]",
-                            var.stack_offset,
-                        );
+                        emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", var.stack_offset);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                         emit!(
                             &mut self.output,
@@ -784,11 +750,7 @@ _start:
                     }
                 }
             }
-            ExprKind::Call {
-                callee,
-                paren: _,
-                args,
-            } => {
+            ExprKind::Call { callee, paren: _, args } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {
@@ -821,18 +783,11 @@ _start:
                     }
                 }
 
-                let arg_types: Vec<String> = args
-                    .iter()
-                    .map(|a| self.expr_types[&a.id].clone())
-                    .collect();
+                let arg_types: Vec<String> = args.iter().map(|a| self.expr_types[&a.id].clone()).collect();
                 self.emit_call_setup(&arg_types);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
-                    if self
-                        .symbol_table
-                        .functions
-                        .contains_key(&callee_name.lexeme)
-                    {
+                    if self.symbol_table.functions.contains_key(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)
                         emit!(&mut self.output, "    call {}", callee_name.lexeme);
                     } else {
@@ -896,11 +851,7 @@ _start:
                             self.symbol_table.globals[&name.lexeme]
                         );
                     } else if let Some(var) = env.get_var(&name.lexeme) {
-                        emit!(
-                            &mut self.output,
-                            "    lea rax, QWORD PTR [rbp-{}]",
-                            var.stack_offset,
-                        );
+                        emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", var.stack_offset);
                     } else {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }
@@ -909,12 +860,8 @@ _start:
                     return error!(&op.loc, "can only take address of variables and functions");
                 }
             },
-            ExprKind::New {
-                struct_name,
-                use_heap,
-            } => {
-                let struct_fields =
-                    &self.symbol_table.structs[self.strip_generic(&struct_name.lexeme)];
+            ExprKind::New { struct_name, use_heap } => {
+                let struct_fields = &self.symbol_table.structs[self.strip_generic(&struct_name.lexeme)];
                 let memory_size = struct_fields.len() * 8;
 
                 if *use_heap {
@@ -995,11 +942,7 @@ _start:
 
             emit!(&mut self.output, "    sub rsp, 32");
             for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
-                emit!(
-                    &mut self.output,
-                    "    mov rax, QWORD PTR [rsp + {}]",
-                    32 + 8 * i
-                );
+                emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", 32 + 8 * i);
                 if arg_type == "f64" {
                     emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
                     fp_idx += 1;
@@ -1017,11 +960,7 @@ _start:
         let to_register = arg_count.min(6);
         for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
             let offset = 8 * (arg_count - 1 - i);
-            emit!(
-                &mut self.output,
-                "    mov rax, QWORD PTR [rsp + {}]",
-                offset
-            );
+            emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset);
             if arg_type == "f64" {
                 emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
                 fp_idx += 1;
@@ -1037,11 +976,7 @@ _start:
         for i in 0..num_stack {
             let arg_idx = arg_count - 1 - i;
             let offset = 8 * (arg_count - 1 - arg_idx);
-            emit!(
-                &mut self.output,
-                "    mov rax, QWORD PTR [rsp + {}]",
-                offset + 8 * i
-            );
+            emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset + 8 * i);
             emit!(&mut self.output, "    push rax");
         }
 
@@ -1061,12 +996,22 @@ _start:
 
         let num_stack = arg_count.saturating_sub(6);
         if num_stack > 0 {
-            emit!(
-                &mut self.output,
-                "    add rsp, {}",
-                8 * (arg_count + num_stack)
-            );
+            emit!(&mut self.output, "    add rsp, {}", 8 * (arg_count + num_stack));
         }
+    }
+
+    fn emit_defers(&mut self, env: &mut Env) -> Result<(), ZernError> {
+        for (offset, stmt) in env.defers.clone().iter().rev() {
+            let skip_label = self.label();
+            emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
+            emit!(&mut self.output, "    movabs rbx, {}", DEFER_MAGIC);
+            emit!(&mut self.output, "    cmp rax, rbx");
+            emit!(&mut self.output, "    jne {}", skip_label);
+            self.compile_stmt(env, stmt)?;
+            emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], 0", offset);
+            emit!(&mut self.output, "{}:", skip_label);
+        }
+        Ok(())
     }
 
     fn strip_generic<'b>(&self, type_name: &'b str) -> &'b str {
@@ -1113,11 +1058,7 @@ _start:
         emit!(&mut self.output, "    mov rax, r10");
         emit!(&mut self.output, "    sub rax, {}", register_count);
         emit!(&mut self.output, "    shl rax, 3");
-        emit!(
-            &mut self.output,
-            "    mov rax, [rbp + {} + rax]",
-            stack_base
-        );
+        emit!(&mut self.output, "    mov rax, [rbp + rax + {}]", stack_base);
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())

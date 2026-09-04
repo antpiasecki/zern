@@ -3,6 +3,7 @@ include "$/containers.zr"
 
 func rule110_step[state: Array<bool>] : void
     new_state := [] as Array<bool>
+    defer new_state->free()
 
     for i in 0..state->size
         left := false
@@ -16,7 +17,6 @@ func rule110_step[state: Array<bool>] : void
         new_state->push(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
 
     mem.copy_n(new_state->data, state->data, state->size * 8)
-    new_state->free()
 
 func print_state[state: Array<bool>]: void
     for i in 0..state->size
@@ -30,6 +30,7 @@ func main[] : i64
     SIZE := 60
 
     state := [] as Array<bool>
+    defer state->free()
     for i in 0..SIZE
         state->push(false)
     state->push(true)
@@ -38,5 +39,3 @@ func main[] : i64
     for i in 0..SIZE
         rule110_step(state)
         print_state(state)
-
-    state->free()

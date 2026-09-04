@@ -40,8 +40,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
     }
 
-    let mut codegen =
-        codegen_x86_64::CodegenX86_64::new(&args, &symbol_table, &typechecker.expr_types);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(&args, &symbol_table, &typechecker.expr_types);
     codegen.emit_prologue()?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
@@ -55,9 +54,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         let debug_flag = if args.emit_debug { "-g" } else { "" };
 
         if args.target_windows {
-            run_command(format!(
-                "x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s"
-            ));
+            run_command(format!("x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s"));
         } else {
             run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s"));
         }
@@ -73,25 +70,14 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
                 args.cflags
             ));
         } else {
-            run_command(format!(
-                "ld -static -o {out} {out}.o --gc-sections -e _start"
-            ));
+            run_command(format!("ld -static -o {out} {out}.o --gc-sections -e _start"));
         }
 
         if args.run_exe {
-            run_command(
-                std::fs::canonicalize(out)
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned(),
-            );
+            run_command(std::fs::canonicalize(out).unwrap().to_string_lossy().into_owned());
         }
     } else {
-        fs::write(
-            args.out.clone().unwrap_or_else(|| "out.s".into()),
-            codegen.get_output(),
-        )
-        .unwrap();
+        fs::write(args.out.clone().unwrap_or_else(|| "out.s".into()), codegen.get_output()).unwrap();
     }
 
     Ok(())
@@ -191,16 +177,12 @@ impl Args {
         }
 
         if !out.use_crt && !out.cflags.is_empty() {
-            eprintln!(
-                "ERROR: You can't set CFLAGS if you're not using the C runtime. Add the -m flag."
-            );
+            eprintln!("ERROR: You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
             exit(1);
         }
 
         if !out.use_crt && out.target_windows {
-            eprintln!(
-                "ERROR: Using the -w flag without -m is not implemented yet. Add -m to flags."
-            );
+            eprintln!("ERROR: Using the -w flag without -m is not implemented yet. Add -m to flags.");
             exit(1);
         }
 

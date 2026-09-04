@@ -144,6 +144,7 @@ func net.UDPPacket.free[pkt: net.UDPPacket] : void
 func net.resolve[domain: str] : i64, bool
     // if domain is already an ip, skip dns resolution
     parts := domain->split(".")
+    defer parts->free_with_items()
     if parts->size == 4
         valid := true
         for i in 0..4
@@ -163,21 +164,20 @@ func net.resolve[domain: str] : i64, bool
             c := parts->nth(2)->parse_i64()
             d := parts->nth(3)->parse_i64()
             if a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255
-                parts->free_with_items()
                 return net.pack_addr(a, b, c, d), true
-        parts->free_with_items()
 
     query := net.build_dns_query(domain, DNS_TYPE_A)
+    defer query->free()
 
     // TODO: this probably shouldnt be hardcoded
     s, ok := net.create_udp_client("1.1.1.1", 53)
     if !ok
-        query->free()
         return -1, false
 
     s->send_to(s->addr, query->data(), query->size)
-    query->free()
     data, sa := s->receive(1024)
+    defer data->free()
+    defer sa->free()
     s->close_and_free()
 
     // TODO: do actual parsing
@@ -192,8 +192,6 @@ func net.resolve[domain: str] : i64, bool
     pos += 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
     out := net.pack_addr(data->data()[pos] as i64, data->data()[pos+1] as i64, data->data()[pos+2] as i64, data->data()[pos+3] as i64)
-    data->free()
-    sa->free()
     return out, true
 
 func net.encode_dns_name[domain: str] : Buffer
@@ -217,6 +215,7 @@ func net.encode_dns_name[domain: str] : Buffer
 
 func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
     name := net.encode_dns_name(domain_name)
+    defer name->free()
     out := Buffer.alloc(12 + name->size + 4)
 
     // header
@@ -233,5 +232,4 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
     mem.write16be(out->data() + 12 + name->size, record_type)
     mem.write16be(out->data() + 12 + name->size + 2, DNS_CLASS_IN)
 
-    name->free()
     return out

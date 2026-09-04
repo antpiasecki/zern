@@ -33,24 +33,10 @@ func main[] : i64
 
 ## Quickstart
 
-Download the `zern-v<version>-linux-x86_64.tar.gz` archive from the project
-[releases](https://git.ton1.dev/toni/zern/releases) and unpack it:
-
-```sh
-sudo tar -xzf zern-v*-linux-x86_64.tar.gz -C /usr/local
-```
-
-Make sure `/usr/local/bin` is in your `PATH`.
-
-```sh
-zern -h
-```
-
-## Building from source
-
 ```sh
 git clone https://git.ton1.dev/toni/zern
 cd zern
-cargo build --release
-./target/release/zern -h
+# make sure /usr/local/bin is in your PATH or set PREFIX
+./install.sh
+zern
 ```
