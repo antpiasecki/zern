@@ -11,12 +11,12 @@ func main[] : i64
         data, sa := s->receive(IP_MAXPACKET)
         handle_pkt(s, data, sa)
 
-func handle_pkt[s: i64, data: Buffer, sa: ptr] : void
+func handle_pkt[s: net.UDPSocket, data: Buffer, sa: ptr] : void
     defer data->free()
     defer sa->free()
 
     if data->size <= 0
-        continue
+        return
 
     io.printf("%d.%d.%d.%d:%d\n", sa[4], sa[5], sa[6], sa[7], mem.read16be(sa + 2))
 

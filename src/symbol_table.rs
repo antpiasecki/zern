@@ -23,7 +23,7 @@ pub struct FnType {
 }
 
 impl FnType {
-    fn new(return_type: &str, params: Vec<&str>) -> FnType {
+    fn new(params: Vec<&str>, return_type: &str) -> FnType {
         FnType {
             return_type: return_type.to_string(),
             params: FnParams::Normal(params.iter().map(|x| x.to_string()).collect()),
@@ -49,14 +49,13 @@ impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
             functions: HashMap::from([
-                ("_builtin_read64".into(), FnType::new("i64", vec!["ptr"])),
-                ("_builtin_write64".into(), FnType::new("void", vec!["ptr", "i64"])),
-                ("_builtin_cvtsi2sd".into(), FnType::new("f64", vec!["i64"])),
-                ("_builtin_cvttsd2si".into(), FnType::new("i64", vec!["f64"])),
-                ("_builtin_f64_to_f32".into(), FnType::new("opaque", vec!["f64"])),
+                ("_builtin_read64".into(), FnType::new(vec!["ptr"], "i64")),
+                ("_builtin_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
+                ("_builtin_f64_to_f32".into(), FnType::new(vec!["f64"], "opaque")),
+                ("_builtin_f32_to_f64".into(), FnType::new(vec!["f64"], "f64")),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
-                ("_var_arg".into(), FnType::new("opaque", vec!["i64"])),
-                ("_stackalloc".into(), FnType::new("ptr", vec!["i64"])),
+                ("_var_arg".into(), FnType::new(vec!["i64"], "opaque")),
+                ("_stackalloc".into(), FnType::new(vec!["i64"], "ptr")),
             ]),
             constants: HashMap::new(),
             structs: HashMap::new(),

@@ -207,6 +207,12 @@ fn print_error(e: ZernError) {
     if e.loc.filename != "<unknown>" && e.loc.line > 0 {
         if let Ok(src) = fs::read_to_string(&e.loc.filename) {
             if let Some(line) = src.lines().nth(e.loc.line - 1) {
+                if e.loc.line > 1 {
+                    if let Some(previous_line) = src.lines().nth(e.loc.line - 2) {
+                        eprintln!("{} | \x1b[90m{}\x1b[0m", e.loc.line - 1, previous_line);
+                    }
+                }
+
                 let line_num_str = e.loc.line.to_string();
                 eprintln!("{} | {}", line_num_str, line);
 

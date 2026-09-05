@@ -69,8 +69,8 @@ pub enum Stmt {
         keyword: Token,
         exprs: Vec<Expr>,
     },
-    Break,
-    Continue,
+    Break(Token),
+    Continue(Token),
     Extern {
         name: Token,
         params: Params,
@@ -409,9 +409,9 @@ impl Parser {
             }
             Ok(Stmt::Return { keyword, exprs })
         } else if self.match_token(&[TokenType::KeywordBreak]) {
-            Ok(Stmt::Break)
+            Ok(Stmt::Break(self.previous().clone()))
         } else if self.match_token(&[TokenType::KeywordContinue]) {
-            Ok(Stmt::Continue)
+            Ok(Stmt::Continue(self.previous().clone()))
         } else if self.match_token(&[TokenType::KeywordDefer]) {
             self.defer_statement()
         } else if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::Comma) {

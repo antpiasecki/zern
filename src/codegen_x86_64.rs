@@ -19,6 +19,7 @@ struct Var {
 pub struct Env {
     scopes: Vec<HashMap<String, Var>>,
     next_offset: usize,
+    are_we_returning_f64: bool,
     defers: Vec<(usize, Stmt)>,
     loop_begin_label: String,
     loop_end_label: String,
@@ -30,6 +31,7 @@ impl Env {
         Env {
             scopes: vec![HashMap::new()],
             next_offset: 16,
+            are_we_returning_f64: false,
             defers: Vec::new(),
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
@@ -134,15 +136,15 @@ impl<'a> CodegenX86_64<'a> {
             &mut self.output,
             ".intel_syntax noprefix
 
-.section .text._builtin_cvttsd2si
-_builtin_cvttsd2si:
-    cvttsd2si rax, xmm0
-    ret
-
 .section .text._builtin_f64_to_f32
 _builtin_f64_to_f32:
     cvtsd2ss xmm0, xmm0
     movd eax, xmm0
+    ret
+
+.section .text._builtin_f32_to_f64
+_builtin_f32_to_f64:
+    cvtss2sd xmm0, xmm0
     ret
 "
         );
@@ -159,12 +161,6 @@ _builtin_read64:
 _builtin_write64:
     mov [rcx], rdx
     ret
-
-.section .text._builtin_cvtsi2sd
-_builtin_cvtsi2sd:
-    cvtsi2sd xmm0, rcx
-    movq rax, xmm0
-    ret
 "
             );
         } else {
@@ -178,12 +174,6 @@ _builtin_read64:
 .section .text._builtin_write64
 _builtin_write64:
     mov [rdi], rsi
-    ret
-
-.section .text._builtin_cvtsi2sd
-_builtin_cvtsi2sd:
-    cvtsi2sd xmm0, rdi
-    movq rax, xmm0
     ret
 
 .section .text._builtin_syscall
@@ -381,10 +371,14 @@ _start:
             Stmt::Function {
                 name,
                 params,
-                return_types: _,
+                return_types,
                 body,
                 exported,
             } => {
+                if return_types.len() == 1 && return_types[0].lexeme == "f64" {
+                    env.are_we_returning_f64 = true;
+                }
+
                 let name = &name.lexeme;
                 if *exported || name == "main" {
                     emit!(&mut self.output, ".globl {0}", name);
@@ -466,7 +460,14 @@ _start:
                     }
                 }
 
-                self.compile_stmt(env, body)?;
+                match &**body {
+                    Stmt::Block(stmts) => {
+                        for stmt in stmts {
+                            self.compile_stmt(env, stmt)?;
+                        }
+                    }
+                    _ => self.compile_stmt(env, body)?,
+                }
 
                 // fallback to null
                 // very hacky but works
@@ -503,6 +504,9 @@ _start:
                     }
                     0 => {}
                     _ => unreachable!(), // guaranteed by typechecker
+                }
+                if env.are_we_returning_f64 {
+                    emit!(&mut self.output, "    movq xmm0, rax");
                 }
                 emit!(&mut self.output, "    mov rsp, rbp");
                 emit!(&mut self.output, "    sub rsp, 8");
@@ -545,10 +549,16 @@ _start:
                 env.loop_end_label = old_loop_end_label;
                 env.loop_continue_label = old_loop_continue_label;
             }
-            Stmt::Break => {
+            Stmt::Break(keyword) => {
+                if env.loop_end_label == "" {
+                    return error!(keyword.loc, "break not allowed outside loops");
+                }
                 emit!(&mut self.output, "    jmp {}", env.loop_end_label);
             }
-            Stmt::Continue => {
+            Stmt::Continue(keyword) => {
+                if env.loop_continue_label == "" {
+                    return error!(keyword.loc, "continue not allowed outside loops");
+                }
                 emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
             }
             Stmt::Extern { name, .. } => {
@@ -570,7 +580,7 @@ _start:
                 }
                 let offset = env.define_var(format!("_defer_{}", env.defers.len()), "bool".into());
                 env.defers.push((offset, *block.clone()));
-                emit!(&mut self.output, "    mov rax, {}", DEFER_MAGIC);
+                emit!(&mut self.output, "    movabs rax, {}", DEFER_MAGIC);
                 emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
             }
         }
@@ -719,7 +729,14 @@ _start:
                 self.compile_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        emit!(&mut self.output, "    neg rax");
+                        if self.expr_types[&expr.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    xorpd xmm1, xmm1");
+                            emit!(&mut self.output, "    subsd xmm1, xmm0");
+                            emit!(&mut self.output, "    movq rax, xmm1");
+                        } else {
+                            emit!(&mut self.output, "    neg rax");
+                        }
                     }
                     TokenType::Bang => {
                         emit!(&mut self.output, "    test rax, rax");
@@ -802,6 +819,9 @@ _start:
                 }
 
                 self.emit_call_cleanup(args.len());
+                if self.expr_types[&expr.id] == "f64" {
+                    emit!(&mut self.output, "    movq rax, xmm0");
+                }
             }
             ExprKind::ArrayLiteral(exprs) => {
                 if self.args.target_windows {
@@ -891,8 +911,21 @@ _start:
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    mov rax, QWORD PTR [rax+{}]", offset);
             }
-            ExprKind::Cast { expr, type_name: _ } => {
+            ExprKind::Cast { expr, type_name } => {
                 self.compile_expr(env, expr)?;
+                match (self.expr_types[&expr.id].as_str(), type_name.lexeme.as_str()) {
+                    ("i64", "f64") => {
+                        emit!(&mut self.output, "    cvtsi2sd xmm0, rax");
+                        emit!(&mut self.output, "    movq rax, xmm0");
+                    }
+                    ("f64", "i64") => {
+                        emit!(&mut self.output, "    movq xmm0, rax");
+                        emit!(&mut self.output, "    cvttsd2si rax, xmm0");
+                    }
+                    ("f64", _) => return error!(type_name.loc, "f64 can be only casted to i64"),
+                    (_, "f64") => return error!(type_name.loc, "only i64 can be casted to f64"),
+                    _ => {}
+                }
             }
             ExprKind::MethodCall { expr, method, args } => {
                 let receiver_type = &self.expr_types[&expr.id];
@@ -925,6 +958,10 @@ _start:
                 self.emit_call_setup(&arg_types);
                 emit!(&mut self.output, "    call {}", func_name);
                 self.emit_call_cleanup(1 + args.len());
+
+                if self.expr_types[&expr.id] == "f64" {
+                    emit!(&mut self.output, "    movq rax, xmm0");
+                }
             }
         }
         Ok(())

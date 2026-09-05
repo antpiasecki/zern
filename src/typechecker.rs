@@ -219,6 +219,12 @@ impl<'a> TypeChecker<'a> {
                 if return_types.len() > 2 {
                     return error!(&return_types[2].loc, "functions cannot return more than two values");
                 }
+                if return_types.len() > 1 && return_type.contains(&"f64") {
+                    return error!(
+                        &return_types[2].loc,
+                        "returning f64 among multiple values not implemented yet"
+                    );
+                }
 
                 if name.lexeme == "main" {
                     if return_type != "i64" {
@@ -285,8 +291,8 @@ impl<'a> TypeChecker<'a> {
                 };
                 expect_type!(joined_type, self.current_function_return_type, keyword.loc);
             }
-            Stmt::Break => {}
-            Stmt::Continue => {}
+            Stmt::Break(_) => {}
+            Stmt::Continue(_) => {}
             Stmt::Extern { .. } => {
                 // handled in the SymbolTable
             }
@@ -362,7 +368,7 @@ impl<'a> TypeChecker<'a> {
                 let right_type = self.typecheck_expr(env, right)?;
                 match op.token_type {
                     TokenType::Minus => {
-                        expect_type!(right_type.clone(), "i64", op.loc);
+                        expect_types!(right_type, ["i64", "f64"], op.loc);
                         Ok(right_type)
                     }
                     TokenType::Bang => {
@@ -488,16 +494,7 @@ impl<'a> TypeChecker<'a> {
                 if !self.is_valid_type_name(&type_name.lexeme) {
                     return error!(&type_name.loc, format!("unknown type: {}", &type_name.lexeme));
                 }
-                let expr_type = self.typecheck_expr(env, expr)?;
-                if (expr_type != "opaque" && type_name.lexeme == "f64")
-                    || (expr_type == "f64" && type_name.lexeme != "opaque")
-                {
-                    return error!(
-                        &type_name.loc,
-                        "direct casting between numeric types and f64 disallowed; use _builtin_cvtsi2sd".to_string()
-                            + " and _builtin_cvttsd2si for actual conversion or cast to opaque first to preserve the bit pattern"
-                    );
-                }
+                self.typecheck_expr(env, expr)?;
                 Ok(type_name.lexeme.clone())
             }
             ExprKind::MethodCall { expr, method, args } => {

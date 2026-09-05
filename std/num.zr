@@ -109,8 +109,18 @@ func i64.to_hex_str[n: i64] : str
     n->to_hex_str_buf(out)
     return out
 
+func f64.to_ffi_f32[f: f64] : f64
+    x := _builtin_f64_to_f32(f) as opaque
+    out := 0 as f64
+    mem.copy_n(^x, ^out, 4)
+    return out
+
+func f64.from_ffi_f32[f: f64] : f64
+    return _builtin_f32_to_f64(f)
+
 func f64.to_str_buf[x: f64, buf: str] : i64
-    bits := x as opaque as i64
+    bits := 0
+    mem.copy_n(^x, ^bits, 8)
     sign := (bits >> 63) & 1
     exp := (bits >> 52) & 0x7ff
     mant := bits & 0x000fffffffffffff
