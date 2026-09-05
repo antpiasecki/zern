@@ -1,6 +1,7 @@
 include "os.zr"
 
 const DNS_TYPE_A = 1
+const DNS_TYPE_AAAA = 28
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
 
@@ -90,7 +91,7 @@ func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : Buffer, ptr
     sa := mem.alloc(16)
 
     addrlen := 16
-    size = _builtin_syscall(SYS_recvfrom, s->fd, data->data(), size, 0, sa, ^addrlen)
+    size = _builtin_syscall(SYS_recvfrom, s->fd, data, size, 0, sa, ^addrlen)
     data = data->realloc(size)
     return data, sa
 
@@ -171,7 +172,7 @@ func net.resolve[domain: str] : i64, bool
     if !ok
         return -1, false
 
-    s->send_to(s->addr, query->data(), query->size)
+    s->send_to(s->addr, query[@0], query->size)
     data, sa := s->receive(1024)
     defer data->free()
     defer sa->free()
@@ -181,14 +182,14 @@ func net.resolve[domain: str] : i64, bool
 
     pos := 12 // skip header (12 bytes)
 
-    while data->data()[pos] != 0
-        pos += data->data()[pos] + 1 // skip question
+    while data[pos] != 0
+        pos += data[pos] + 1 // skip question
 
     pos += 5  // skip null byte, type(2), class(2)
 
     pos += 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
-    out := net.pack_addr(data->data()[pos] as i64, data->data()[pos+1] as i64, data->data()[pos+2] as i64, data->data()[pos+3] as i64)
+    out := net.pack_addr(data[pos] as i64, data[pos+1] as i64, data[pos+2] as i64, data[pos+3] as i64)
     return out, true
 
 func net.encode_dns_name[domain: str] : Buffer
@@ -200,14 +201,14 @@ func net.encode_dns_name[domain: str] : Buffer
     while i <= domain_len
         if i == domain_len || domain[i] == '.'
             part_len := i - part_start
-            buf->data()[out_pos] = part_len & 0xff
+            buf[out_pos] = part_len & 0xff
             out_pos += 1
-            mem.copy_n(domain as ptr + part_start, buf->data() + out_pos, part_len)
+            mem.copy_n(domain as ptr + part_start, buf[@out_pos], part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1
 
-    buf->data()[out_pos] = 0
+    buf[out_pos] = 0
     return buf
 
 func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
@@ -217,16 +218,16 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
 
     // header
     id := (os.urandom_i64() % 65536)->abs()
-    mem.write16be(out->data() + 0, id)
-    mem.write16be(out->data() + 2, DNS_RECURSION_DESIRED)
-    mem.write16be(out->data() + 4, 1)  // num_questions
-    mem.write16be(out->data() + 6, 0)  // num_answers
-    mem.write16be(out->data() + 8, 0)  // num_authorities
-    mem.write16be(out->data() + 10, 0) // num_additionals
+    mem.write16be(out[@0], id)
+    mem.write16be(out[@2], DNS_RECURSION_DESIRED)
+    mem.write16be(out[@4], 1)  // num_questions
+    mem.write16be(out[@6], 0)  // num_answers
+    mem.write16be(out[@8], 0)  // num_authorities
+    mem.write16be(out[@10], 0) // num_additionals
 
     // question
-    mem.copy_n(name->data(), out->data() + 12, name->size)
-    mem.write16be(out->data() + 12 + name->size, record_type)
-    mem.write16be(out->data() + 12 + name->size + 2, DNS_CLASS_IN)
+    mem.copy_n(name[@0], out[@12], name->size)
+    mem.write16be(out[@12 + name->size], record_type)
+    mem.write16be(out[@12 + name->size + 2], DNS_CLASS_IN)
 
     return out

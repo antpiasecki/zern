@@ -258,9 +258,6 @@ func Buffer.alloc[n: i64] : Buffer
     out->size = n
     return out
 
-func Buffer.data[b: Buffer] : ptr
-    return b as ptr + 8
-
 func Buffer.realloc[b: Buffer, new_size: i64] : Buffer
     new_b := (b as ptr)->realloc(8 + new_size) as Buffer
     new_b->size = new_size

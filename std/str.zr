@@ -272,7 +272,9 @@ func str.Builder.append_char[b: str.Builder, c: u8] : void
     b->size += 1
 
 func str.Builder.append[b: str.Builder, s: str] : void
-    len := s->len()
+    b->append_n(s, s->len())
+
+func str.Builder.append_n[b: str.Builder, s: str, len: i64] : void
     b->_grow(len)
     mem.copy_n(s as ptr, b->data + b->size, len)
     b->size += len

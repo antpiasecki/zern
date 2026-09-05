@@ -12,25 +12,25 @@ extern EndDrawing[] : void
 extern IsKeyDown[key: i64] : bool
 
 struct CHIP8
-    memory: ptr
+    memory: Buffer
     pc: i64
     stack: Array<i64>
     sp: i64
-    reg: ptr
+    reg: Buffer
     I: i64
     delay_timer: u8
     sound_timer: u8
     keyboard: Array<i64>
-    display: ptr
+    display: Buffer
     keyboard_map: Array<i64>
 
 func CHIP8.init[c: CHIP8] : void
-    c->memory = mem.alloc(4096)
-    mem.zero(c->memory, 4096)
-    c->display = mem.alloc(64*32)
-    mem.zero(c->display, 64*32)
-    c->reg = mem.alloc(16)
-    mem.zero(c->reg, 16)
+    c->memory = Buffer.alloc(4096)
+    mem.zero(c->memory[@0], 4096)
+    c->display = Buffer.alloc(64*32)
+    mem.zero(c->display[@0], 64*32)
+    c->reg = Buffer.alloc(16)
+    mem.zero(c->reg[@0], 16)
 
     c->stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     c->keyboard = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -168,7 +168,7 @@ func CHIP8.step[c: CHIP8] : void
     op := (ins >> 12) & 0x0f
     if op == 0x0
         if nnn == 0x0e0
-            mem.zero(c->display, 64 * 32)
+            mem.zero(c->display[@0], 64 * 32)
         else if nnn == 0x0ee
             c->pc = c->stack->nth(c->sp)
             c->sp = c->sp - 1
@@ -296,7 +296,7 @@ func main[argc: i64, argv: ptr] : i64
         io.panic("failed to read file")
 
     for i in 0..buffer->size
-        c->memory[0x200 + i] = buffer->data()[i]
+        c->memory[0x200 + i] = buffer[i]
 
     if disassemble
         c->disassemble(buffer->size / 2)

@@ -2,10 +2,15 @@ include "str.zr"
 include "os.zr"
 
 func io.panic[msg: str] : void
-    io.printf("PANIC: %s\n", msg)
+    io.printf("panic: %s\n", msg)
     // for gdb backtrace
     _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
     os.exit(1)
+
+func io._oob_panic[size: i64, n: i64] : void
+    s := _stackalloc(1024) as str
+    s->format_into(1024, "index out of range (%d) with length %d", n, size)
+    io.panic(s)
 
 func io.printf[..] : void
     s := _var_arg(0) as ptr
@@ -110,7 +115,7 @@ func io.read_file[path: str] : Buffer, bool
     buf := Buffer.alloc(size)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := _builtin_syscall(SYS_read, fd, buf->data(), size)
+    n := _builtin_syscall(SYS_read, fd, buf[@0], size)
     io.close(fd)
 
     if n != size

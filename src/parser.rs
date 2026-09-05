@@ -158,8 +158,9 @@ pub enum ExprKind {
     },
     ArrayLiteral(Vec<Expr>),
     Index {
-        expr: Box<Expr>,
+        indexed: Box<Expr>,
         bracket: Token,
+        is_offset: bool,
         index: Box<Expr>,
     },
     AddrOf {
@@ -175,11 +176,11 @@ pub enum ExprKind {
         field: Token,
     },
     Cast {
-        expr: Box<Expr>,
+        casted: Box<Expr>,
         type_name: Token,
     },
     MethodCall {
-        expr: Box<Expr>,
+        callee: Box<Expr>,
         method: Token,
         args: Vec<Expr>,
     },
@@ -639,7 +640,7 @@ impl Parser {
         while self.match_token(&[TokenType::KeywordAs]) {
             let type_name = self.parse_type_ref()?;
             expr = Expr::new(ExprKind::Cast {
-                expr: Box::new(expr),
+                casted: Box::new(expr),
                 type_name,
             })
         }
@@ -698,11 +699,13 @@ impl Parser {
                     args,
                 })
             } else if self.match_token(&[TokenType::LeftBracket]) {
+                let is_offset = self.match_token(&[TokenType::At]);
                 let index = self.expression()?;
                 let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
                 expr = Expr::new(ExprKind::Index {
-                    expr: Box::new(expr),
+                    indexed: Box::new(expr),
                     bracket,
+                    is_offset,
                     index: Box::new(index),
                 })
             } else if self.match_token(&[TokenType::Arrow]) {
@@ -720,7 +723,7 @@ impl Parser {
                     }
                     self.consume(TokenType::RightParen, "expected ')'")?;
                     expr = Expr::new(ExprKind::MethodCall {
-                        expr: Box::new(expr),
+                        callee: Box::new(expr),
                         method,
                         args,
                     });

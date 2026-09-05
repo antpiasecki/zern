@@ -6,9 +6,9 @@ func main[] : i64
     src_len := src->len()
     i := 0
 
-    memory := mem.alloc(30000)
+    memory := Buffer.alloc(30000)
     defer memory->free()
-    mem.zero(memory, 30000)
+    mem.zero(memory[@0], 30000)
     p := 0
 
     while i < src_len

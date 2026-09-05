@@ -264,14 +264,32 @@ _start:
                         }
                     }
                     ExprKind::Index {
-                        expr,
+                        indexed,
                         bracket: _,
+                        is_offset: _,
                         index,
                     } => {
                         emit!(&mut self.output, "    push rax");
-                        self.compile_expr(env, expr)?;
+                        self.compile_expr(env, indexed)?;
+                        if self.expr_types[&indexed.id] == "Buffer" {
+                            emit!(&mut self.output, "    mov rcx, [rax]");
+                            emit!(&mut self.output, "    add rax, 8");
+                        }
                         emit!(&mut self.output, "    push rax");
+                        if self.expr_types[&indexed.id] == "Buffer" {
+                            emit!(&mut self.output, "    push rcx");
+                        }
                         self.compile_expr(env, index)?;
+                        if self.expr_types[&indexed.id] == "Buffer" {
+                            emit!(&mut self.output, "    pop rcx");
+                            let ok_label = self.label();
+                            emit!(&mut self.output, "    cmp rax, rcx");
+                            emit!(&mut self.output, "    jb {}", ok_label);
+                            emit!(&mut self.output, "    mov rdi, rcx");
+                            emit!(&mut self.output, "    mov rsi, rax");
+                            emit!(&mut self.output, "    call io._oob_panic");
+                            emit!(&mut self.output, "{}:", ok_label);
+                        }
                         emit!(&mut self.output, "    pop rbx");
                         emit!(&mut self.output, "    add rbx, rax");
                         emit!(&mut self.output, "    pop rax");
@@ -843,16 +861,36 @@ _start:
                 emit!(&mut self.output, "    pop rax");
             }
             ExprKind::Index {
-                expr,
+                indexed,
                 bracket: _,
+                is_offset,
                 index,
             } => {
-                self.compile_expr(env, expr)?;
+                self.compile_expr(env, indexed)?;
+                if self.expr_types[&indexed.id] == "Buffer" {
+                    emit!(&mut self.output, "    mov rcx, [rax]");
+                    emit!(&mut self.output, "    add rax, 8");
+                }
                 emit!(&mut self.output, "    push rax");
+                if self.expr_types[&indexed.id] == "Buffer" {
+                    emit!(&mut self.output, "    push rcx");
+                }
                 self.compile_expr(env, index)?;
+                if self.expr_types[&indexed.id] == "Buffer" {
+                    emit!(&mut self.output, "    pop rcx");
+                    let ok_label = self.label();
+                    emit!(&mut self.output, "    cmp rax, rcx");
+                    emit!(&mut self.output, "    jb {}", ok_label);
+                    emit!(&mut self.output, "    mov rdi, rcx");
+                    emit!(&mut self.output, "    mov rsi, rax");
+                    emit!(&mut self.output, "    call io._oob_panic");
+                    emit!(&mut self.output, "{}:", ok_label);
+                }
                 emit!(&mut self.output, "    pop rbx");
                 emit!(&mut self.output, "    add rax, rbx");
-                emit!(&mut self.output, "    movzx rax, BYTE PTR [rax]");
+                if !is_offset {
+                    emit!(&mut self.output, "    movzx rax, BYTE PTR [rax]");
+                }
             }
             ExprKind::AddrOf { op, expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
@@ -905,9 +943,9 @@ _start:
                 self.compile_expr(env, left)?;
                 emit!(&mut self.output, "    mov rax, QWORD PTR [rax+{}]", offset);
             }
-            ExprKind::Cast { expr, type_name } => {
-                self.compile_expr(env, expr)?;
-                match (self.expr_types[&expr.id].as_str(), type_name.lexeme.as_str()) {
+            ExprKind::Cast { casted, type_name } => {
+                self.compile_expr(env, casted)?;
+                match (self.expr_types[&casted.id].as_str(), type_name.lexeme.as_str()) {
                     ("i64", "f64") => {
                         emit!(&mut self.output, "    cvtsi2sd xmm0, rax");
                         emit!(&mut self.output, "    movq rax, xmm0");
@@ -921,8 +959,8 @@ _start:
                     _ => {}
                 }
             }
-            ExprKind::MethodCall { expr, method, args } => {
-                let receiver_type = &self.expr_types[&expr.id];
+            ExprKind::MethodCall { callee, method, args } => {
+                let receiver_type = &self.expr_types[&callee.id];
                 let base_type = self.strip_generic(receiver_type);
                 let func_name = format!("{}.{}", base_type, method.lexeme);
 
@@ -934,10 +972,10 @@ _start:
                         self.compile_expr(env, arg)?;
                         emit!(&mut self.output, "    push rax");
                     }
-                    self.compile_expr(env, expr)?;
+                    self.compile_expr(env, callee)?;
                     emit!(&mut self.output, "    push rax");
                 } else {
-                    self.compile_expr(env, expr)?;
+                    self.compile_expr(env, callee)?;
                     emit!(&mut self.output, "    push rax");
                     for arg in args {
                         self.compile_expr(env, arg)?;
@@ -953,7 +991,7 @@ _start:
                 emit!(&mut self.output, "    call {}", func_name);
                 self.emit_call_cleanup(1 + args.len());
 
-                if self.expr_types[&expr.id] == "f64" {
+                if self.expr_types[&callee.id] == "f64" {
                     emit!(&mut self.output, "    movq rax, xmm0");
                 }
             }

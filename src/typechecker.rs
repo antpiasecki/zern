@@ -117,8 +117,20 @@ impl<'a> TypeChecker<'a> {
                         };
                         expect_type!(value_type.clone(), *existing_var_type, name.loc);
                     }
-                    ExprKind::Index { expr, bracket, index } => {
-                        expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
+                    ExprKind::Index {
+                        indexed,
+                        bracket,
+                        is_offset,
+                        index,
+                    } => {
+                        if *is_offset {
+                            return error!(bracket.loc, "@ not allowed when assigning to an index");
+                        }
+                        expect_types!(
+                            self.typecheck_expr(env, indexed)?,
+                            ["ptr", "str", "Buffer"],
+                            bracket.loc
+                        );
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
                     }
@@ -453,10 +465,19 @@ impl<'a> TypeChecker<'a> {
                     Ok(format!("Array<{}>", first_item_type))
                 }
             }
-            ExprKind::Index { expr, bracket, index } => {
-                expect_types!(self.typecheck_expr(env, expr)?, ["ptr", "str"], bracket.loc);
+            ExprKind::Index {
+                indexed,
+                bracket,
+                is_offset,
+                index,
+            } => {
+                expect_types!(
+                    self.typecheck_expr(env, indexed)?,
+                    ["ptr", "str", "Buffer"],
+                    bracket.loc
+                );
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
-                Ok("u8".into())
+                Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
             ExprKind::AddrOf { op, expr } => match &expr.kind {
                 ExprKind::Variable(_) => Ok("ptr".into()),
@@ -494,15 +515,15 @@ impl<'a> TypeChecker<'a> {
 
                 Ok(field_type)
             }
-            ExprKind::Cast { expr, type_name } => {
+            ExprKind::Cast { casted, type_name } => {
                 if !self.is_valid_type_name(&type_name.lexeme) {
                     return error!(&type_name.loc, format!("unknown type: {}", &type_name.lexeme));
                 }
-                self.typecheck_expr(env, expr)?;
+                self.typecheck_expr(env, casted)?;
                 Ok(type_name.lexeme.clone())
             }
-            ExprKind::MethodCall { expr, method, args } => {
-                let receiver_type = self.typecheck_expr(env, expr)?;
+            ExprKind::MethodCall { callee, method, args } => {
+                let receiver_type = self.typecheck_expr(env, callee)?;
                 let (base_name, generic_args) = parse_generic_type(&receiver_type);
                 let func_name = format!("{}.{}", base_name, method.lexeme);
 
