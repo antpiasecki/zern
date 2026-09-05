@@ -1,0 +1,115 @@
+// port of https://git.ton1.dev/toni/dns-server
+include "$/io.zr"
+include "$/net.zr"
+
+const TTL = 60
+const PORT = 10053
+
+func main[] : i64
+    records := HashMap.new() as HashMap<Buffer>
+
+    test_su_buffer := Buffer.alloc(4)
+    mem.write32be(test_su_buffer[@0], net.pack_addr(1, 2, 3, 4))
+    records->insert("test.su", test_su_buffer)
+
+    s, ok := net.create_udp_server("0.0.0.0", PORT)
+    if !ok
+        io.panic("net.create_udp_server failed")
+
+    io.printf("Listening on port :%d...\n", PORT)
+    while true
+        data, sa := s->receive(4096)
+        resp := handle_req(s, records, data, sa)
+        if resp as ptr != 0
+            s->send_to(sa, resp[@0], resp->size)
+            resp->free()
+
+func handle_req[s: net.UDPSocket, records: HashMap<Buffer>, req: Buffer, sa: ptr] : Buffer
+    defer req->free()
+    defer sa->free()
+
+    if req->size <= 12
+        return 0 as Buffer
+
+    // we assume that QDCOUNT=1 but i think that's reasonable
+
+    // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
+    labels := new str.Builder
+    defer labels->free_buffer()
+    offset := 12
+    while true
+        if offset >= req->size
+            return 0 as Buffer
+        length := req[offset] as i64
+        offset += 1
+        if length == 0
+            break
+        if length > 63 || offset + length > req->size
+            return 0 as Buffer
+        labels->append_n((req[@offset]) as str, length)
+        labels->append_char('.')
+        offset += length
+    if offset > req->size
+        return 0 as Buffer
+
+    raw_name_size := offset-12
+    name := labels->build()
+    defer name->free()
+
+    name_lower := name->to_lower()
+    defer name_lower->free()
+    name_lower[name_lower->len()-1] = 0 // remove extra dot
+
+    if offset+4 > req->size
+        return 0 as Buffer
+    // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
+    question_type := mem.read16be(req[@offset])
+    offset += 2
+    // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.4
+    question_class := mem.read16be(req[@offset])
+    offset += 2
+
+    io.printf("CLIENT=%s QNAME=%s TYPE=%d CLASS=%d\n", net.ipv4_to_string(sa[@4]), name_lower, question_type, question_class)
+
+    nxdomain := false
+    rdata := 0 as ptr
+    rdata_size := 0
+    record, ok := records->get(name_lower)
+    if question_class == DNS_CLASS_IN && ok
+        if question_type == DNS_TYPE_A && record->size == 4
+            rdata = record[@0]
+            rdata_size = record->size
+        else if question_type == DNS_TYPE_AAAA && record->size == 16
+            rdata = record[@0]
+            rdata_size = record->size
+    else
+        nxdomain = true
+
+    resp_size := offset + raw_name_size + 10 + rdata_size
+    resp := Buffer.alloc(resp_size)
+    mem.copy_n(req[@0], resp[@0], offset)
+
+    resp[3] = resp[3] & 0xf0 // clear RCODE
+    if nxdomain
+        resp[3] = resp[3] | 0x03 // RCODE=NXDOMAIN
+    resp[2] = resp[2] | 0x80 // QR=1 (response)
+    resp[2] = resp[2] | 0x04 // authoritative answer
+    resp[3] = resp[3] & 0x7f // recursion not available
+
+    mem.write16be(resp[@6], 0)  // ANCOUNT = 0
+    mem.write16be(resp[@8], 0)  // NSCOUNT = 0
+    mem.write16be(resp[@10], 0) // ARCOUNT = 0
+
+    if rdata
+        // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
+        mem.copy_n(req[@12], resp[@offset], raw_name_size)
+        offset += raw_name_size
+        mem.write16be(resp[@offset], question_type)
+        mem.write16be(resp[@offset+2], question_class)
+        mem.write32be(resp[@offset+4], TTL)
+        mem.write16be(resp[@offset+8], rdata_size)
+        mem.copy_n(rdata, resp[@offset+10], rdata_size)
+
+        mem.write16be(resp[@6], 1) // ANCOUNT=1
+
+    return resp

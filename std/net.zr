@@ -91,7 +91,7 @@ func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : Buffer, ptr
     sa := mem.alloc(16)
 
     addrlen := 16
-    size = _builtin_syscall(SYS_recvfrom, s->fd, data, size, 0, sa, ^addrlen)
+    size = _builtin_syscall(SYS_recvfrom, s->fd, data[@0], size, 0, sa, ^addrlen)
     data = data->realloc(size)
     return data, sa
 
@@ -203,7 +203,7 @@ func net.encode_dns_name[domain: str] : Buffer
             part_len := i - part_start
             buf[out_pos] = part_len & 0xff
             out_pos += 1
-            mem.copy_n(domain as ptr + part_start, buf[@out_pos], part_len)
+            mem.copy_n(domain[@part_start], buf[@out_pos], part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1

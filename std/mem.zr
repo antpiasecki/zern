@@ -17,7 +17,7 @@ func mem.align[x: i64] : i64
 
 func mem.Block._split[blk: mem.Block, needed: i64] : void
     if blk->size >= needed + mem.Block.SIZE + 8
-        new_blk := (blk as ptr + mem.Block.SIZE + needed) as mem.Block
+        new_blk := (blk as ptr)[@mem.Block.SIZE + needed] as mem.Block
         new_blk->size = blk->size - needed - mem.Block.SIZE
         new_blk->free = true
         new_blk->next = blk->next
@@ -63,7 +63,7 @@ func mem.alloc[size: i64] : ptr
         if cur->free && cur->size >= size
             cur->_split(size)
             cur->free = false
-            return cur as ptr + mem.Block.SIZE
+            return (cur as ptr)[@mem.Block.SIZE]
         cur = cur->next
 
     blk := mem._request_space(size)
@@ -73,7 +73,7 @@ func mem.alloc[size: i64] : ptr
 
     blk->_split(size)
 
-    return blk as ptr + mem.Block.SIZE
+    return (blk as ptr)[@mem.Block.SIZE]
 
 func mem.trim[] : void
     cur := mem._heap_tail as mem.Block
@@ -97,7 +97,7 @@ func ptr.free[x: ptr] : void
     if x == 0
         return
 
-    blk := (x - mem.Block.SIZE) as mem.Block
+    blk := x[@-mem.Block.SIZE] as mem.Block
     if blk->free
         io.panic("ptr.free: double free detected")
 
@@ -105,7 +105,7 @@ func ptr.free[x: ptr] : void
 
     next := blk->next
     if next as ptr && next->free
-        expected_next := (blk as ptr + mem.Block.SIZE + blk->size) as mem.Block
+        expected_next := (blk as ptr)[@mem.Block.SIZE + blk->size] as mem.Block
         if expected_next as ptr == next as ptr
             blk->size += mem.Block.SIZE + next->size
             blk->next = next->next
@@ -116,7 +116,7 @@ func ptr.free[x: ptr] : void
 
     prev := blk->prev
     if prev as ptr && prev->free
-        expected_blk := (prev as ptr + mem.Block.SIZE + prev->size) as mem.Block
+        expected_blk := (prev as ptr)[@mem.Block.SIZE + prev->size] as mem.Block
         if expected_blk as ptr == blk as ptr
             prev->size += mem.Block.SIZE + blk->size
             prev->next = blk->next
@@ -139,13 +139,13 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
 
     new_size = mem.align(new_size)
 
-    blk := (x - mem.Block.SIZE) as mem.Block
+    blk := x[@-mem.Block.SIZE] as mem.Block
     if blk->size >= new_size
         blk->_split(new_size)
         return x
 
     next := blk->next
-    expected_next := (blk as ptr + mem.Block.SIZE + blk->size) as mem.Block
+    expected_next := (blk as ptr)[@mem.Block.SIZE + blk->size] as mem.Block
 
     if next as ptr && next->free && expected_next as ptr == next as ptr
         combined := blk->size + mem.Block.SIZE + next->size
@@ -172,7 +172,7 @@ func ptr.zero_and_free[x: ptr, size: i64] : void
 func mem.zero[x: ptr, size: i64] : void
     i := 0
     while i + 8 <= size
-        mem.write64(x + i, 0)
+        mem.write64(x[@i], 0)
         i += 8
     while i < size
         x[i] = 0 as u8
@@ -187,18 +187,18 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         io.panic("mem.copy_n: null src pointer")
     if !dst
         io.panic("mem.copy_n: null dst pointer")
-    if dst > src && dst < src + n
+    if dst > src && dst < src[@n]
         i := n
         while i - 8 >= 0
             i -= 8
-            mem.write64(dst + i, mem.read64(src + i))
+            mem.write64(dst[@i], mem.read64(src[@i]))
         while i > 0
             i -= 1
             dst[i] = src[i]
     else
         i := 0
         while i + 8 <= n
-            mem.write64(dst + i, mem.read64(src + i))
+            mem.write64(dst[@i], mem.read64(src[@i]))
             i += 8
         while i < n
             dst[i] = src[i]
@@ -220,7 +220,7 @@ func mem.read64[x: ptr] : i64
     return _builtin_read64(x)
 
 func mem.read64be[x: ptr] : i64
-    return (mem.read32be(x) << 32) | mem.read32be(x + 4)
+    return (mem.read32be(x) << 32) | mem.read32be(x[@4])
 
 func mem.write16[x: ptr, d: i64] : void
     x[0] = d & 0xff
@@ -247,7 +247,7 @@ func mem.write64[x: ptr, d: i64] : void
 
 func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
-    mem.write32be(x + 4, d)
+    mem.write32be(x[@4], d)
 
 // sneaky length-prefixed ptr
 struct Buffer

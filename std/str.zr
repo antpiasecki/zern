@@ -63,76 +63,77 @@ func str.equal_n[a: str, b: str, n: i64] : bool
 
 // return value can be inaccurate if output is too large to fit in the buffer
 func str.format_into[..] : i64
-    buf := _var_arg(0) as ptr
-    size := _var_arg(1) as i64
-    if size <= 0
+    target_buf := _var_arg(0) as ptr
+    max_size := _var_arg(1) as i64
+    if max_size <= 0
         return 0
-    s := _var_arg(2) as ptr
-    i := 3
-    n := 0
+    format := _var_arg(2) as ptr
+    i := 0
+    arg_counter := 3
+    written := 0
 
     tmp := _stackalloc(64) as str
 
-    while s[0]
-        if s[0] == '%'
-            s += 1
+    while format[i]
+        if format[i] == '%'
+            i += 1
 
-            remaining := size - n - 1
+            remaining := max_size - written - 1
             if remaining <= 0
                 break
 
-            if s[0] == 'd'
-                tmp_len := (_var_arg(i) as i64)->to_str_buf(tmp)
-                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 'x'
-                tmp_len := (_var_arg(i) as i64)->to_hex_str_buf(tmp)
-                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 's'
-                tmp_len := (_var_arg(i) as str)->len()
-                mem.copy_n(_var_arg(i) as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == 'c'
-                buf[n] = _var_arg(i) as u8
-                n += 1
-                i += 1
-            else if s[0] == 'f'
-                v := _var_arg(i) as opaque
+            if format[i] == 'd'
+                tmp_len := (_var_arg(arg_counter) as i64)->to_str_buf(tmp)
+                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                written += tmp_len
+                arg_counter += 1
+            else if format[i] == 'x'
+                tmp_len := (_var_arg(arg_counter) as i64)->to_hex_str_buf(tmp)
+                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                written += tmp_len
+                arg_counter += 1
+            else if format[i] == 's'
+                tmp_len := (_var_arg(arg_counter) as str)->len()
+                mem.copy_n(_var_arg(arg_counter) as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                written += tmp_len
+                arg_counter += 1
+            else if format[i] == 'c'
+                target_buf[written] = _var_arg(arg_counter) as u8
+                written += 1
+                arg_counter += 1
+            else if format[i] == 'f'
+                v := _var_arg(arg_counter) as opaque
                 f := 0 as f64
                 mem.copy_n(^v, ^f, 8)
                 tmp_len := f->to_str_buf(tmp)
-                mem.copy_n(tmp as ptr, buf + n, math.min(tmp_len, remaining))
-                n += tmp_len
-                i += 1
-            else if s[0] == '%'
-                buf[n] = '%'
-                n += 1
-            else if s[0] == 0
+                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                written += tmp_len
+                arg_counter += 1
+            else if format[i] == '%'
+                target_buf[written] = '%'
+                written += 1
+            else if format[i] == 0
                 break
             else
                 io.panic("str.format_into: unrecognized format")
         else
-            if n < size - 1
-                buf[n] = s[0]
-            n += 1
-        s += 1
+            if written < max_size - 1
+                target_buf[written] = format[i]
+            written += 1
+        i += 1
 
-    if n < size
-        buf[n] = 0
-    else if size > 0
-        buf[size - 1] = 0
-    return n
+    if written < max_size
+        target_buf[written] = 0
+    else if max_size > 0
+        target_buf[max_size - 1] = 0
+    return written
 
 func str.concat[a: str, b: str] : str
     a_len := a->len()
     b_len := b->len()
     out := mem.alloc(a_len + b_len + 1) as str
-    mem.copy_n(a as ptr, out as ptr, a_len)
-    mem.copy_n(b as ptr, out as ptr + a_len, b_len)
+    mem.copy_n(a[@0], out[@0], a_len)
+    mem.copy_n(b[@0], out[@a_len], b_len)
     out[a_len + b_len] = 0
     return out
 
@@ -165,7 +166,7 @@ func str.find_n[haystack: str, haystack_len: i64, needle: str, needle_len: i64] 
 
 func str.substr_n[s: str, start: i64, length: i64] : str
     out := mem.alloc(length + 1) as str
-    mem.copy_n(s as ptr + start, out as ptr, length)
+    mem.copy_n(s[@start], out[@0], length)
     out[length] = 0
     return out
 
@@ -196,6 +197,23 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
+func str.to_lower[s: str] : str
+    out := s->make_copy()
+    i := 0
+    while out[i]
+        if 'A' <= out[i] && out[i] <= 'Z'
+            out[i] += 32
+        i += 1
+    return out
+
+func str.to_upper[s: str] : str
+    out := s->make_copy()
+    i := 0
+    while out[i]
+        if 'a' <= out[i] && out[i] <= 'z'
+            out[i] -= 32
+        i += 1
+    return out
 
 func str.parse_i64[s: str] : i64
     len := s->len()
@@ -276,7 +294,7 @@ func str.Builder.append[b: str.Builder, s: str] : void
 
 func str.Builder.append_n[b: str.Builder, s: str, len: i64] : void
     b->_grow(len)
-    mem.copy_n(s as ptr, b->data + b->size, len)
+    mem.copy_n(s as ptr, b->data[@b->size], len)
     b->size += len
 
 func str.Builder.build[b: str.Builder] : str

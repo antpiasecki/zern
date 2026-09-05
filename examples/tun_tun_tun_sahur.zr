@@ -14,7 +14,7 @@ func main[] : i64
     req := _stackalloc(40)
     mem.zero(req, 40)
     mem.copy_n(name as ptr, req, math.min(name->len()+1, 16))
-    mem.write16(req + 16, IFFNOPI | IFFTUN)
+    mem.write16(req[@16], IFFNOPI | IFFTUN)
 
     ret := _builtin_syscall(SYS_ioctl, fd, TUNSETIFF, req)
     if ret < 0
@@ -53,7 +53,7 @@ func main[] : i64
         ihl := (f[0] & 0x0f) * 4
 
         io.println("-------------------------------")
-        io.printf("src: %s\n", net.ipv4_to_string(f + 12))
-        io.printf("dst: %s\n", net.ipv4_to_string(f + 16))
+        io.printf("src: %s\n", net.ipv4_to_string(f[@12]))
+        io.printf("dst: %s\n", net.ipv4_to_string(f[@16]))
         io.println("payload:")
-        io.println(str.hex_encode((f+ihl) as str, n-ihl))
+        io.println(str.hex_encode((f[@ihl]) as str, n-ihl))

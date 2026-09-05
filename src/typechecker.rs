@@ -335,12 +335,9 @@ impl<'a> TypeChecker<'a> {
                 let left_type = self.typecheck_expr(env, left)?;
 
                 match op.token_type {
-                    TokenType::Plus | TokenType::Minus => {
-                        expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
-                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr", "u8"], op.loc);
-                        Ok(left_type)
-                    }
-                    TokenType::Star
+                    TokenType::Plus
+                    | TokenType::Minus
+                    | TokenType::Star
                     | TokenType::Slash
                     | TokenType::Mod
                     | TokenType::Xor

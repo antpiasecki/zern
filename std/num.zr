@@ -158,7 +158,7 @@ func f64.to_str_buf[x: f64, buf: str] : i64
     shift := exp - 1075
 
     if shift >= 0
-        (sig << shift)->to_str_buf((buf as ptr + p) as str)
+        (sig << shift)->to_str_buf(buf[@p] as str)
         while buf[p]
             p += 1
         buf[p] = '.'
@@ -170,7 +170,7 @@ func f64.to_str_buf[x: f64, buf: str] : i64
 
     if ns <= 52
         int_part := sig >> ns
-        int_part->to_str_buf((buf as ptr + p) as str)
+        int_part->to_str_buf(buf[@p] as str)
         while buf[p]
             p += 1
     else

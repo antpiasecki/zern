@@ -45,7 +45,7 @@ func main[argc: i64, argv: ptr] : i64
     end_index := -1
 
     while !found && header_size < 8192
-        n := net.read(s, header_buf as ptr + header_size, 8192 - header_size)
+        n := net.read(s, header_buf[@header_size], 8192 - header_size)
         if n <= 0
             break
         current_size := header_size + n
@@ -59,7 +59,7 @@ func main[argc: i64, argv: ptr] : i64
         header_size = current_size
 
     if end_index < header_size
-        io.print_n(header_buf as ptr + end_index, header_size as i64 - end_index)
+        io.print_n(header_buf[@end_index], header_size as i64 - end_index)
 
     buffer := mem.alloc(4096)
     defer buffer->free()
