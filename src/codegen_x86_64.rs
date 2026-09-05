@@ -234,11 +234,6 @@ _start:
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
             Stmt::Declare { name, initializer } => {
-                // TODO: move to typechecker?
-                if env.get_var(&name.lexeme).is_some() || self.symbol_table.globals.contains_key(&name.lexeme) {
-                    return error!(name.loc, format!("variable already defined: {}", &name.lexeme));
-                }
-
                 let var_type: String = match self.expr_types[&initializer.id].as_str() {
                     "opaque" => match &initializer.kind {
                         ExprKind::Cast { .. } => "opaque".into(),
@@ -701,7 +696,6 @@ _start:
                     );
                 }
                 TokenType::StringLiteral => {
-                    // TODO: actual string parsing in the tokenizer
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
                     let label = format!("str_{:03}", self.rodata_counter);

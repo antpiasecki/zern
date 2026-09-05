@@ -18,7 +18,7 @@ func handle_pkt[s: net.UDPSocket, data: Buffer, sa: ptr] : void
     if data->size <= 0
         return
 
-    io.printf("%d.%d.%d.%d:%d\n", sa[4], sa[5], sa[6], sa[7], mem.read16be(sa + 2))
+    io.printf("%s:%d\n", net.ipv4_to_string(sa + 4), mem.read16be(sa + 2))
 
     io.print_n(data->data(), data->size)
     io.println("")

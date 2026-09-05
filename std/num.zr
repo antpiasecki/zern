@@ -79,8 +79,9 @@ func i64.to_hex_str_buf[n: i64, buf: str] : i64
 
     if n == 0
         buf[0] = '0'
-        buf[1] = 0
-        return 1
+        buf[1] = '0'
+        buf[2] = 0
+        return 2
 
     mask := (1 << 60) - 1
     tmp := _stackalloc(17)
@@ -95,6 +96,15 @@ func i64.to_hex_str_buf[n: i64, buf: str] : i64
 
     for j in 0..len
         buf[j] = tmp[len - 1 - j]
+
+    // ensure len(output) % 2 == 0
+    if len % 2 == 1
+        i := len
+        while i > 0
+            buf[i] = buf[i - 1]
+            i -= 1
+        buf[0] = '0'
+        len += 1
 
     buf[len] = 0
     return len

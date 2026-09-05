@@ -94,6 +94,10 @@ impl<'a> TypeChecker<'a> {
                     return error!(&name.loc, "cannot assign multi-return call to a single variable");
                 }
 
+                if env.get_var_type(&name.lexeme).is_some() || self.symbol_table.globals.contains_key(&name.lexeme) {
+                    return error!(name.loc, format!("variable already defined: {}", &name.lexeme));
+                }
+
                 env.define_var(name.lexeme.clone(), actual_type);
             }
             Stmt::Assign { left, op, value } => {

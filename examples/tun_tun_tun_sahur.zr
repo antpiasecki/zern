@@ -1,0 +1,59 @@
+// loosely based on https://github.com/songgao/water
+include "$/net.zr"
+
+const FRAME_SIZE = 1500
+
+func main[] : i64
+    fd := _builtin_syscall(SYS_open, "/dev/net/tun", O_RDWR|O_NONBLOCK, 0)
+    if fd < 0
+        io.panic("open(tun) failed")
+    defer io.close(fd)
+
+    name := "sahur"
+
+    req := _stackalloc(40)
+    mem.zero(req, 40)
+    mem.copy_n(name as ptr, req, math.min(name->len()+1, 16))
+    mem.write16(req + 16, IFFNOPI | IFFTUN)
+
+    ret := _builtin_syscall(SYS_ioctl, fd, TUNSETIFF, req)
+    if ret < 0
+        io.panic("ioctl(TUNSETIFF) failed")
+
+    end := str.find_n(req as str, 16, "\0", 1)
+    created_iface_name := (req as str)->substr_n(0, end)
+
+    ret = _builtin_syscall(SYS_ioctl, fd, TUNSETPERSIST, 0)
+    if ret < 0
+        io.panic("ioctl(TUNSETPERSIST) failed")
+
+    res := os.run_shell_command("ip addr add 10.0.50.1/24 dev "->concat(created_iface_name))
+    if !res->ok()
+        io.panic("failed to add iface")
+    res = os.run_shell_command("ip link set dev "->concat(created_iface_name)->concat(" up"))
+    if !res->ok()
+        io.panic("failed to link iface")
+
+    io.printf("%s is up.\n", created_iface_name)
+
+    f := _stackalloc(FRAME_SIZE)
+    while true
+        n := _builtin_syscall(SYS_read, fd, f, FRAME_SIZE)
+        if n == -EAGAIN
+            os.sleep(10)
+            continue
+        else if n <= 0
+            io.panic("read failed")
+
+        version := f[0] >> 4
+        if version != 4
+            io.println("ignored non-ipv4 packet")
+            continue
+
+        ihl := (f[0] & 0x0f) * 4
+
+        io.println("-------------------------------")
+        io.printf("src: %s\n", net.ipv4_to_string(f + 12))
+        io.printf("dst: %s\n", net.ipv4_to_string(f + 16))
+        io.println("payload:")
+        io.println(str.hex_encode((f+ihl) as str, n-ihl))

@@ -140,9 +140,9 @@ func str.contains[haystack: str, needle: str] : bool
     return haystack->find(needle) != -1
 
 func str.find[haystack: str, needle: str] : i64
-    haystack_len := haystack->len()
-    needle_len := needle->len()
+    return str.find_n(haystack, haystack->len(), needle, needle->len())
 
+func str.find_n[haystack: str, haystack_len: i64, needle: str, needle_len: i64] : i64
     if needle_len == 0
         return 0
 

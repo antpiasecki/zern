@@ -1,13 +1,5 @@
 include "os.zr"
 
-const AF_INET = 2
-const SOCK_STREAM = 1
-const SOCK_DGRAM = 2
-const SOL_SOCKET = 1
-const SO_REUSEADDR = 2
-const SOMAXCONN = 128
-const IP_MAXPACKET = 65535
-
 const DNS_TYPE_A = 1
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
@@ -17,8 +9,8 @@ func net.listen[host: str, port: i64] : i64, bool
     if s < 0
         return -1, false
 
-    optval := 1
-    if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^optval, 8) < 0
+    val := 1
+    if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^val, 8) < 0
         io.close(s)
         return -1, false
 
@@ -72,6 +64,11 @@ func net.close[s: i64] : void
 
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
+
+func net.ipv4_to_string[ip: ptr] : str
+    out := mem.alloc(50) as str
+    out->format_into(50, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+    return out
 
 func net._build_sa[sa: ptr, packed_host: i64, port: i64] : void
     mem.zero(sa, 16)
