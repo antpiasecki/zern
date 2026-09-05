@@ -26,11 +26,11 @@ struct CHIP8
 
 func CHIP8.init[c: CHIP8] : void
     c->memory = Buffer.alloc(4096)
-    mem.zero(c->memory[@0], 4096)
+    mem.zero(c->memory@[0], 4096)
     c->display = Buffer.alloc(64*32)
-    mem.zero(c->display[@0], 64*32)
+    mem.zero(c->display@[0], 64*32)
     c->reg = Buffer.alloc(16)
-    mem.zero(c->reg[@0], 16)
+    mem.zero(c->reg@[0], 16)
 
     c->stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     c->keyboard = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -168,7 +168,7 @@ func CHIP8.step[c: CHIP8] : void
     op := (ins >> 12) & 0x0f
     if op == 0x0
         if nnn == 0x0e0
-            mem.zero(c->display[@0], 64 * 32)
+            mem.zero(c->display@[0], 64 * 32)
         else if nnn == 0x0ee
             c->pc = c->stack->nth(c->sp)
             c->sp = c->sp - 1

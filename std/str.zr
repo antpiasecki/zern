@@ -84,17 +84,17 @@ func str.format_into[..] : i64
 
             if format[i] == 'd'
                 tmp_len := (_var_arg(arg_counter) as i64)->to_str_buf(tmp)
-                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                mem.copy_n(tmp as ptr, target_buf@[written], math.min(tmp_len, remaining))
                 written += tmp_len
                 arg_counter += 1
             else if format[i] == 'x'
                 tmp_len := (_var_arg(arg_counter) as i64)->to_hex_str_buf(tmp)
-                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                mem.copy_n(tmp as ptr, target_buf@[written], math.min(tmp_len, remaining))
                 written += tmp_len
                 arg_counter += 1
             else if format[i] == 's'
                 tmp_len := (_var_arg(arg_counter) as str)->len()
-                mem.copy_n(_var_arg(arg_counter) as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                mem.copy_n(_var_arg(arg_counter) as ptr, target_buf@[written], math.min(tmp_len, remaining))
                 written += tmp_len
                 arg_counter += 1
             else if format[i] == 'c'
@@ -106,7 +106,7 @@ func str.format_into[..] : i64
                 f := 0 as f64
                 mem.copy_n(^v, ^f, 8)
                 tmp_len := f->to_str_buf(tmp)
-                mem.copy_n(tmp as ptr, target_buf[@written], math.min(tmp_len, remaining))
+                mem.copy_n(tmp as ptr, target_buf@[written], math.min(tmp_len, remaining))
                 written += tmp_len
                 arg_counter += 1
             else if format[i] == '%'
@@ -132,8 +132,8 @@ func str.concat[a: str, b: str] : str
     a_len := a->len()
     b_len := b->len()
     out := mem.alloc(a_len + b_len + 1) as str
-    mem.copy_n(a[@0], out[@0], a_len)
-    mem.copy_n(b[@0], out[@a_len], b_len)
+    mem.copy_n(a@[0], out@[0], a_len)
+    mem.copy_n(b@[0], out@[a_len], b_len)
     out[a_len + b_len] = 0
     return out
 
@@ -166,7 +166,7 @@ func str.find_n[haystack: str, haystack_len: i64, needle: str, needle_len: i64] 
 
 func str.substr_n[s: str, start: i64, length: i64] : str
     out := mem.alloc(length + 1) as str
-    mem.copy_n(s[@start], out[@0], length)
+    mem.copy_n(s@[start], out@[0], length)
     out[length] = 0
     return out
 
@@ -294,7 +294,7 @@ func str.Builder.append[b: str.Builder, s: str] : void
 
 func str.Builder.append_n[b: str.Builder, s: str, len: i64] : void
     b->_grow(len)
-    mem.copy_n(s as ptr, b->data[@b->size], len)
+    mem.copy_n(s as ptr, b->data@[b->size], len)
     b->size += len
 
 func str.Builder.build[b: str.Builder] : str

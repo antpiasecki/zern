@@ -116,7 +116,7 @@ func io.read_file[path: str] : Buffer, bool
     buf := Buffer.alloc(size)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := _builtin_syscall(SYS_read, fd, buf[@0], size)
+    n := _builtin_syscall(SYS_read, fd, buf@[0], size)
     io.close(fd)
 
     if n != size

@@ -10,17 +10,17 @@ func os.getpid[] : i64
     return _builtin_syscall(SYS_getpid)
 
 func os.arg[argv: ptr, n: i64] : str
-    return mem.read64(argv[@n * 8]) as str
+    return mem.read64(argv@[n * 8]) as str
 
 func os.getenv[name: str] : str, bool
     name_len := name->len()
     i := 0
     while true
-        entry := mem.read64((_builtin_environ as ptr)[@i * 8]) as str
+        entry := mem.read64((_builtin_environ as ptr)@[i * 8]) as str
         if entry as ptr == 0
             break
         if entry->equal_n(name, name_len) && entry[name_len] == '='
-            return entry[@name_len + 1] as str, true
+            return entry@[name_len + 1] as str, true
         i += 1
     return "", false
 
@@ -60,7 +60,7 @@ func os.time[] : i64
 func os.urandom_buf[buf: ptr, n: i64] : void
     pos := 0
     while pos < n
-        ret := _builtin_syscall(SYS_getrandom, buf[@pos], n - pos, 0)
+        ret := _builtin_syscall(SYS_getrandom, buf@[pos], n - pos, 0)
         if ret <= 0
             io.panic("os.urandom_buf: syscall failed")
         pos += ret
@@ -104,7 +104,7 @@ func os.run_shell_command[command: str] : os.CmdResult
         status = status & 0xffffffff
 
         res->success = true
-        res->max_rss = mem.read64(rusage[@32])
+        res->max_rss = mem.read64(rusage@[32])
 
         if (status & 0x7f) == 0
             res->exit_code = (status >> 8) & 0xff
@@ -123,7 +123,7 @@ func os.get_file_size[path: str] : i64, bool
     if rc != 0
         return 0, false
 
-    return mem.read64(st[@48]), true
+    return mem.read64(st@[48]), true
 
 func os.is_a_directory[path: str] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
@@ -132,7 +132,7 @@ func os.is_a_directory[path: str] : bool
     if rc != 0
         return false
 
-    return (mem.read32(st[@24]) & S_IFMT) == S_IFDIR
+    return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
 
 func os.list_directory[path: str] : Array<str>, bool
     fd, ok := io.open_for_reading(path)
@@ -152,8 +152,8 @@ func os.list_directory[path: str] : Array<str>, bool
 
         pos := 0
         while pos < n
-            len := mem.read16(buf[@pos + 16])
-            name := buf[@pos + 19]
+            len := mem.read16(buf@[pos + 16])
+            name := buf@[pos + 19]
             if name[0]
                 skip := false
                 // skip if name is exactly '.' or '..'

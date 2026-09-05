@@ -15,12 +15,12 @@ func Array.preallocate_and_zero[xs: Array<$>, size: i64] : void
 func Array.nth[xs: Array<$>, n: i64] : $
     if n < 0 || n >= xs->size
         io.panic("Array.nth: out of bounds")
-    return mem.read64(xs->data[@n * 8])
+    return mem.read64(xs->data@[n * 8])
 
 func Array.set[xs: Array<$>, n: i64, x: $] : void
     if n < 0 || n >= xs->size
         io.panic("Array.set: out of bounds")
-    mem.write64(xs->data[@n * 8], x)
+    mem.write64(xs->data@[n * 8], x)
 
 func Array.push[xs: Array<$>, x: $] : void
     if xs->size == xs->capacity
@@ -30,7 +30,7 @@ func Array.push[xs: Array<$>, x: $] : void
         xs->data = xs->data->realloc(new_capacity * 8)
         xs->capacity = new_capacity
 
-    mem.write64(xs->data[@xs->size * 8], x)
+    mem.write64(xs->data@[xs->size * 8], x)
     xs->size += 1
 
 func Array.free[xs: Array<$>] : void
@@ -63,14 +63,14 @@ func Array.slice[xs: Array<$>, start: i64, length: i64] : Array<$>
 
     new_array := [] as Array<$>
     new_array->preallocate_and_zero(length)
-    mem.copy_n(xs->data[@start * 8], new_array->data, length * 8)
+    mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
     return new_array
 
 func Array.concat[a: Array<$>, b: Array<$>] : Array<$>
     new_array := [] as Array<$>
     new_array->preallocate_and_zero(a->size + b->size)
-    mem.copy_n(a->data, new_array->data[@0], a->size * 8)
-    mem.copy_n(b->data, new_array->data[@a->size * 8], b->size * 8)
+    mem.copy_n(a->data, new_array->data@[0], a->size * 8)
+    mem.copy_n(b->data, new_array->data@[a->size * 8], b->size * 8)
     return new_array
 
 func Array.quicksort[arr: Array<i64>] : void

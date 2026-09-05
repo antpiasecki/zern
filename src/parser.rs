@@ -699,13 +699,22 @@ impl Parser {
                     args,
                 })
             } else if self.match_token(&[TokenType::LeftBracket]) {
-                let is_offset = self.match_token(&[TokenType::At]);
                 let index = self.expression()?;
                 let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
                 expr = Expr::new(ExprKind::Index {
                     indexed: Box::new(expr),
                     bracket,
-                    is_offset,
+                    is_offset: false,
+                    index: Box::new(index),
+                })
+            } else if self.match_token(&[TokenType::At]) {
+                self.consume(TokenType::LeftBracket, "expected '[' after '@'")?;
+                let index = self.expression()?;
+                let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
+                expr = Expr::new(ExprKind::Index {
+                    indexed: Box::new(expr),
+                    bracket,
+                    is_offset: true,
                     index: Box::new(index),
                 })
             } else if self.match_token(&[TokenType::Arrow]) {

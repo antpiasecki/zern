@@ -91,7 +91,7 @@ func net.UDPSocket.receive[s: net.UDPSocket, size: i64] : Buffer, ptr
     sa := mem.alloc(16)
 
     addrlen := 16
-    size = _builtin_syscall(SYS_recvfrom, s->fd, data[@0], size, 0, sa, ^addrlen)
+    size = _builtin_syscall(SYS_recvfrom, s->fd, data@[0], size, 0, sa, ^addrlen)
     data = data->realloc(size)
     return data, sa
 
@@ -172,7 +172,7 @@ func net.resolve[domain: str] : i64, bool
     if !ok
         return -1, false
 
-    s->send_to(s->addr, query[@0], query->size)
+    s->send_to(s->addr, query@[0], query->size)
     data, sa := s->receive(1024)
     defer data->free()
     defer sa->free()
@@ -203,7 +203,7 @@ func net.encode_dns_name[domain: str] : Buffer
             part_len := i - part_start
             buf[out_pos] = part_len & 0xff
             out_pos += 1
-            mem.copy_n(domain[@part_start], buf[@out_pos], part_len)
+            mem.copy_n(domain@[part_start], buf@[out_pos], part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1
@@ -218,16 +218,16 @@ func net.build_dns_query[domain_name: str, record_type: i64] : Buffer
 
     // header
     id := (os.urandom_i64() % 65536)->abs()
-    mem.write16be(out[@0], id)
-    mem.write16be(out[@2], DNS_RECURSION_DESIRED)
-    mem.write16be(out[@4], 1)  // num_questions
-    mem.write16be(out[@6], 0)  // num_answers
-    mem.write16be(out[@8], 0)  // num_authorities
-    mem.write16be(out[@10], 0) // num_additionals
+    mem.write16be(out@[0], id)
+    mem.write16be(out@[2], DNS_RECURSION_DESIRED)
+    mem.write16be(out@[4], 1)  // num_questions
+    mem.write16be(out@[6], 0)  // num_answers
+    mem.write16be(out@[8], 0)  // num_authorities
+    mem.write16be(out@[10], 0) // num_additionals
 
     // question
-    mem.copy_n(name[@0], out[@12], name->size)
-    mem.write16be(out[@12 + name->size], record_type)
-    mem.write16be(out[@12 + name->size + 2], DNS_CLASS_IN)
+    mem.copy_n(name@[0], out@[12], name->size)
+    mem.write16be(out@[12 + name->size], record_type)
+    mem.write16be(out@[12 + name->size + 2], DNS_CLASS_IN)
 
     return out

@@ -86,7 +86,7 @@ func main[argc: i64, argv: ptr] : i64
         conn_data := new* ConnData
         conn_data->sock = conn
         conn_data->addr = mem.alloc(30) as str
-        conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr[@2]))
+        conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr@[2]))
 
         thread := 0
         pthread_create(^thread, 0 as ptr, ^handle_connection, conn_data as ptr)

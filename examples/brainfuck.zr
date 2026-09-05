@@ -8,7 +8,7 @@ func main[] : i64
 
     memory := Buffer.alloc(30000)
     defer memory->free()
-    mem.zero(memory[@0], 30000)
+    mem.zero(memory@[0], 30000)
     p := 0
 
     while i < src_len
