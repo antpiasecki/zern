@@ -1,8 +1,10 @@
 include "$/io.zr"
 include "$/containers.zr"
 
-func rule110_step[state: Array<bool>] : void
-    new_state := [] as Array<bool>
+DECLARE_ARRAY(bool)
+
+func rule110_step[state: Array_bool] : void
+    new_state := [] as Array_bool
     defer new_state->free()
 
     for i in 0..state->size
@@ -18,7 +20,7 @@ func rule110_step[state: Array<bool>] : void
 
     mem.copy_n(new_state->data, state->data, state->size * 8)
 
-func print_state[state: Array<bool>]: void
+func print_state[state: Array_bool]: void
     for i in 0..state->size
         if state->nth(i)
             io.print_char('#')
@@ -29,7 +31,7 @@ func print_state[state: Array<bool>]: void
 func main[] : i64
     SIZE := 60
 
-    state := [] as Array<bool>
+    state := [] as Array_bool
     defer state->free()
     for i in 0..SIZE
         state->push(false)

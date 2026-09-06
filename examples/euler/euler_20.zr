@@ -1,7 +1,7 @@
 include "$/io.zr"
 include "$/containers.zr"
 
-func multiply[n: Array<i64>, x: i64] : void
+func multiply[n: Array_i64, x: i64] : void
     carry := 0
     for i in 0..n->size
         prod := n->nth(i) * x + carry

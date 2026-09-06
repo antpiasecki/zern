@@ -14,15 +14,15 @@ extern IsKeyDown[key: i64] : bool
 struct CHIP8
     memory: Buffer
     pc: i64
-    stack: Array<i64>
+    stack: Array_i64
     sp: i64
     reg: Buffer
     I: i64
     delay_timer: u8
     sound_timer: u8
-    keyboard: Array<i64>
+    keyboard: Array_i64
     display: Buffer
-    keyboard_map: Array<i64>
+    keyboard_map: Array_i64
 
 func CHIP8.init[c: CHIP8] : void
     c->memory = Buffer.alloc(4096)

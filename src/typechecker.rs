@@ -9,7 +9,7 @@ use crate::{
 macro_rules! expect_type {
     ($expr_type:expr, $expected:expr, $loc:expr) => {{
         let actual = $expr_type;
-        if $expected != "$" && actual != "$" && actual != $expected {
+        if actual != $expected {
             return error!($loc, format!("expected type {}, got {}", $expected, actual));
         }
     }};
@@ -17,7 +17,7 @@ macro_rules! expect_type {
 
 macro_rules! expect_types {
     ($expr_type:expr, [$( $expected:expr ),+], $loc:expr) => {
-        if $expr_type != "$" && $( $expr_type != $expected )&&+ {
+        if $( $expr_type != $expected )&&+ {
             return error!(
                 $loc,
                 format!(
@@ -136,9 +136,8 @@ impl<'a> TypeChecker<'a> {
                     }
                     ExprKind::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
-                        let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                        let Some(fields) = self.symbol_table.structs.get(base_name) else {
+                        let Some(fields) = self.symbol_table.structs.get(&left_type) else {
                             return error!(&field.loc, format!("unknown struct type: {}", left_type));
                         };
 
@@ -146,13 +145,7 @@ impl<'a> TypeChecker<'a> {
                             return error!(&field.loc, format!("unknown field: {}", &field.lexeme));
                         };
 
-                        let field_type = if let Some(args) = generic_args {
-                            substitute_type(&f.field_type, args[0])
-                        } else {
-                            f.field_type.clone()
-                        };
-
-                        expect_type!(value_type.clone(), field_type, field.loc);
+                        expect_type!(value_type.clone(), f.field_type, field.loc);
                     }
                     _ => return error!(&op.loc, "invalid assignment target"),
                 }
@@ -459,7 +452,7 @@ impl<'a> TypeChecker<'a> {
                     Ok("Array".into())
                 } else {
                     let first_item_type = self.typecheck_expr(env, &exprs[0])?;
-                    Ok(format!("Array<{}>", first_item_type))
+                    Ok(format!("Array_{}", first_item_type))
                 }
             }
             ExprKind::Index {
@@ -486,31 +479,26 @@ impl<'a> TypeChecker<'a> {
                 struct_name,
                 use_heap: _,
             } => {
-                let (base_name, _) = parse_generic_type(&struct_name.lexeme);
-                if !self.symbol_table.structs.contains_key(base_name) {
-                    return error!(&struct_name.loc, format!("unknown struct name: {}", base_name));
+                if !self.symbol_table.structs.contains_key(&struct_name.lexeme) {
+                    return error!(
+                        &struct_name.loc,
+                        format!("unknown struct name: {}", &struct_name.lexeme)
+                    );
                 }
                 Ok(struct_name.lexeme.clone())
             }
             ExprKind::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
-                let (base_name, generic_args) = parse_generic_type(&left_type);
 
-                let Some(fields) = self.symbol_table.structs.get(base_name) else {
-                    return error!(&field.loc, format!("unknown struct type: {}", base_name));
+                let Some(fields) = self.symbol_table.structs.get(&left_type) else {
+                    return error!(&field.loc, format!("unknown struct type: {}", left_type));
                 };
 
                 let Some(field_info) = fields.get(&field.lexeme) else {
                     return error!(&field.loc, format!("unknown field: {}", &field.lexeme));
                 };
 
-                let field_type = if let Some(args) = generic_args {
-                    substitute_type(&field_info.field_type, args[0])
-                } else {
-                    field_info.field_type.clone()
-                };
-
-                Ok(field_type)
+                Ok(field_info.field_type.clone())
             }
             ExprKind::Cast { casted, type_name } => {
                 if !self.is_valid_type_name(&type_name.lexeme) {
@@ -521,58 +509,39 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::MethodCall { callee, method, args } => {
                 let receiver_type = self.typecheck_expr(env, callee)?;
-                let (base_name, generic_args) = parse_generic_type(&receiver_type);
-                let func_name = format!("{}.{}", base_name, method.lexeme);
+                let func_name = format!("{}.{}", receiver_type, method.lexeme);
 
                 let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
                     return error!(
                         method.loc,
-                        format!("method {} not found on type {}", method.lexeme, base_name)
+                        format!("method {} not found on type {}", method.lexeme, receiver_type)
                     );
-                };
-
-                let substitute = |s: &str| -> String {
-                    if let Some(ref args) = generic_args {
-                        substitute_type(s, args[0])
-                    } else {
-                        s.to_string()
-                    }
                 };
 
                 match &func_type.params {
                     FnParams::Normal(params) => {
-                        let substituted_params: Vec<String> = params.iter().map(|p| substitute(p)).collect();
-
-                        if substituted_params.is_empty() || substituted_params[0] != receiver_type {
+                        if params.is_empty() || params[0] != receiver_type {
                             return error!(
                                 method.loc,
                                 format!("first parameter of the method must be of type {}", receiver_type)
                             );
                         }
-                        if substituted_params.len() != args.len() + 1 {
+                        if params.len() != args.len() + 1 {
                             return error!(
                                 method.loc,
-                                format!(
-                                    "expected {} arguments, got {}",
-                                    substituted_params.len() - 1,
-                                    args.len()
-                                )
+                                format!("expected {} arguments, got {}", params.len() - 1, args.len())
                             );
                         }
                         for (i, arg) in args.iter().enumerate() {
-                            expect_type!(
-                                self.typecheck_expr(env, arg)?,
-                                substituted_params[i + 1].as_str(),
-                                method.loc
-                            );
+                            expect_type!(self.typecheck_expr(env, arg)?, params[i + 1].as_str(), method.loc);
                         }
-                        Ok(substitute(&func_type.return_type))
+                        Ok(func_type.return_type.clone())
                     }
                     FnParams::Variadic => {
                         for arg in args {
                             self.typecheck_expr(env, arg)?;
                         }
-                        Ok(substitute(&func_type.return_type))
+                        Ok(func_type.return_type.clone())
                     }
                 }
             }
@@ -583,21 +552,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {
-        if name == "$" {
-            return true;
-        }
         if name.contains(',') {
             return name.split(',').all(|part| self.is_valid_type_name(part));
-        }
-        if name.contains('<') {
-            let (base, inner) = parse_generic_type(name);
-            if !self.symbol_table.structs.contains_key(base) {
-                return false;
-            }
-            if let Some(args) = inner {
-                return args.iter().all(|arg| self.is_valid_type_name(arg));
-            }
-            unreachable!();
         }
         if BUILTIN_TYPES.contains(&name) {
             return true;
@@ -607,33 +563,4 @@ impl<'a> TypeChecker<'a> {
         }
         false
     }
-}
-
-fn parse_generic_type(s: &str) -> (&str, Option<Vec<&str>>) {
-    let Some(lt_pos) = s.find('<') else {
-        return (s, None);
-    };
-    let base = &s[..lt_pos];
-    let close_pos = s.rfind('>').unwrap_or(s.len());
-    let inner = &s[lt_pos + 1..close_pos];
-    let mut args = Vec::new();
-    let mut depth = 0;
-    let mut start = 0;
-    for (i, ch) in inner.char_indices() {
-        match ch {
-            '<' => depth += 1,
-            '>' => depth -= 1,
-            ',' if depth == 0 => {
-                args.push(&inner[start..i]);
-                start = i + 1;
-            }
-            _ => {}
-        }
-    }
-    args.push(&inner[start..]);
-    (base, Some(args))
-}
-
-fn substitute_type(type_str: &str, dollar_replacement: &str) -> String {
-    type_str.replace('$', dollar_replacement)
 }

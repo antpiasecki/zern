@@ -5,24 +5,24 @@ struct Array
     size: i64
     capacity: i64
 
-func Array.preallocate_and_zero[xs: Array<$>, size: i64] : void
+func Array.preallocate_and_zero[xs: Array, size: i64] : void
     if size > 0
         xs->data = mem.alloc(size * 8)
         mem.zero(xs->data, size * 8)
         xs->size = size
         xs->capacity = size
 
-func Array.nth[xs: Array<$>, n: i64] : $
+func Array.nth[xs: Array, n: i64] : opaque
     if n < 0 || n >= xs->size
         io.panic("Array.nth: out of bounds")
-    return mem.read64(xs->data@[n * 8])
+    return mem.read64(xs->data@[n * 8]) as opaque
 
-func Array.set[xs: Array<$>, n: i64, x: $] : void
+func Array.set[xs: Array, n: i64, x: opaque] : void
     if n < 0 || n >= xs->size
         io.panic("Array.set: out of bounds")
-    mem.write64(xs->data@[n * 8], x)
+    mem.write64(xs->data@[n * 8], x as i64)
 
-func Array.push[xs: Array<$>, x: $] : void
+func Array.push[xs: Array, x: opaque] : void
     if xs->size == xs->capacity
         new_capacity := 4
         if xs->capacity != 0
@@ -30,108 +30,95 @@ func Array.push[xs: Array<$>, x: $] : void
         xs->data = xs->data->realloc(new_capacity * 8)
         xs->capacity = new_capacity
 
-    mem.write64(xs->data@[xs->size * 8], x)
+    mem.write64(xs->data@[xs->size * 8], x as i64)
     xs->size += 1
 
-func Array.free[xs: Array<$>] : void
+func Array.free[xs: Array] : void
     if xs->data != 0
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.free_with_items[xs: Array<$>] : void
+textmacro DECLARE_ARRAY(t)
+struct Array_#t
+    data: ptr
+    size: i64
+    capacity: i64
+
+func Array_#t#.#preallocate_and_zero[xs: Array_#t, size: i64] : void
+    (xs as Array)->preallocate_and_zero(size)
+
+func Array_#t#.#nth[xs: Array_#t, n: i64] : t
+    if n < 0 || n >= xs->size
+        io.panic("Array.nth: out of bounds")
+    return mem.read64(xs->data@[n * 8]) as t
+
+func Array_#t#.#set[xs: Array_#t, n: i64, x: t] : void
+    if n < 0 || n >= xs->size
+        io.panic("Array.set: out of bounds")
+    mem.write64(xs->data@[n * 8], x as i64)
+
+func Array_#t#.#push[xs: Array_#t, x: t] : void
+    (xs as Array)->push(x as opaque)
+
+func Array_#t#.#free[xs: Array_#t] : void
+    (xs as Array)->free()
+
+func Array_#t#.#free_with_items[xs: Array_#t] : void
     if xs->data != 0
         for i in 0..xs->size
             (xs->nth(i) as ptr)->free()
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.pop[xs: Array<$>] : $
+func Array_#t#.#pop[xs: Array_#t] : t
     if xs->size == 0
         io.panic("Array.pop: empty array")
-    x := Array.last(xs)
+    x := Array_#t#.#last(xs)
     xs->size = xs->size - 1
     return x
 
-func Array.last[xs: Array<$>] : $
+func Array_#t#.#last[xs: Array_#t] : t
     if xs->size == 0
         io.panic("Array.last: empty array")
     return xs->nth(xs->size - 1)
 
-func Array.slice[xs: Array<$>, start: i64, length: i64] : Array<$>
+func Array_#t#.#slice[xs: Array_#t, start: i64, length: i64] : Array_#t
     if start < 0 || length < 0 || start + length > xs->size
         io.panic("Array.slice: out of bounds")
 
-    new_array := [] as Array<$>
+    new_array := [] as Array_#t
     new_array->preallocate_and_zero(length)
     mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
     return new_array
 
-func Array.concat[a: Array<$>, b: Array<$>] : Array<$>
-    new_array := [] as Array<$>
+func Array_#t#.#concat[a: Array_#t, b: Array_#t] : Array_#t
+    new_array := [] as Array_#t
     new_array->preallocate_and_zero(a->size + b->size)
     mem.copy_n(a->data, new_array->data@[0], a->size * 8)
     mem.copy_n(b->data, new_array->data@[a->size * 8], b->size * 8)
     return new_array
 
-func Array.quicksort[arr: Array<i64>] : void
-    arr->_do_quicksort(0, arr->size - 1)
+func Array_#t#.#count[arr: Array_#t, item: t] : i64
+    count := 0
+    for i in 0..arr->size
+        if arr->nth(i) as i64 == item as i64
+            count += 1
+    return count
+endmacro
 
-func Array._do_quicksort[arr: Array<i64>, low: i64, high: i64] : void
-    if low < high
-        i := arr->_partition(low, high)
-        arr->_do_quicksort(low, i - 1)
-        arr->_do_quicksort(i + 1, high)
+DECLARE_ARRAY(i64)
+DECLARE_ARRAY(str)
 
-func Array._partition[arr: Array<i64>, low: i64, high: i64] : i64
-    pivot := arr->nth(high)
-    i := low - 1
-    for j in (low)..high
-        if arr->nth(j) as i64 <= pivot
-            i += 1
-            temp := arr->nth(i)
-            arr->set(i, arr->nth(j))
-            arr->set(j, temp)
-    temp := arr->nth(i + 1)
-    arr->set(i + 1, arr->nth(high))
-    arr->set(high, temp)
-    return i + 1
-
-func Array.contains_str[arr: Array<str>, s: str] : bool
+func Array_str.contains_str[arr: Array_str, s: str] : bool
     for i in 0..arr->size
         if (arr->nth(i) as str)->equal(s)
             return true
     return false
 
-func Array.count[arr: Array<$>, item: $] : i64
-    count := 0
-    for i in 0..arr->size
-        if arr->nth(i) == item
-            count += 1
-    return count
-
-func Array.map[arr: Array<$>, fn: ptr] : Array<$>
-    out := [] as Array<$>
-    out->preallocate_and_zero(arr->size)
-    for i in 0..arr->size
-        out->set(i, fn(arr->nth(i)))
-    return out
-
-func Array.filter[arr: Array<$>, fn: ptr] : Array<$>
-    out := [] as Array<$>
-    for i in 0..arr->size
-        if fn(arr->nth(i)) as bool
-            out->push(arr->nth(i))
-    return out
-
-func Array.reduce[arr: Array<$>, fn: ptr, acc: $] : $
-    for i in 0..arr->size
-        acc = fn(acc, arr->nth(i))
-    return acc
-
-func str.split[haystack: str, needle: str]: Array<str>
+func str.split[haystack: str, needle: str]: Array_str
     haystack_len := haystack->len()
     needle_len := needle->len()
-    result := [] as Array<str>
+    result := [] as Array_str
 
     if !needle_len
         if !haystack_len
@@ -163,49 +150,60 @@ func str.split[haystack: str, needle: str]: Array<str>
 const HashMap._TABLE_SIZE = 100
 
 struct HashMap
-    table: Array<HashMap._Node>
+    table: Array
 
 struct HashMap._Node
     key: str
-    value: $
+    value: opaque
     next: HashMap._Node
 
 func HashMap.new[] : HashMap
     map := new* HashMap
-    map->table = [] as Array<HashMap._Node>
+    map->table = []
     map->table->preallocate_and_zero(HashMap._TABLE_SIZE)
     return map
 
-func HashMap.insert[map: HashMap<$>, key: str, value: $] : void
+func HashMap._djb2[key: str] : i64
+    hash := 5381
+    for i in 0..key->len()
+        hash = ((hash << 5) + hash) + key[i]
+    hash = (hash & 0x7fffffffffffffff) // prevent negative
+    return hash % HashMap._TABLE_SIZE
+
+textmacro DECLARE_HASHMAP(t)
+struct HashMap_#t
+    table: Array
+
+func HashMap_#t#.#insert[map: HashMap_#t, key: str, value: t] : void
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := map->table->nth(index) as HashMap._Node
 
     while current as ptr
         if current->key->equal(key)
-            current->value = value
+            current->value = value as opaque
             return
         current = current->next
 
     new_node := new* HashMap._Node
     new_node->key = key->make_copy()
-    new_node->value = value
-    new_node->next = map->table->nth(index)
-    map->table->set(index, new_node)
+    new_node->value = value as opaque
+    new_node->next = map->table->nth(index) as HashMap._Node
+    map->table->set(index, new_node as opaque)
 
-func HashMap.get[map: HashMap<$>, key: str] : $, bool
+func HashMap_#t#.#get[map: HashMap_#t, key: str] : t, bool
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := map->table->nth(index) as HashMap._Node
 
     while current as ptr
         if current->key->equal(key)
-            return current->value, true
+            return current->value as t, true
         current = current->next
 
-    return 0 as $, false
+    return 0 as t, false
 
-func HashMap.delete[map: HashMap<$>, key: str] : void
+func HashMap_#t#.#delete[map: HashMap_#t, key: str] : void
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := map->table->nth(index) as HashMap._Node
     prev := 0 as HashMap._Node
 
     while current as ptr
@@ -213,7 +211,7 @@ func HashMap.delete[map: HashMap<$>, key: str] : void
             if prev as ptr
                 prev->next = current->next
             else
-                map->table->set(index, current->next)
+                map->table->set(index, current->next as opaque)
 
             current->key->free()
             (current as ptr)->free()
@@ -222,18 +220,18 @@ func HashMap.delete[map: HashMap<$>, key: str] : void
         prev = current
         current = current->next
 
-func HashMap.keys[map: HashMap<$>] : Array<str>
-    out := [] as Array<str>
+func HashMap_#t#.#keys[map: HashMap_#t] : Array_str
+    out := [] as Array_str
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth(i)
+        current := map->table->nth(i) as HashMap._Node
         while current as ptr
             out->push(current->key)
             current = current->next
     return out
 
-func HashMap.free_with_keys[map: HashMap<$>] : void
+func HashMap_#t#.#free_with_keys[map: HashMap_#t] : void
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth(i)
+        current := map->table->nth(i) as HashMap._Node
         while current as ptr
             tmp := current
             current = current->next
@@ -243,9 +241,4 @@ func HashMap.free_with_keys[map: HashMap<$>] : void
     map->table->free()
     (map as ptr)->free()
 
-func HashMap._djb2[key: str] : i64
-    hash := 5381
-    for i in 0..key->len()
-        hash = ((hash << 5) + hash) + key[i]
-    hash = (hash & 0x7fffffffffffffff) // prevent negative
-    return hash % HashMap._TABLE_SIZE
+endmacro

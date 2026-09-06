@@ -92,8 +92,13 @@ func os.run_shell_command[command: str] : os.CmdResult
         return res
 
     if pid == 0
-        argv := ["sh", "-c", command, 0] // gets freed after child process exits
-        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
+        argv := _stackalloc(32)
+        mem.write64(argv@[0], "sh" as ptr as i64)
+        mem.write64(argv@[8], "-c" as ptr as i64)
+        mem.write64(argv@[16], command as ptr as i64)
+        mem.write64(argv@[24], 0 as ptr as i64)
+
+        _builtin_syscall(SYS_execve, "/bin/sh", argv, _builtin_environ as ptr)
         os.exit(1)
     else
         status := 0
@@ -134,19 +139,19 @@ func os.is_a_directory[path: str] : bool
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
 
-func os.list_directory[path: str] : Array<str>, bool
+func os.list_directory[path: str] : Array_str, bool
     fd, ok := io.open_for_reading(path)
     if !ok
-        return 0 as Array<str>, false
+        return 0 as Array_str, false
 
-    files := [] as Array<str>
+    files := [] as Array_str
     buf := _stackalloc(1024)
     while true
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_items()
             io.close(fd)
-            return 0 as Array<str>, false
+            return 0 as Array_str, false
         else if n == 0
             break
 

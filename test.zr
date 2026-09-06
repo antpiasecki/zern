@@ -1,11 +1,12 @@
-include "$/io.zr"
-include "$/os.zr"
+include "$/containers.zr"
+
+DECLARE_HASHMAP(str)
 
 struct TestRunner
-    build_blacklist: Array<str>
-    run_blacklist: Array<str>
-    custom_build_flags: HashMap<str>
-    custom_run_args: HashMap<str>
+    build_blacklist: Array_str
+    run_blacklist: Array_str
+    custom_build_flags: HashMap_str
+    custom_run_args: HashMap_str
 
 func TestRunner.run_directory[tr: TestRunner, dir: str] : void
     files, ok := os.list_directory(dir)
@@ -69,14 +70,14 @@ func main[] : i64
     (status as ptr)->free()
 
     tr := new TestRunner
-    tr->build_blacklist = [] as Array<str>
+    tr->build_blacklist = [] as Array_str
     tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "serve.zr", "curl.zr", "tun_tun_tun_sahur.zr"]
-    tr->custom_build_flags = HashMap.new() as HashMap<str>
+    tr->custom_build_flags = HashMap.new() as HashMap_str
     tr->custom_build_flags->insert("raylib.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("chip8.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
     tr->custom_build_flags->insert("serve.zr", "-m -C \"-lpthread\"")
-    tr->custom_run_args = HashMap.new() as HashMap<str>
+    tr->custom_run_args = HashMap.new() as HashMap_str
 
     tr->run_directory("examples")
     io.println("DONE")

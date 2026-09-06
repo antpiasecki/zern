@@ -27,11 +27,13 @@ pub enum TokenType {
     BitOr,
     LogicalAnd,
     LogicalOr,
+    Dot,
     DoubleDot,
     ShiftLeft,
     ShiftRight,
     Arrow,
     At,
+    Hash,
 
     Equal,
     DoubleEqual,
@@ -64,12 +66,13 @@ pub enum TokenType {
     KeywordAs,
     KeywordVar,
     KeywordDefer,
+    KeywordTextmacro,
+    KeywordEndmacro,
     KeywordTrue,
     KeywordFalse,
 
     Indent,
     Dedent,
-    Dollar,
     Eof,
 }
 
@@ -205,7 +208,7 @@ impl<'a> Tokenizer<'a> {
                 if self.match_char('.') {
                     self.add_token(TokenType::DoubleDot)?
                 } else {
-                    return error!(self.loc, "expected '.' after '.'");
+                    self.add_token(TokenType::Dot)?
                 }
             }
             '/' => {
@@ -263,7 +266,7 @@ impl<'a> Tokenizer<'a> {
                     self.add_token(TokenType::Less)?
                 }
             }
-            '$' => self.add_token(TokenType::Dollar)?,
+            '#' => self.add_token(TokenType::Hash)?,
             '@' => self.add_token(TokenType::At)?,
             '\'' => {
                 if self.eof() {
@@ -422,6 +425,8 @@ impl<'a> Tokenizer<'a> {
             "as" => TokenType::KeywordAs,
             "var" => TokenType::KeywordVar,
             "defer" => TokenType::KeywordDefer,
+            "textmacro" => TokenType::KeywordTextmacro,
+            "endmacro" => TokenType::KeywordEndmacro,
             "true" => TokenType::KeywordTrue,
             "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,

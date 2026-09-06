@@ -8,7 +8,7 @@ A very cool language
 - Targets x86-64 Linux and Windows
 - No libc required!
 - Produces tiny static executables (11KB for `hello.zr`)
-- Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), custom allocator, generics, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
+- Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), custom allocator, macros, variadics, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
 

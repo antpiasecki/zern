@@ -1,4 +1,5 @@
 mod codegen_x86_64;
+mod macros;
 mod parser;
 mod symbol_table;
 mod tokenizer;
@@ -11,6 +12,8 @@ use std::{
 };
 
 use tokenizer::ZernError;
+
+use crate::macros::MacroExpander;
 
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
@@ -26,6 +29,9 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let mut tokens = Vec::with_capacity(15000);
     let tokenizer = tokenizer::Tokenizer::new(&mut tokens, args.path.clone(), source, &mut included_paths);
     tokenizer.tokenize()?;
+
+    let tokens = MacroExpander::new().expand(tokens);
+
     let parser = parser::Parser::new(tokens);
     let statements = parser.parse()?;
 
