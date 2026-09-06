@@ -3,6 +3,7 @@ use std::{
     collections::HashSet,
     fmt, fs,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,7 +92,7 @@ pub(crate) use error;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Loc {
-    pub filename: String,
+    pub filename: Rc<str>,
     pub line: usize,
     pub column: usize,
     pub length: usize,
@@ -100,7 +101,7 @@ pub struct Loc {
 impl Default for Loc {
     fn default() -> Self {
         Self {
-            filename: "<unknown>".to_string(),
+            filename: "<unknown>".into(),
             line: 0,
             column: 0,
             length: 1,
@@ -123,7 +124,7 @@ pub struct Token {
 
 pub struct Tokenizer<'a> {
     source: Vec<char>,
-    tokens: Vec<Token>,
+    tokens: &'a mut Vec<Token>,
     indent_stack: Vec<usize>,
     current_indent: usize,
     start: usize,
@@ -134,16 +135,21 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(filename: String, source: String, included_paths: &'a mut HashSet<PathBuf>) -> Tokenizer<'a> {
+    pub fn new(
+        tokens: &'a mut Vec<Token>,
+        filename: String,
+        source: String,
+        included_paths: &'a mut HashSet<PathBuf>,
+    ) -> Tokenizer<'a> {
         Tokenizer {
             source: source.chars().collect(),
-            tokens: vec![],
+            tokens,
             indent_stack: vec![0],
             current_indent: 0,
             start: 0,
             current: 0,
             loc: Loc {
-                filename,
+                filename: Rc::from(filename.as_str()),
                 line: 1,
                 column: 1,
                 length: 1,
@@ -153,7 +159,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub fn tokenize(mut self) -> Result<Vec<Token>, ZernError> {
+    pub fn tokenize(mut self) -> Result<(), ZernError> {
         while !self.eof() {
             self.start = self.current;
             self.start_loc = self.loc.clone();
@@ -165,7 +171,7 @@ impl<'a> Tokenizer<'a> {
             loc: self.loc.clone(),
         });
 
-        Ok(self.tokens)
+        Ok(())
     }
 
     fn scan_token(&mut self) -> Result<(), ZernError> {
@@ -452,7 +458,7 @@ impl<'a> Tokenizer<'a> {
             path = find_std_path().join(&path[2..]).to_string_lossy().into_owned();
         }
 
-        let base_dir = Path::new(&self.loc.filename).parent().unwrap();
+        let base_dir = Path::new(self.loc.filename.as_ref()).parent().unwrap();
         let resolved_path = base_dir.join(&path);
 
         let Ok(canonical) = fs::canonicalize(&resolved_path) else {
@@ -478,11 +484,12 @@ impl<'a> Tokenizer<'a> {
         };
 
         let tokenizer = Tokenizer::new(
+            self.tokens,
             canonical.to_string_lossy().into_owned(),
             source,
             &mut *self.included_paths,
         );
-        self.tokens.extend(tokenizer.tokenize()?);
+        tokenizer.tokenize()?;
         self.tokens.pop(); // remove inner Eof
 
         Ok(())

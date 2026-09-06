@@ -77,7 +77,7 @@ impl<'a> TypeChecker<'a> {
     pub fn new(symbol_table: &'a SymbolTable) -> TypeChecker<'a> {
         TypeChecker {
             symbol_table,
-            expr_types: HashMap::new(),
+            expr_types: HashMap::with_capacity(10000),
             current_function_return_type: String::new(),
             depth: 0,
         }

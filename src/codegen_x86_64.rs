@@ -71,9 +71,14 @@ impl Env {
 }
 
 macro_rules! emit {
-    ($($arg:tt)*) => {
-        let _ = writeln!($($arg)*);
-    };
+    ($buf:expr, $lit:literal) => {{
+        $buf.push_str($lit);
+        $buf.push('\n');
+    }};
+    ($buf:expr, $fmt:literal, $($arg:tt)*) => {{
+        let _ = write!($buf, $fmt, $($arg)*);
+        $buf.push('\n');
+    }};
 }
 
 pub struct CodegenX86_64<'a> {
@@ -94,7 +99,7 @@ impl<'a> CodegenX86_64<'a> {
         expr_types: &'a HashMap<usize, String>,
     ) -> CodegenX86_64<'a> {
         CodegenX86_64 {
-            output: String::new(),
+            output: String::with_capacity(1_000_000),
             rodata: String::new(),
             bss: String::new(),
             label_counter: 1,

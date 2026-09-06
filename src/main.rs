@@ -22,8 +22,11 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     };
 
     let mut included_paths = HashSet::new();
-    let tokenizer = tokenizer::Tokenizer::new(args.path.clone(), source, &mut included_paths);
-    let parser = parser::Parser::new(tokenizer.tokenize()?);
+    // atp we dont know yet how many files we are compiling but 15k seems like a healthy amount
+    let mut tokens = Vec::with_capacity(15000);
+    let tokenizer = tokenizer::Tokenizer::new(&mut tokens, args.path.clone(), source, &mut included_paths);
+    tokenizer.tokenize()?;
+    let parser = parser::Parser::new(tokens);
     let statements = parser.parse()?;
 
     let mut symbol_table = symbol_table::SymbolTable::new();
@@ -204,8 +207,8 @@ fn print_usage() {
 
 fn print_error(e: ZernError) {
     eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc, e.message);
-    if e.loc.filename != "<unknown>" && e.loc.line > 0 {
-        if let Ok(src) = fs::read_to_string(&e.loc.filename) {
+    if *e.loc.filename != *"<unknown>" && e.loc.line > 0 {
+        if let Ok(src) = fs::read_to_string(e.loc.filename.as_ref()) {
             if let Some(line) = src.lines().nth(e.loc.line - 1) {
                 if e.loc.line > 1 {
                     if let Some(previous_line) = src.lines().nth(e.loc.line - 2) {

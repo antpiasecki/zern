@@ -204,7 +204,7 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> Result<Vec<Stmt>, ZernError> {
-        let mut statements = vec![];
+        let mut statements = Vec::with_capacity(1000);
         while !self.eof() {
             statements.push(self.declaration()?);
         }
@@ -294,7 +294,7 @@ impl Parser {
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
         let mut is_variadic = false;
-        let mut params = vec![];
+        let mut params = Vec::with_capacity(8);
         if !self.check(&TokenType::RightBracket) {
             if self.match_token(&[TokenType::DoubleDot]) {
                 is_variadic = true;
@@ -374,7 +374,7 @@ impl Parser {
     fn block(&mut self) -> Result<Stmt, ZernError> {
         self.consume(TokenType::Indent, "expected an indent")?;
 
-        let mut statements = vec![];
+        let mut statements = Vec::with_capacity(50);
         while !self.eof() && !self.match_token(&[TokenType::Dedent]) {
             statements.push(self.declaration()?);
         }
@@ -399,7 +399,7 @@ impl Parser {
             self.for_statement()
         } else if self.match_token(&[TokenType::KeywordReturn]) {
             let keyword = self.previous().clone();
-            let mut exprs = vec![];
+            let mut exprs = Vec::with_capacity(2);
             if !self.check(&TokenType::Dedent) {
                 loop {
                     exprs.push(self.expression()?);
@@ -416,7 +416,7 @@ impl Parser {
         } else if self.match_token(&[TokenType::KeywordDefer]) {
             self.defer_statement()
         } else if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::Comma) {
-            let mut targets = vec![];
+            let mut targets = Vec::with_capacity(2);
             loop {
                 targets.push(self.consume(Identifier, "expected an identifier")?);
                 if !self.match_token(&[TokenType::Comma]) {
@@ -681,7 +681,7 @@ impl Parser {
             }
 
             if self.match_token(&[TokenType::LeftParen]) {
-                let mut args = vec![];
+                let mut args = Vec::with_capacity(8);
                 if !self.check(&TokenType::RightParen) {
                     loop {
                         args.push(self.expression()?);
@@ -721,7 +721,7 @@ impl Parser {
                 if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::LeftParen) {
                     let method = self.consume(TokenType::Identifier, "expected method name")?;
                     self.consume(TokenType::LeftParen, "expected '('")?;
-                    let mut args = vec![];
+                    let mut args = Vec::with_capacity(8);
                     if !self.check(&TokenType::RightParen) {
                         loop {
                             args.push(self.expression()?);
