@@ -17,6 +17,7 @@ func net.listen[host: str, port: i64] : i64, bool
 
     packed_host, ok := net.resolve(host)
     if !ok
+        io.close(s)
         return -1, false
 
     sa := _stackalloc(16)
@@ -105,6 +106,7 @@ func net.create_udp_client[host: str, port: i64] : net.UDPSocket, bool
 
     packed_host, ok := net.resolve(host)
     if !ok
+        (s as ptr)->free()
         return 0 as net.UDPSocket, false
 
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)

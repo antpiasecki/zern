@@ -21,8 +21,8 @@ macro_rules! expect_types {
             return error!(
                 $loc,
                 format!(
-                    "expected one of [{}], got {}",
-                    [$( $expected ),+].join(", "),
+                    "expected {}, got {}",
+                    [$( $expected ),+].join(" or "),
                     $expr_type
                 )
             );
@@ -30,6 +30,21 @@ macro_rules! expect_types {
     };
 }
 
+macro_rules! expect_same_types {
+    ($t1:expr, $t2:expr, [$( $expected:expr ),+], $loc:expr) => {{
+        expect_types!($t1, [$( $expected ),+], $loc);
+        expect_types!($t2, [$( $expected ),+], $loc);
+        if $t1 != $t2 {
+            return error!(
+                $loc,
+                format!(
+                    "expected same types, got {} and {}",
+                    $t1, $t2
+                )
+            );
+        }
+    }};
+}
 static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "opaque"];
 
 pub struct Env {
@@ -326,30 +341,36 @@ impl<'a> TypeChecker<'a> {
         let expr_type = match &expr.kind {
             ExprKind::Binary { left, op, right } => {
                 let left_type = self.typecheck_expr(env, left)?;
+                let right_type = self.typecheck_expr(env, right)?;
 
                 match op.token_type {
-                    TokenType::Plus
-                    | TokenType::Minus
-                    | TokenType::Star
-                    | TokenType::Slash
-                    | TokenType::Mod
+                    TokenType::Plus | TokenType::Minus | TokenType::Star | TokenType::Slash => {
+                        if left_type == "f64" {
+                            expect_same_types!(left_type, right_type, ["f64"], op.loc);
+                        } else {
+                            expect_types!(left_type, ["i64", "u8"], op.loc);
+                            expect_types!(right_type, ["i64", "u8"], op.loc);
+                        }
+                        Ok(left_type)
+                    }
+                    TokenType::Mod
                     | TokenType::Xor
                     | TokenType::BitAnd
                     | TokenType::BitOr
                     | TokenType::ShiftLeft
                     | TokenType::ShiftRight => {
                         expect_types!(left_type, ["i64", "u8"], op.loc);
-                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "u8"], op.loc);
+                        expect_types!(right_type, ["i64", "u8"], op.loc);
                         Ok(left_type)
                     }
-                    TokenType::DoubleEqual
-                    | TokenType::NotEqual
-                    | TokenType::Greater
-                    | TokenType::GreaterEqual
-                    | TokenType::Less
-                    | TokenType::LessEqual => {
-                        expect_types!(left_type, ["i64", "ptr", "u8"], op.loc);
-                        expect_types!(self.typecheck_expr(env, right)?, ["i64", "ptr", "u8"], op.loc);
+                    TokenType::DoubleEqual | TokenType::NotEqual => {
+                        expect_types!(left_type, ["i64", "f64", "ptr", "u8"], op.loc);
+                        expect_types!(right_type, ["i64", "f64", "ptr", "u8"], op.loc);
+                        Ok("bool".into())
+                    }
+                    TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => {
+                        expect_types!(left_type, ["i64", "f64", "u8"], op.loc);
+                        expect_types!(right_type, ["i64", "f64", "u8"], op.loc);
                         Ok("bool".into())
                     }
                     _ => unreachable!(),

@@ -34,7 +34,6 @@ func Array.push[xs: Array, x: opaque] : void
     xs->size += 1
 
 func Array.slice[xs: Array, start: i64, length: i64] : Array
-    return (xs as Array)->slice(start, length)
     if start < 0 || length < 0 || start + length > xs->size
         io.panic("Array.slice: out of bounds")
 

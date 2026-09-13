@@ -187,7 +187,7 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         io.panic("mem.copy_n: null src pointer")
     if !dst
         io.panic("mem.copy_n: null dst pointer")
-    if dst > src && dst < src@[n]
+    if dst as i64 > src as i64 && dst as i64 < src@[n] as i64
         i := n
         while i - 8 >= 0
             i -= 8

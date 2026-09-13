@@ -196,11 +196,11 @@ _builtin_syscall:
             );
         }
 
-        if !self.args.use_crt {
-            // Linux without CRT
-            emit!(
-                &mut self.output,
-                "
+        match (self.args.use_crt, self.args.target_windows) {
+            (false, false) => {
+                emit!(
+                    &mut self.output,
+                    "
 .globl _start
 .section .text
 _start:
@@ -220,18 +220,30 @@ _start:
     mov rax, 60
     syscall
 "
-            );
-            emit!(&mut self.bss, "    _builtin_environ: .zero 8");
-        } else if !self.args.target_windows {
-            // Linux with CRT
-            emit!(
-                &mut self.output,
-                "
+                );
+                emit!(&mut self.bss, "    _builtin_environ: .zero 8");
+            }
+            (true, false) => {
+                emit!(
+                    &mut self.output,
+                    "
 .extern environ
 .set _builtin_environ, environ
 "
-            );
+                );
+            }
+            (true, true) => {
+                emit!(
+                    &mut self.output,
+                    "
+.extern _environ
+.set _builtin_environ, _environ
+"
+                );
+            }
+            (false, true) => unreachable!(),
         }
+
         Ok(())
     }
 
@@ -616,17 +628,45 @@ _start:
 
                 match op.token_type {
                     TokenType::Plus => {
-                        emit!(&mut self.output, "    add rax, rbx");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    addsd xmm0, xmm1");
+                            emit!(&mut self.output, "    movq rax, xmm0");
+                        } else {
+                            emit!(&mut self.output, "    add rax, rbx");
+                        }
                     }
                     TokenType::Minus => {
-                        emit!(&mut self.output, "    sub rax, rbx");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    subsd xmm0, xmm1");
+                            emit!(&mut self.output, "    movq rax, xmm0");
+                        } else {
+                            emit!(&mut self.output, "    sub rax, rbx");
+                        }
                     }
                     TokenType::Star => {
-                        emit!(&mut self.output, "    imul rax, rbx");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    mulsd xmm0, xmm1");
+                            emit!(&mut self.output, "    movq rax, xmm0");
+                        } else {
+                            emit!(&mut self.output, "    imul rax, rbx");
+                        }
                     }
                     TokenType::Slash => {
-                        emit!(&mut self.output, "    cqo");
-                        emit!(&mut self.output, "    idiv rbx");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    divsd xmm0, xmm1");
+                            emit!(&mut self.output, "    movq rax, xmm0");
+                        } else {
+                            emit!(&mut self.output, "    cqo");
+                            emit!(&mut self.output, "    idiv rbx");
+                        }
                     }
                     TokenType::Mod => {
                         emit!(&mut self.output, "    cqo");
@@ -653,23 +693,51 @@ _start:
                         emit!(&mut self.output, "    movzx rax, al");
                     }
                     TokenType::Greater => {
-                        emit!(&mut self.output, "    cmp rax, rbx");
-                        emit!(&mut self.output, "    setg al");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    ucomisd xmm0, xmm1");
+                            emit!(&mut self.output, "    seta al");
+                        } else {
+                            emit!(&mut self.output, "    cmp rax, rbx");
+                            emit!(&mut self.output, "    setg al");
+                        }
                         emit!(&mut self.output, "    movzx rax, al");
                     }
                     TokenType::GreaterEqual => {
-                        emit!(&mut self.output, "    cmp rax, rbx");
-                        emit!(&mut self.output, "    setge al");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    ucomisd xmm0, xmm1");
+                            emit!(&mut self.output, "    setae al");
+                        } else {
+                            emit!(&mut self.output, "    cmp rax, rbx");
+                            emit!(&mut self.output, "    setge al");
+                        }
                         emit!(&mut self.output, "    movzx rax, al");
                     }
                     TokenType::Less => {
-                        emit!(&mut self.output, "    cmp rax, rbx");
-                        emit!(&mut self.output, "    setl al");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    ucomisd xmm0, xmm1");
+                            emit!(&mut self.output, "    setb al");
+                        } else {
+                            emit!(&mut self.output, "    cmp rax, rbx");
+                            emit!(&mut self.output, "    setl al");
+                        }
                         emit!(&mut self.output, "    movzx rax, al");
                     }
                     TokenType::LessEqual => {
-                        emit!(&mut self.output, "    cmp rax, rbx");
-                        emit!(&mut self.output, "    setle al");
+                        if self.expr_types[&left.id] == "f64" {
+                            emit!(&mut self.output, "    movq xmm0, rax");
+                            emit!(&mut self.output, "    movq xmm1, rbx");
+                            emit!(&mut self.output, "    ucomisd xmm0, xmm1");
+                            emit!(&mut self.output, "    setbe al");
+                        } else {
+                            emit!(&mut self.output, "    cmp rax, rbx");
+                            emit!(&mut self.output, "    setle al");
+                        }
                         emit!(&mut self.output, "    movzx rax, al");
                     }
                     TokenType::ShiftLeft => {

@@ -62,7 +62,7 @@ func i64.to_str_buf[n: i64, buf: str] : i64
         digit := n % 10
         if digit < 0
             digit = -digit
-        tmp[end] = '0' + digit
+        tmp[end] = '0' + digit as u8
         n = n / 10
         end -= 1
     if neg
