@@ -33,6 +33,30 @@ func Array.push[xs: Array, x: opaque] : void
     mem.write64(xs->data@[xs->size * 8], x as i64)
     xs->size += 1
 
+func Array.slice[xs: Array, start: i64, length: i64] : Array
+    return (xs as Array)->slice(start, length)
+    if start < 0 || length < 0 || start + length > xs->size
+        io.panic("Array.slice: out of bounds")
+
+    new_array := []
+    new_array->preallocate_and_zero(length)
+    mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
+    return new_array
+
+func Array.concat[a: Array, b: Array] : Array
+    new_array := []
+    new_array->preallocate_and_zero(a->size + b->size)
+    mem.copy_n(a->data, new_array->data@[0], a->size * 8)
+    mem.copy_n(b->data, new_array->data@[a->size * 8], b->size * 8)
+    return new_array
+
+func Array.count[xs: Array, x: opaque] : i64
+    n := 0
+    for i in 0..xs->size
+        if xs->nth(i) as i64 == x as i64
+            n += 1
+    return n
+
 func Array.free[xs: Array] : void
     if xs->data != 0
         xs->data->free()
@@ -83,27 +107,13 @@ func Array_#t#.#last[xs: Array_#t] : t
     return xs->nth(xs->size - 1)
 
 func Array_#t#.#slice[xs: Array_#t, start: i64, length: i64] : Array_#t
-    if start < 0 || length < 0 || start + length > xs->size
-        io.panic("Array.slice: out of bounds")
-
-    new_array := [] as Array_#t
-    new_array->preallocate_and_zero(length)
-    mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
-    return new_array
+    return (xs as Array)->slice(start, length) as Array_#t
 
 func Array_#t#.#concat[a: Array_#t, b: Array_#t] : Array_#t
-    new_array := [] as Array_#t
-    new_array->preallocate_and_zero(a->size + b->size)
-    mem.copy_n(a->data, new_array->data@[0], a->size * 8)
-    mem.copy_n(b->data, new_array->data@[a->size * 8], b->size * 8)
-    return new_array
+    return (a as Array)->concat(b as Array) as Array_#t
 
-func Array_#t#.#count[arr: Array_#t, item: t] : i64
-    count := 0
-    for i in 0..arr->size
-        if arr->nth(i) as i64 == item as i64
-            count += 1
-    return count
+func Array_#t#.#count[xs: Array_#t, x: t] : i64
+    return (xs as Array)->count(x as opaque)
 endmacro
 
 DECLARE_ARRAY(i64)

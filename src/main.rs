@@ -30,7 +30,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let tokenizer = tokenizer::Tokenizer::new(&mut tokens, args.path.clone(), source, &mut included_paths);
     tokenizer.tokenize()?;
 
-    let tokens = MacroExpander::new().expand(tokens);
+    let tokens = MacroExpander::new().expand(tokens)?;
 
     let parser = parser::Parser::new(tokens);
     let statements = parser.parse()?;

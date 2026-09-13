@@ -416,6 +416,7 @@ impl Parser {
                         _ => unreachable!(),
                     },
                     loc: op.loc.clone(),
+                    orig_loc: None,
                 };
                 Ok(Stmt::Assign {
                     left: expr.clone(),
@@ -423,6 +424,7 @@ impl Parser {
                         token_type: TokenType::Equal,
                         lexeme: String::from("="),
                         loc: op.loc,
+                        orig_loc: None,
                     },
                     value: Expr::new(ExprKind::Binary {
                         left: Box::new(expr),
@@ -644,7 +646,9 @@ impl Parser {
         let mut expr = self.primary()?;
 
         loop {
-            if self.peek().loc.line != self.previous().loc.line {
+            let prev_loc = self.previous().orig_loc.as_ref().unwrap_or(&self.previous().loc);
+            let peek_loc = self.peek().orig_loc.as_ref().unwrap_or(&self.peek().loc);
+            if prev_loc.line != peek_loc.line {
                 break;
             }
 
