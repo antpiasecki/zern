@@ -11,11 +11,14 @@ struct json.Value
     type: i64
     value: opaque
 
+DECLARE_ARRAY(json.Value)
+DECLARE_HASHMAP(json.Value)
+
 func json.Value.dump[v: json.Value] : str
     s := new str.Builder
 
     if v->type == json.OBJECT
-        map := v->value as HashMap<json.Value>
+        map := v->value as HashMap_json.Value
         keys := map->keys()
         defer keys->free()
         s->append_char('{')
@@ -27,15 +30,19 @@ func json.Value.dump[v: json.Value] : str
             s->append_char('"')
             s->append_char(':')
             value, _ := map->get(keys->nth(i))
-            s->append(value->dump())
+            d := value->dump()
+            s->append(d)
+            d->free()
         s->append_char('}')
     else if v->type == json.ARRAY
-        arr := v->value as Array<json.Value>
+        arr := v->value as Array_json.Value
         s->append_char('[')
         for i in 0..arr->size
             if i > 0
                 s->append_char(',')
-            s->append(arr->nth(i)->dump())
+            d := arr->nth(i)->dump()
+            s->append(d)
+            d->free()
         s->append_char(']')
     else if v->type == json.STRING
         // TODO: escape sequences
@@ -43,7 +50,12 @@ func json.Value.dump[v: json.Value] : str
         s->append(v->value as str)
         s->append_char('"')
     else if v->type == json.NUMBER
-        s->append((v->value as i64)->to_str())
+        f := 0 as f64
+        op := v->value as opaque
+        mem.copy_n(^op, ^f, 8)
+        tmp := _stackalloc(64) as str
+        len := f->to_str_buf(tmp)
+        s->append_n(tmp, len)
     else if v->type == json.NULL
         s->append("null")
     else if v->type == json.BOOL
@@ -58,16 +70,15 @@ func json.Value.dump[v: json.Value] : str
 
 func json.Value.free[v: json.Value] : void
     if v->type == json.OBJECT
-        map := v->value as HashMap<json.Value>
+        map := v->value as HashMap_json.Value
         defer map->free_with_keys()
         keys := map->keys()
         for i in 0..keys->size
             value, _ := map->get(keys->nth(i))
             value->free()
         keys->free()
-
     else if v->type == json.ARRAY
-        arr := v->value as Array<json.Value>
+        arr := v->value as Array_json.Value
         defer arr->free()
         for i in 0..arr->size
             arr->nth(i)->free()
@@ -102,7 +113,6 @@ func json._parse_value[s: str, i: ptr] : json.Value
             while true
                 json._skip_whitespace(s, i)
                 key := json._parse_string(s, i)
-                defer key->free()
                 json._skip_whitespace(s, i)
 
                 if s[mem.read64(i)] != ':'
@@ -111,7 +121,8 @@ func json._parse_value[s: str, i: ptr] : json.Value
                 json._skip_whitespace(s, i)
 
                 value := json._parse_value(s, i)
-                (out->value as HashMap<json.Value>)->insert(key, value)
+                (out->value as HashMap_json.Value)->insert(key, value)
+                key->free()
 
                 json._skip_whitespace(s, i)
                 if s[mem.read64(i)] == ','
@@ -133,7 +144,7 @@ func json._parse_value[s: str, i: ptr] : json.Value
         while s[mem.read64(i)] != ']'
             json._skip_whitespace(s, i)
 
-            (out->value as Array<json.Value>)->push(json._parse_value(s, i))
+            (out->value as Array_json.Value)->push(json._parse_value(s, i))
             json._skip_whitespace(s, i)
 
             if s[mem.read64(i)] == ','
@@ -156,16 +167,20 @@ func json._parse_value[s: str, i: ptr] : json.Value
 
         while s[mem.read64(i)]->is_digit()
             mem.write64(i, mem.read64(i) + 1)
-        // TODO: float support once str.parse_f64 is a thing
         if s[mem.read64(i)] == '.'
-            io.panic("json.parse: parsing floats not implemented yet")
+            mem.write64(i, mem.read64(i) + 1)
+            while s[mem.read64(i)]->is_digit()
+                mem.write64(i, mem.read64(i) + 1)
 
         len := mem.read64(i) - start
 
         num_str := s->substr_n(start, len)
         defer num_str->free()
         out->type = json.NUMBER
-        out->value = num_str->parse_i64() as opaque
+        f_val := num_str->parse_f64()
+        op_val := 0 as opaque
+        mem.copy_n(^f_val, ^op_val, 8)
+        out->value = op_val
     else if s[mem.read64(i)] == 'n' && s[mem.read64(i)+1] == 'u' && s[mem.read64(i)+2] == 'l' && s[mem.read64(i)+3] == 'l'
         out->type = json.NULL
         mem.write64(i, mem.read64(i) + 4)

@@ -7,20 +7,21 @@ use crate::{
     tokenizer::{Token, TokenType, ZernError, error},
 };
 
-// defers have 1 in 18 quintillion chance to fail
-const DEFER_MAGIC: u64 = 0xae64f8d23c556e8c;
-
 struct Var {
     pub stack_offset: usize,
     #[allow(unused)]
     pub var_type: String,
 }
 
+pub struct Scope {
+    vars: HashMap<String, Var>,
+    defers: Vec<Stmt>,
+}
+
 pub struct Env {
-    scopes: Vec<HashMap<String, Var>>,
+    scopes: Vec<Scope>,
     next_offset: usize,
     are_we_returning_f64: bool,
-    defers: Vec<(usize, Stmt)>,
     loop_begin_label: String,
     loop_end_label: String,
     loop_continue_label: String,
@@ -29,10 +30,12 @@ pub struct Env {
 impl Env {
     pub fn new() -> Env {
         Env {
-            scopes: vec![HashMap::new()],
+            scopes: vec![Scope {
+                vars: HashMap::new(),
+                defers: Vec::new(),
+            }],
             next_offset: 16,
             are_we_returning_f64: false,
-            defers: Vec::new(),
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
             loop_continue_label: String::new(),
@@ -40,7 +43,10 @@ impl Env {
     }
 
     pub fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(Scope {
+            vars: HashMap::new(),
+            defers: Vec::new(),
+        });
     }
 
     pub fn pop_scope(&mut self) {
@@ -50,7 +56,7 @@ impl Env {
     pub fn define_var(&mut self, name: String, var_type: String) -> usize {
         let offset = self.next_offset;
         self.next_offset += 8;
-        self.scopes.last_mut().unwrap().insert(
+        self.scopes.last_mut().unwrap().vars.insert(
             name,
             Var {
                 stack_offset: offset,
@@ -62,7 +68,7 @@ impl Env {
 
     fn get_var(&self, name: &str) -> Option<&Var> {
         for scope in self.scopes.iter().rev() {
-            if let Some(var) = scope.get(name) {
+            if let Some(var) = scope.vars.get(name) {
                 return Some(var);
             }
         }
@@ -354,6 +360,7 @@ _start:
                 for stmt in statements {
                     self.compile_stmt(env, stmt)?;
                 }
+                self.emit_scope_defers(env)?;
                 env.pop_scope();
             }
             Stmt::If {
@@ -490,19 +497,12 @@ _start:
                     }
                 }
 
-                match &**body {
-                    Stmt::Block(stmts) => {
-                        for stmt in stmts {
-                            self.compile_stmt(env, stmt)?;
-                        }
-                    }
-                    _ => self.compile_stmt(env, body)?,
-                }
+                self.compile_stmt(env, body)?;
 
                 // fallback to null
                 // very hacky but works
                 if !self.output.trim_end().ends_with("    ret") {
-                    self.emit_defers(env)?;
+                    self.emit_all_defers(env)?;
                     emit!(&mut self.output, "    mov rax, 0");
                     emit!(&mut self.output, "    mov rsp, rbp");
                     emit!(&mut self.output, "    sub rsp, 8");
@@ -521,7 +521,7 @@ _start:
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
-                self.emit_defers(env)?;
+                self.emit_all_defers(env)?;
                 match exprs.len() {
                     2 => {
                         self.compile_expr(env, &exprs[1])?;
@@ -608,10 +608,7 @@ _start:
                 if env.loop_begin_label != "" {
                     return error!(keyword.loc, "defers in loops not implemented yet");
                 }
-                let offset = env.define_var(format!("_defer_{}", env.defers.len()), "bool".into());
-                env.defers.push((offset, *block.clone()));
-                emit!(&mut self.output, "    movabs rax, {}", DEFER_MAGIC);
-                emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
+                env.scopes.last_mut().unwrap().defers.push(*block.clone());
             }
         }
         Ok(())
@@ -1064,7 +1061,7 @@ _start:
                 emit!(&mut self.output, "    call {}", func_name);
                 self.emit_call_cleanup(1 + args.len());
 
-                if self.expr_types[&callee.id] == "f64" {
+                if self.expr_types[&expr.id] == "f64" {
                     emit!(&mut self.output, "    movq rax, xmm0");
                 }
             }
@@ -1142,16 +1139,19 @@ _start:
         }
     }
 
-    fn emit_defers(&mut self, env: &mut Env) -> Result<(), ZernError> {
-        for (offset, stmt) in env.defers.clone().iter().rev() {
-            let skip_label = self.label();
-            emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
-            emit!(&mut self.output, "    movabs rbx, {}", DEFER_MAGIC);
-            emit!(&mut self.output, "    cmp rax, rbx");
-            emit!(&mut self.output, "    jne {}", skip_label);
+    fn emit_scope_defers(&mut self, env: &mut Env) -> Result<(), ZernError> {
+        for stmt in env.scopes.last().unwrap().defers.clone().iter().rev() {
             self.compile_stmt(env, stmt)?;
-            emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], 0", offset);
-            emit!(&mut self.output, "{}:", skip_label);
+        }
+        Ok(())
+    }
+
+    fn emit_all_defers(&mut self, env: &mut Env) -> Result<(), ZernError> {
+        for index in (0..env.scopes.len()).rev() {
+            let defers = env.scopes[index].defers.clone();
+            for stmt in defers.iter().rev() {
+                self.compile_stmt(env, stmt)?;
+            }
         }
         Ok(())
     }

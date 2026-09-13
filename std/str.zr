@@ -197,6 +197,38 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
+func str.split[haystack: str, needle: str]: Array_str
+    haystack_len := haystack->len()
+    needle_len := needle->len()
+    result := [] as Array_str
+
+    if !needle_len
+        if !haystack_len
+            return result
+        else
+            for i in 0..haystack_len
+                result->push(haystack->substr_n(i, 1))
+            return result
+
+    start := 0
+    i := 0
+    while i < haystack_len
+        if i <= haystack_len - needle_len
+            match := true
+            for j in 0..needle_len
+                if haystack[i + j] != needle[j]
+                    match = false
+                    break
+            if match
+                result->push(haystack->substr_n(start, i - start))
+                start = i + needle_len
+                i += needle_len
+                continue
+        i += 1
+
+    result->push(haystack->substr_n(start, haystack_len - start))
+    return result
+
 func str.to_lower[s: str] : str
     out := s->make_copy()
     i := 0
@@ -232,6 +264,40 @@ func str.parse_i64[s: str] : i64
         num = num * 10 + (d - '0')
         i += 1
     return num * sign
+
+func str.parse_f64[s: str] : f64
+    i := 0
+    while s[i]->is_whitespace()
+        i += 1
+
+    negative := false
+    if s[i] == '+' || s[i] == '-'
+        negative = s[i] == '-'
+        i += 1
+
+    has_digits := false
+    mantissa := 0.0
+
+    while s[i]->is_digit()
+        mantissa = mantissa * 10.0 + (s[i] - '0') as i64 as f64
+        i += 1
+        has_digits = true
+
+    if s[i] == '.'
+        i += 1
+        frac_scale := 0.1
+        while s[i]->is_digit()
+            mantissa = mantissa + ((s[i] - '0') as i64 as f64 * frac_scale)
+            frac_scale = frac_scale * 0.1
+            i += 1
+            has_digits = true
+
+    if !has_digits
+        io.panic("str.parse_f64: number must contain digits")
+
+    if negative
+        return -mantissa
+    return mantissa
 
 func str.hex_encode[s: str, s_len: i64] : str
     hex_chars := "0123456789abcdef"
