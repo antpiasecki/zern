@@ -14,7 +14,7 @@ func multiply[n: Array_i64, x: i64] : void
 func main[] : i64
     n := [1]
 
-    for i in 2..101
+    for i in 2..=100
         multiply(n, i)
 
     sum := 0

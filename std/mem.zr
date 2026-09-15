@@ -58,6 +58,7 @@ func mem.alloc[size: i64] : ptr
 
     size = mem.align(size)
 
+    // try to cut off a piece of an already available block
     cur := mem._heap_head as mem.Block
     while cur as ptr
         if cur->free && cur->size >= size
@@ -66,6 +67,7 @@ func mem.alloc[size: i64] : ptr
             return (cur as ptr)@[mem.Block.SIZE]
         cur = cur->next
 
+    // otherwise request a new block
     blk := mem._request_space(size)
 
     if !mem._heap_head
@@ -75,6 +77,7 @@ func mem.alloc[size: i64] : ptr
 
     return (blk as ptr)@[mem.Block.SIZE]
 
+// releases freed and page aligned blocks back to OS
 func mem.trim[] : void
     cur := mem._heap_tail as mem.Block
     while cur as ptr && cur->free
@@ -93,6 +96,7 @@ func mem.trim[] : void
 
         cur = prev
 
+// doesnt actually release memory, see mem.trim
 func ptr.free[x: ptr] : void
     if x == 0
         return
@@ -103,6 +107,7 @@ func ptr.free[x: ptr] : void
 
     blk->free = true
 
+    // coalesce forwards
     next := blk->next
     if next as ptr && next->free
         expected_next := (blk as ptr)@[mem.Block.SIZE + blk->size] as mem.Block
@@ -114,6 +119,7 @@ func ptr.free[x: ptr] : void
             if mem._heap_tail == next as ptr
                 mem._heap_tail = blk as ptr as i64
 
+    // coalesce backwards
     prev := blk->prev
     if prev as ptr && prev->free
         expected_blk := (prev as ptr)@[mem.Block.SIZE + prev->size] as mem.Block
@@ -147,6 +153,7 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
     next := blk->next
     expected_next := (blk as ptr)@[mem.Block.SIZE + blk->size] as mem.Block
 
+    // try to resize in place
     if next as ptr && next->free && expected_next as ptr == next as ptr
         combined := blk->size + mem.Block.SIZE + next->size
         if combined >= new_size
@@ -159,8 +166,8 @@ func ptr.realloc[x: ptr, new_size: i64] : ptr
             blk->_split(new_size)
             return x
 
+    // otherwise allocate a new buffer and copy
     new_ptr := mem.alloc(new_size)
-
     mem.copy_n(x, new_ptr, math.min(blk->size, new_size))
     x->free()
     return new_ptr

@@ -15,8 +15,8 @@ func main[] : i64
     wday := 0
     sun := 0
 
-    for year in 1901..2001
-        for mon in 1..13
+    for year in 1901..=2000
+        for mon in 1..=12
             if wday == 5
                 sun += 1
             wday = (wday + days(year, mon)) % 7

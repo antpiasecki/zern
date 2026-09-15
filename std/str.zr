@@ -102,10 +102,7 @@ func str.format_into[..] : i64
                 written += 1
                 arg_counter += 1
             else if format[i] == 'f'
-                v := _var_arg(arg_counter) as opaque
-                f := 0 as f64
-                mem.copy_n(^v, ^f, 8)
-                tmp_len := f->to_str_buf(tmp)
+                tmp_len := (_var_arg(arg_counter) as opaque as f64)->to_str_buf(tmp)
                 mem.copy_n(tmp as ptr, target_buf@[written], math.min(tmp_len, remaining))
                 written += tmp_len
                 arg_counter += 1
@@ -150,7 +147,7 @@ func str.find_n[haystack: str, haystack_len: i64, needle: str, needle_len: i64] 
     if needle_len > haystack_len
         return -1
 
-    for i in 0..(haystack_len - needle_len + 1)
+    for i in 0..=(haystack_len - needle_len)
         if haystack[i] != needle[0]
             continue
         if needle_len == 1

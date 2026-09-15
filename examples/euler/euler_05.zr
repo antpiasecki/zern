@@ -3,6 +3,6 @@ include "$/io.zr"
 func main[] : i64
     out := 1
 
-    for i in 1..21
+    for i in 1..=20
         out = math.lcm(out, i)
     io.println_i64(out)

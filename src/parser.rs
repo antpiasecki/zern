@@ -56,6 +56,7 @@ pub enum Stmt {
         var: Token,
         start: Expr,
         end: Expr,
+        is_inclusive: bool,
         body: Box<Stmt>,
     },
     Function {
@@ -485,6 +486,7 @@ impl Parser {
         self.consume(TokenType::KeywordIn, "expected 'in' after variable name")?;
         let start = self.expression()?;
         self.consume(TokenType::DoubleDot, "expected '..' after the number")?;
+        let is_inclusive = self.match_token(&[TokenType::Equal]);
         let end = self.expression()?;
 
         let body = self.block()?;
@@ -492,6 +494,7 @@ impl Parser {
             var,
             start,
             end,
+            is_inclusive,
             body: Box::new(body),
         })
     }

@@ -544,7 +544,13 @@ _start:
                 emit!(&mut self.output, "    pop rbp");
                 emit!(&mut self.output, "    ret");
             }
-            Stmt::For { var, start, end, body } => {
+            Stmt::For {
+                var,
+                start,
+                end,
+                is_inclusive,
+                body,
+            } => {
                 let old_loop_begin_label = env.loop_begin_label.clone();
                 let old_loop_end_label = env.loop_end_label.clone();
                 let old_loop_continue_label = env.loop_continue_label.clone();
@@ -565,7 +571,11 @@ _start:
                 emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
                 emit!(&mut self.output, "    mov rcx, QWORD PTR [rbp-{}]", end_offset);
                 emit!(&mut self.output, "    cmp rax, rcx");
-                emit!(&mut self.output, "    jge {}", env.loop_end_label);
+                if *is_inclusive {
+                    emit!(&mut self.output, "    jg {}", env.loop_end_label);
+                } else {
+                    emit!(&mut self.output, "    jge {}", env.loop_end_label);
+                }
                 self.compile_stmt(env, body)?;
                 emit!(&mut self.output, "{}:", env.loop_continue_label);
                 emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
@@ -1024,8 +1034,21 @@ _start:
                         emit!(&mut self.output, "    movq xmm0, rax");
                         emit!(&mut self.output, "    cvttsd2si rax, xmm0");
                     }
-                    ("f64", _) => return error!(type_name.loc, "f64 can be only casted to i64"),
-                    (_, "f64") => return error!(type_name.loc, "only i64 can be casted to f64"),
+                    ("f64", "f64") => {}    // nothing to do
+                    ("opaque", "f64") => {} // bitcast
+                    ("f64", "opaque") => {} // bitcast
+                    ("f64", _) => {
+                        return error!(
+                            type_name.loc,
+                            "f64 can be casted only to i64 (float conversion) or opaque (bitcast)"
+                        );
+                    }
+                    (_, "f64") => {
+                        return error!(
+                            type_name.loc,
+                            "f64 can be casted only from i64 (float conversion) or opaque (bitcast)"
+                        );
+                    }
                     _ => {}
                 }
             }

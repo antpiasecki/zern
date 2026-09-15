@@ -267,10 +267,10 @@ func CHIP8.step[c: CHIP8] : void
             c->memory[c->I + 1] = (c->reg[x] / 10) % 10
             c->memory[c->I + 2] = c->reg[x] % 10
         else if kk == 0x55
-            for i in 0..x+1
+            for i in 0..=x
                 c->memory[c->I + i] = c->reg[i]
         else if kk == 0x65
-            for i in 0..x+1
+            for i in 0..=x
                 c->reg[i] = c->memory[c->I + i]
 
 func main[argc: i64, argv: ptr] : i64

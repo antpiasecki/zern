@@ -2,11 +2,11 @@ include "$/io.zr"
 
 func main[] : i64
     sum_of_squares := 0
-    for i in 1..101
+    for i in 1..=100
         sum_of_squares += i * i
 
     square_of_sum := 0
-    for i in 1..101
+    for i in 1..=100
         square_of_sum += i
     square_of_sum = square_of_sum * square_of_sum
 

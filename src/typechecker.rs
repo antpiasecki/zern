@@ -218,7 +218,9 @@ impl<'a> TypeChecker<'a> {
                 );
                 self.typecheck_stmt(env, body)?;
             }
-            Stmt::For { var, start, end, body } => {
+            Stmt::For {
+                var, start, end, body, ..
+            } => {
                 expect_type!(self.typecheck_expr(env, start)?, "i64", var.loc);
                 expect_type!(self.typecheck_expr(env, end)?, "i64", var.loc);
 

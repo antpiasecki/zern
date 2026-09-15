@@ -5,7 +5,7 @@ func main[] : i64
     r := 20
     out := 1
 
-    for i in 1..r+1
+    for i in 1..=r
         out = out * (n - (r - i)) / i
 
     io.println_i64(out)

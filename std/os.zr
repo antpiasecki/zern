@@ -92,13 +92,8 @@ func os.run_shell_command[command: str] : os.CmdResult
         return res
 
     if pid == 0
-        argv := _stackalloc(32)
-        mem.write64(argv@[0], "sh" as ptr as i64)
-        mem.write64(argv@[8], "-c" as ptr as i64)
-        mem.write64(argv@[16], command as ptr as i64)
-        mem.write64(argv@[24], 0 as ptr as i64)
-
-        _builtin_syscall(SYS_execve, "/bin/sh", argv, _builtin_environ as ptr)
+        argv := ["sh", "-c", command, 0] // gets freed after child process exits
+        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
         os.exit(1)
     else
         status := 0

@@ -50,11 +50,8 @@ func json.Value.dump[v: json.Value] : str
         s->append(v->value as str)
         s->append_char('"')
     else if v->type == json.NUMBER
-        f := 0 as f64
-        op := v->value as opaque
-        mem.copy_n(^op, ^f, 8)
         tmp := _stackalloc(64) as str
-        len := f->to_str_buf(tmp)
+        len := (v->value as f64)->to_str_buf(tmp)
         s->append_n(tmp, len)
     else if v->type == json.NULL
         s->append("null")
@@ -91,128 +88,134 @@ func json.val[x: opaque] : opaque
     return (x as json.Value)->value
 
 func json.parse[s: str] : json.Value
-    i := 0
-    return json._parse_value(s, ^i)
+    p := new json.Parser
+    p->s = s
+    p->i = 0
+    return p->_parse_value()
 
-func json._parse_value[s: str, i: ptr] : json.Value
+struct json.Parser
+    s: str
+    i: i64
+
+func json.Parser._parse_value[p: json.Parser] : json.Value
     out := new* json.Value
 
-    json._skip_whitespace(s, i)
+    p->_skip_whitespace()
 
-    if s[mem.read64(i)] == 0
+    if p->_peek() == 0
         io.panic("json.parse: unexpected EOF")
 
-    if s[mem.read64(i)] == '{'
-        mem.write64(i, mem.read64(i) + 1)
-        json._skip_whitespace(s, i)
+    if p->_peek() == '{'
+        p->i += 1
+        p->_skip_whitespace()
 
         out->type = json.OBJECT
         out->value = HashMap.new() as opaque
 
-        if s[mem.read64(i)] != '}'
+        if p->_peek() != '}'
             while true
-                json._skip_whitespace(s, i)
-                key := json._parse_string(s, i)
-                json._skip_whitespace(s, i)
+                p->_skip_whitespace()
+                key := p->_parse_string()
+                p->_skip_whitespace()
 
-                if s[mem.read64(i)] != ':'
+                if p->_peek() != ':'
                     io.panic("json.parse: expected ':'")
-                mem.write64(i, mem.read64(i) + 1)
-                json._skip_whitespace(s, i)
+                p->i += 1
+                p->_skip_whitespace()
 
-                value := json._parse_value(s, i)
+                value := p->_parse_value()
                 (out->value as HashMap_json.Value)->insert(key, value)
                 key->free()
 
-                json._skip_whitespace(s, i)
-                if s[mem.read64(i)] == ','
-                    mem.write64(i, mem.read64(i) + 1)
+                p->_skip_whitespace()
+                if p->_peek() == ','
+                    p->i += 1
                 else
                     break
 
-        json._skip_whitespace(s, i)
-        if s[mem.read64(i)] != '}'
+        p->_skip_whitespace()
+        if p->_peek() != '}'
             io.panic("json.parse: expected '}'")
-        mem.write64(i, mem.read64(i) + 1)
-    else if s[mem.read64(i)] == '['
-        mem.write64(i, mem.read64(i) + 1)
-        json._skip_whitespace(s, i)
+        p->i += 1
+    else if p->_peek() == '['
+        p->i += 1
+        p->_skip_whitespace()
 
         out->type = json.ARRAY
         out->value = [] as opaque
 
-        while s[mem.read64(i)] != ']'
-            json._skip_whitespace(s, i)
+        while p->_peek() != ']'
+            p->_skip_whitespace()
 
-            (out->value as Array_json.Value)->push(json._parse_value(s, i))
-            json._skip_whitespace(s, i)
+            (out->value as Array_json.Value)->push(p->_parse_value())
+            p->_skip_whitespace()
 
-            if s[mem.read64(i)] == ','
-                mem.write64(i, mem.read64(i) + 1)
+            if p->_peek() == ','
+                p->i += 1
             else
                 break
 
-        json._skip_whitespace(s, i)
-        if s[mem.read64(i)] != ']'
+        p->_skip_whitespace()
+        if p->_peek() != ']'
             io.panic("json.parse: expected ']'")
-        mem.write64(i, mem.read64(i) + 1)
-    else if s[mem.read64(i)] == '"'
+        p->i += 1
+    else if p->_peek() == '"'
         out->type = json.STRING
-        out->value = json._parse_string(s, i) as opaque
-    else if s[mem.read64(i)]->is_digit() || s[mem.read64(i)] == '-'
-        start := mem.read64(i)
+        out->value = p->_parse_string() as opaque
+    else if p->_peek()->is_digit() || p->_peek() == '-'
+        start := p->i
 
-        if s[mem.read64(i)] == '-'
-            mem.write64(i, mem.read64(i) + 1)
+        if p->_peek() == '-'
+            p->i += 1
 
-        while s[mem.read64(i)]->is_digit()
-            mem.write64(i, mem.read64(i) + 1)
-        if s[mem.read64(i)] == '.'
-            mem.write64(i, mem.read64(i) + 1)
-            while s[mem.read64(i)]->is_digit()
-                mem.write64(i, mem.read64(i) + 1)
+        while p->_peek()->is_digit()
+            p->i += 1
+        if p->_peek() == '.'
+            p->i += 1
+            while p->_peek()->is_digit()
+                p->i += 1
 
-        len := mem.read64(i) - start
+        len := p->i - start
 
-        num_str := s->substr_n(start, len)
+        num_str := p->s->substr_n(start, len)
         defer num_str->free()
         out->type = json.NUMBER
-        f_val := num_str->parse_f64()
-        op_val := 0 as opaque
-        mem.copy_n(^f_val, ^op_val, 8)
-        out->value = op_val
-    else if s[mem.read64(i)] == 'n' && s[mem.read64(i)+1] == 'u' && s[mem.read64(i)+2] == 'l' && s[mem.read64(i)+3] == 'l'
+        out->value = num_str->parse_f64() as opaque
+    else if (p->s@[p->i] as str)->equal_n("null", 4)
         out->type = json.NULL
-        mem.write64(i, mem.read64(i) + 4)
-    else if s[mem.read64(i)] == 't' && s[mem.read64(i)+1] == 'r' && s[mem.read64(i)+2] == 'u' && s[mem.read64(i)+3] == 'e'
+        p->i += 4
+    else if (p->s@[p->i] as str)->equal_n("true", 4)
         out->type = json.BOOL
         out->value = true as opaque
-        mem.write64(i, mem.read64(i) + 4)
-    else if s[mem.read64(i)] == 'f' && s[mem.read64(i)+1] == 'a' && s[mem.read64(i)+2] == 'l' && s[mem.read64(i)+3] == 's' && s[mem.read64(i)+4] == 'e'
+        p->i += 4
+    else if (p->s@[p->i] as str)->equal_n("false", 5)
         out->type = json.BOOL
         out->value = false as opaque
-        mem.write64(i, mem.read64(i) + 5)
+        p->i += 5
     else
         io.panic("json.parse: unexpected character")
 
     return out
 
-func json._parse_string[s: str, i: ptr] : str
-    if s[mem.read64(i)] != '"'
+func json.Parser._parse_string[p: json.Parser] : str
+    if p->_peek() != '"'
         io.panic("json.parse: expected '\"'")
-    mem.write64(i, mem.read64(i) + 1)
+    p->i += 1
 
-    start := mem.read64(i)
+    start := p->i
     // TODO: escape sequences
-    while s[mem.read64(i)] != '"'
-        if s[mem.read64(i)] == 0
+    while p->_peek() != '"'
+        if p->_peek() == 0
             io.panic("json.parse: unexpected EOF")
-        mem.write64(i, mem.read64(i) + 1)
+        p->i += 1
 
-    len := mem.read64(i) - start
-    mem.write64(i, mem.read64(i) + 1)
-    return s->substr_n(start, len)
+    len := p->i - start
+    p->i += 1
+    return p->s->substr_n(start, len)
 
-func json._skip_whitespace[s: str, i: ptr] : void
-    while s[mem.read64(i)]->is_whitespace()
-        mem.write64(i, mem.read64(i) + 1)
+func json.Parser._skip_whitespace[p: json.Parser] : void
+    while p->_peek()->is_whitespace()
+        p->i += 1
+
+func json.Parser._peek[p: json.Parser] : u8
+    return p->s[p->i]
