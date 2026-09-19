@@ -233,6 +233,7 @@ impl<'a> TypeChecker<'a> {
                 name,
                 params,
                 return_types,
+                type_vars: _,
                 body,
                 exported: _,
             } => {
@@ -418,7 +419,12 @@ impl<'a> TypeChecker<'a> {
                     return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                 }
             }
-            ExprKind::Call { callee, paren, args } => {
+            ExprKind::Call {
+                callee,
+                paren,
+                args,
+                type_args: _,
+            } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind {
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
                         // its a function (defined/builtin/extern)

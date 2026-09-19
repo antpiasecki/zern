@@ -114,6 +114,7 @@ impl SymbolTable {
                 name,
                 params,
                 return_types,
+                type_vars: _,
                 body: _,
                 exported: _,
             } => {

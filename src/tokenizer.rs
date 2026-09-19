@@ -34,6 +34,7 @@ pub enum TokenType {
     Arrow,
     At,
     Hash,
+    Dollar,
 
     Equal,
     DoubleEqual,
@@ -270,6 +271,7 @@ impl<'a> Tokenizer<'a> {
             }
             '#' => self.add_token(TokenType::Hash)?,
             '@' => self.add_token(TokenType::At)?,
+            '$' => self.add_token(TokenType::Dollar)?,
             '\'' => {
                 if self.eof() {
                     return error!(self.loc, "unterminated char literal");

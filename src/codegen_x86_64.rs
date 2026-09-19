@@ -409,6 +409,7 @@ _start:
                 name,
                 params,
                 return_types,
+                type_vars: _,
                 body,
                 exported,
             } => {
@@ -859,7 +860,12 @@ _start:
                     }
                 }
             }
-            ExprKind::Call { callee, paren: _, args } => {
+            ExprKind::Call {
+                callee,
+                paren: _,
+                args,
+                type_args: _,
+            } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {

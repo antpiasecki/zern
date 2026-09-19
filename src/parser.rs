@@ -1,10 +1,33 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::tokenizer::{
-    Loc, Token,
-    TokenType::{self, Identifier},
-    ZernError, error,
-};
+use crate::tokenizer::{Loc, Token, TokenType, ZernError, error};
+
+// https://stackoverflow.com/a/29963675
+pub struct ScopeCall<F: FnMut()> {
+    pub c: F,
+}
+
+impl<F: FnMut()> Drop for ScopeCall<F> {
+    fn drop(&mut self) {
+        (self.c)();
+    }
+}
+
+macro_rules! recursion_guard {
+    ($self:ident) => {
+        $self.depth += 1;
+        if $self.depth > 200 {
+            return error!(Loc::default(), "maximum expression depth reached");
+        }
+        let self_ptr = $self as *mut Self;
+        let _scope_call = ScopeCall {
+            c: || unsafe {
+                (*self_ptr).depth -= 1;
+            },
+        };
+    };
+}
+pub(crate) use recursion_guard;
 
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -63,6 +86,7 @@ pub enum Stmt {
         name: Token,
         params: Params,
         return_types: Vec<Token>,
+        type_vars: Vec<Token>,
         body: Box<Stmt>,
         exported: bool,
     },
@@ -87,33 +111,6 @@ pub enum Stmt {
         block: Box<Stmt>,
     },
 }
-
-// https://stackoverflow.com/a/29963675
-pub struct ScopeCall<F: FnMut()> {
-    pub c: F,
-}
-
-impl<F: FnMut()> Drop for ScopeCall<F> {
-    fn drop(&mut self) {
-        (self.c)();
-    }
-}
-
-macro_rules! recursion_guard {
-    ($self:ident) => {
-        $self.depth += 1;
-        if $self.depth > 200 {
-            return error!(Loc::default(), "maximum expression depth reached");
-        }
-        let self_ptr = $self as *mut Self;
-        let _scope_call = ScopeCall {
-            c: || unsafe {
-                (*self_ptr).depth -= 1;
-            },
-        };
-    };
-}
-pub(crate) use recursion_guard;
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -156,6 +153,7 @@ pub enum ExprKind {
         callee: Box<Expr>,
         paren: Token,
         args: Vec<Expr>,
+        type_args: Vec<Token>,
     },
     ArrayLiteral(Vec<Expr>),
     Index {
@@ -232,7 +230,7 @@ impl Parser {
             }
             if self.match_token(&[TokenType::KeywordVar]) {
                 return Ok(Stmt::GlobalVariable(
-                    self.consume(Identifier, "expected variable name after 'var'")?,
+                    self.consume(TokenType::Identifier, "expected variable name after 'var'")?,
                 ));
             }
             return error!(self.peek().loc, "statements not allowed outside function body");
@@ -244,7 +242,7 @@ impl Parser {
     fn func_declaration(&mut self, exported: bool) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
 
-        let (params, return_types) = self.parse_function_type()?;
+        let (type_vars, params, return_types) = self.parse_function_type()?;
 
         self.is_inside_function = true;
         let body = Box::new(self.block()?);
@@ -254,12 +252,32 @@ impl Parser {
             name,
             params,
             return_types,
+            type_vars,
             body,
             exported,
         })
     }
 
-    fn parse_function_type(&mut self) -> Result<(Params, Vec<Token>), ZernError> {
+    fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
+        self.consume(TokenType::Less, "expected '<' after '$'")?;
+        let mut type_vars = vec![];
+        loop {
+            type_vars.push(self.consume(TokenType::Identifier, "expected type variable")?);
+            if !self.match_token(&[TokenType::Comma]) {
+                break;
+            }
+        }
+        self.consume(TokenType::Greater, "expected '>' after type variables")?;
+        Ok(type_vars)
+    }
+
+    fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>), ZernError> {
+        let type_vars = if self.match_token(&[TokenType::Dollar]) {
+            self.parse_type_vars()?
+        } else {
+            vec![]
+        };
+
         self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
 
         let mut is_variadic = false;
@@ -294,6 +312,7 @@ impl Parser {
         }
 
         Ok((
+            type_vars,
             if is_variadic {
                 Params::Variadic
             } else {
@@ -332,7 +351,10 @@ impl Parser {
 
     fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected extern name")?;
-        let (params, return_types) = self.parse_function_type()?;
+        let (type_vars, params, return_types) = self.parse_function_type()?;
+        if !type_vars.is_empty() {
+            return error!(self.previous().loc, "extern functions cannot have type variables");
+        }
         Ok(Stmt::Extern {
             name,
             params,
@@ -387,7 +409,7 @@ impl Parser {
         } else if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::Comma) {
             let mut targets = Vec::with_capacity(2);
             loop {
-                targets.push(self.consume(Identifier, "expected an identifier")?);
+                targets.push(self.consume(TokenType::Identifier, "expected an identifier")?);
                 if !self.match_token(&[TokenType::Comma]) {
                     break;
                 }
@@ -655,7 +677,14 @@ impl Parser {
                 break;
             }
 
-            if self.match_token(&[TokenType::LeftParen]) {
+            if self.check(&TokenType::Dollar) || self.check(&TokenType::LeftParen) {
+                let type_args = if self.match_token(&[TokenType::Dollar]) {
+                    self.parse_type_vars()?
+                } else {
+                    vec![]
+                };
+                self.consume(TokenType::LeftParen, "expected '(' after arguments")?;
+
                 let mut args = Vec::with_capacity(8);
                 if !self.check(&TokenType::RightParen) {
                     loop {
@@ -672,6 +701,7 @@ impl Parser {
                     callee: Box::new(expr),
                     paren,
                     args,
+                    type_args,
                 })
             } else if self.match_token(&[TokenType::LeftBracket]) {
                 let index = self.expression()?;
