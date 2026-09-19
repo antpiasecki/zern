@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    monomorphizer,
     parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
     symbol_table::{FnParams, SymbolTable},
     tokenizer::{Loc, TokenType, ZernError, error},
@@ -334,6 +335,13 @@ impl<'a> TypeChecker<'a> {
             Stmt::Defer { keyword: _, block } => {
                 self.typecheck_stmt(env, block)?;
             }
+            Stmt::Instantiation { name: _, types } => {
+                for t in types {
+                    if !self.is_valid_type_name(&t.lexeme) {
+                        return error!(&t.loc, format!("unknown type: {}", &t.lexeme));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -423,10 +431,15 @@ impl<'a> TypeChecker<'a> {
                 callee,
                 paren,
                 args,
-                type_args: _,
+                type_args,
             } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind {
-                    if let Some(fn_type) = self.symbol_table.functions.get(&callee_name.lexeme) {
+                    let callee_name = if type_args.is_empty() {
+                        callee_name.lexeme.clone()
+                    } else {
+                        monomorphizer::mangle(callee_name, type_args)
+                    };
+                    if let Some(fn_type) = self.symbol_table.functions.get(&callee_name) {
                         // its a function (defined/builtin/extern)
                         match &fn_type.params {
                             FnParams::Normal(params) => {

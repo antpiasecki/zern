@@ -110,6 +110,10 @@ pub enum Stmt {
         keyword: Token,
         block: Box<Stmt>,
     },
+    Instantiation {
+        name: Token,
+        types: Vec<Token>,
+    },
 }
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -232,6 +236,12 @@ impl Parser {
                 return Ok(Stmt::GlobalVariable(
                     self.consume(TokenType::Identifier, "expected variable name after 'var'")?,
                 ));
+            }
+            if self.match_token(&[TokenType::KeywordInsta]) {
+                let name = self.consume(TokenType::Identifier, "expected function name after 'insta'")?;
+                self.consume(TokenType::Dollar, "expected $ after function name")?;
+                let types = self.parse_type_vars()?;
+                return Ok(Stmt::Instantiation { name, types });
             }
             return error!(self.peek().loc, "statements not allowed outside function body");
         }

@@ -40,6 +40,7 @@ impl FnType {
 
 pub struct SymbolTable {
     pub functions: HashMap<String, FnType>,
+    pub generic_functions: HashMap<String, Stmt>,
     pub constants: HashMap<String, i64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
     pub globals: HashMap<String, String>,
@@ -57,6 +58,7 @@ impl SymbolTable {
                 ("_var_arg".into(), FnType::new(vec!["i64"], "opaque")),
                 ("_stackalloc".into(), FnType::new(vec!["i64"], "ptr")),
             ]),
+            generic_functions: HashMap::new(),
             constants: HashMap::new(),
             structs: HashMap::new(),
             globals: HashMap::from([("_builtin_environ".into(), "_builtin_environ".into())]),
@@ -114,34 +116,49 @@ impl SymbolTable {
                 name,
                 params,
                 return_types,
-                type_vars: _,
-                body: _,
-                exported: _,
+                type_vars,
+                body,
+                exported,
             } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
-                let return_type = return_types
-                    .iter()
-                    .map(|t| t.lexeme.clone())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                match params {
-                    Params::Normal(params) => self.functions.insert(
+
+                if type_vars.is_empty() {
+                    let return_type = return_types
+                        .iter()
+                        .map(|t| t.lexeme.clone())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    match params {
+                        Params::Normal(params) => self.functions.insert(
+                            name.lexeme.clone(),
+                            FnType {
+                                return_type,
+                                params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                            },
+                        ),
+                        Params::Variadic => self.functions.insert(
+                            name.lexeme.clone(),
+                            FnType {
+                                return_type,
+                                params: FnParams::Variadic,
+                            },
+                        ),
+                    };
+                } else {
+                    self.generic_functions.insert(
                         name.lexeme.clone(),
-                        FnType {
-                            return_type,
-                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                        Stmt::Function {
+                            name: name.clone(),
+                            params: params.clone(),
+                            return_types: return_types.clone(),
+                            type_vars: type_vars.clone(),
+                            body: body.clone(),
+                            exported: *exported,
                         },
-                    ),
-                    Params::Variadic => self.functions.insert(
-                        name.lexeme.clone(),
-                        FnType {
-                            return_type,
-                            params: FnParams::Variadic,
-                        },
-                    ),
-                };
+                    );
+                }
             }
             Stmt::Struct { name, fields } => {
                 if self.is_name_defined(&name.lexeme) {
@@ -177,6 +194,7 @@ impl SymbolTable {
 
     fn is_name_defined(&self, s: &str) -> bool {
         self.functions.contains_key(s)
+            || self.generic_functions.contains_key(s)
             || self.constants.contains_key(s)
             || self.structs.contains_key(s)
             || self.globals.contains_key(s)

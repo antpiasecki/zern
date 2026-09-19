@@ -67,6 +67,7 @@ pub enum TokenType {
     KeywordAs,
     KeywordVar,
     KeywordDefer,
+    KeywordInsta,
     KeywordTextmacro,
     KeywordEndmacro,
     KeywordTrue,
@@ -119,7 +120,7 @@ impl fmt::Display for Loc {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -431,6 +432,7 @@ impl<'a> Tokenizer<'a> {
             "as" => TokenType::KeywordAs,
             "var" => TokenType::KeywordVar,
             "defer" => TokenType::KeywordDefer,
+            "insta" => TokenType::KeywordInsta,
             "textmacro" => TokenType::KeywordTextmacro,
             "endmacro" => TokenType::KeywordEndmacro,
             "true" => TokenType::KeywordTrue,

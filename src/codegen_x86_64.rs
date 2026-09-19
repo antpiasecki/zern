@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
-    Args,
+    Args, monomorphizer,
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
@@ -409,10 +409,12 @@ _start:
                 name,
                 params,
                 return_types,
-                type_vars: _,
+                type_vars,
                 body,
                 exported,
             } => {
+                assert!(type_vars.is_empty());
+
                 if return_types.len() == 1 && return_types[0].lexeme == "f64" {
                     env.are_we_returning_f64 = true;
                 }
@@ -620,6 +622,9 @@ _start:
                     return error!(keyword.loc, "defers in loops not implemented yet");
                 }
                 env.scopes.last_mut().unwrap().defers.push(*block.clone());
+            }
+            Stmt::Instantiation { .. } => {
+                // handled in the monomorphizer
             }
         }
         Ok(())
@@ -864,7 +869,7 @@ _start:
                 callee,
                 paren: _,
                 args,
-                type_args: _,
+                type_args,
             } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
@@ -902,9 +907,14 @@ _start:
                 self.emit_call_setup(&arg_types);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
-                    if self.symbol_table.functions.contains_key(&callee_name.lexeme) {
+                    let callee_name = if type_args.is_empty() {
+                        callee_name.lexeme.clone()
+                    } else {
+                        monomorphizer::mangle(callee_name, type_args)
+                    };
+                    if self.symbol_table.functions.contains_key(&callee_name) {
                         // its a function (defined/builtin/extern)
-                        emit!(&mut self.output, "    call {}", callee_name.lexeme);
+                        emit!(&mut self.output, "    call {}", callee_name);
                     } else {
                         // its a variable containing function address
                         self.compile_expr(env, callee)?;

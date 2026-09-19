@@ -1,5 +1,6 @@
 mod codegen_x86_64;
 mod macros;
+mod monomorphizer;
 mod parser;
 mod symbol_table;
 mod tokenizer;
@@ -25,7 +26,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     };
 
     let mut included_paths = HashSet::new();
-    // atp we dont know yet how many files we are compiling but 15k seems like a healthy amount
+    // atp we dont know yet how many files we are including so a 15k estimate must do
     let mut tokens = Vec::with_capacity(15000);
     let tokenizer = tokenizer::Tokenizer::new(&mut tokens, args.path.clone(), source, &mut included_paths);
     tokenizer.tokenize()?;
@@ -39,6 +40,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     for stmt in &statements {
         symbol_table.register_declaration(stmt)?;
     }
+
+    let statements = monomorphizer::monomorphize(statements, &mut symbol_table)?;
 
     symbol_table
         .constants
