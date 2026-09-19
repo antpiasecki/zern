@@ -186,6 +186,7 @@ pub enum ExprKind {
         callee: Box<Expr>,
         method: Token,
         args: Vec<Expr>,
+        type_args: Vec<Token>,
     },
 }
 
@@ -733,8 +734,16 @@ impl Parser {
                     index: Box::new(index),
                 })
             } else if self.match_token(&[TokenType::Arrow]) {
-                if self.check(&TokenType::Identifier) && self.check_ahead(&TokenType::LeftParen) {
+                if self.check(&TokenType::Identifier)
+                    && (self.check_ahead(&TokenType::Dollar) || self.check_ahead(&TokenType::LeftParen))
+                {
                     let method = self.consume(TokenType::Identifier, "expected method name")?;
+                    let type_args = if self.match_token(&[TokenType::Dollar]) {
+                        self.parse_type_vars()?
+                    } else {
+                        vec![]
+                    };
+
                     self.consume(TokenType::LeftParen, "expected '('")?;
                     let mut args = Vec::with_capacity(8);
                     if !self.check(&TokenType::RightParen) {
@@ -750,6 +759,7 @@ impl Parser {
                         callee: Box::new(expr),
                         method,
                         args,
+                        type_args,
                     });
                 } else {
                     let field = self.consume(TokenType::Identifier, "expected field name after '->'")?;

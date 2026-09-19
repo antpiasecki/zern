@@ -437,7 +437,7 @@ impl<'a> TypeChecker<'a> {
                     let callee_name = if type_args.is_empty() {
                         callee_name.lexeme.clone()
                     } else {
-                        monomorphizer::mangle(callee_name, type_args)
+                        monomorphizer::mangle(callee_name.lexeme.clone(), type_args)
                     };
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name) {
                         // its a function (defined/builtin/extern)
@@ -490,12 +490,7 @@ impl<'a> TypeChecker<'a> {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
-                if exprs.is_empty() {
-                    Ok("Array".into())
-                } else {
-                    let first_item_type = self.typecheck_expr(env, &exprs[0])?;
-                    Ok(format!("Array_{}", first_item_type))
-                }
+                Ok("Array".into())
             }
             ExprKind::Index {
                 indexed,
@@ -549,14 +544,25 @@ impl<'a> TypeChecker<'a> {
                 self.typecheck_expr(env, casted)?;
                 Ok(type_name.lexeme.clone())
             }
-            ExprKind::MethodCall { callee, method, args } => {
+            ExprKind::MethodCall {
+                callee,
+                method,
+                args,
+                type_args,
+            } => {
                 let receiver_type = self.typecheck_expr(env, callee)?;
                 let func_name = format!("{}.{}", receiver_type, method.lexeme);
+
+                let func_name = if type_args.is_empty() {
+                    func_name.clone()
+                } else {
+                    monomorphizer::mangle(func_name, type_args)
+                };
 
                 let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
                     return error!(
                         method.loc,
-                        format!("method {} not found on type {}", method.lexeme, receiver_type)
+                        format!("method {} not found on type {}", func_name, receiver_type)
                     );
                 };
 

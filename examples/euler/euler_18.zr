@@ -1,33 +1,31 @@
 include "$/io.zr"
 include "$/containers.zr"
 
-DECLARE_ARRAY(Array_i64)
-
-func findmax[triangle: Array_Array_i64, row: i64, col: i64] : i64
+func findmax[triangle: Array, row: i64, col: i64] : i64
     if row == 14
-        return triangle->nth(row)->nth(col)
+        return triangle->nth$<Array>(row)->nth$<i64>(col)
 
     left := findmax(triangle, row + 1, col)
     right := findmax(triangle, row + 1, col + 1)
 
-    return triangle->nth(row)->nth(col) + math.max(left, right)
+    return triangle->nth$<Array>(row)->nth$<i64>(col) + math.max(left, right)
 
 func main[] : i64
-    triangle := [] as Array_Array_i64
-    triangle->push([75])
-    triangle->push([95, 64])
-    triangle->push([17, 47, 82])
-    triangle->push([18, 35, 87, 10])
-    triangle->push([20, 4, 82, 47, 65])
-    triangle->push([19, 1, 23, 75, 3, 34])
-    triangle->push([88, 2, 77, 73, 7, 63, 67])
-    triangle->push([99, 65, 4, 28, 6, 16, 70, 92])
-    triangle->push([41, 41, 26, 56, 83, 40, 80, 70, 33])
-    triangle->push([41, 48, 72, 33, 47, 32, 37, 16, 94, 29])
-    triangle->push([53, 71, 44, 65, 25, 43, 91, 52, 97, 51, 14])
-    triangle->push([70, 11, 33, 28, 77, 73, 17, 78, 39, 68, 17, 57])
-    triangle->push([91, 71, 52, 38, 17, 14, 91, 43, 58, 50, 27, 29, 48])
-    triangle->push([63, 66, 4, 68, 89, 53, 67, 30, 73, 16, 69, 87, 40, 31])
-    triangle->push([4, 62, 98, 27, 23, 9, 70, 98, 73, 93, 38, 53, 60, 4, 23])
+    triangle := []
+    triangle->push$<Array>([75])
+    triangle->push$<Array>([95, 64])
+    triangle->push$<Array>([17, 47, 82])
+    triangle->push$<Array>([18, 35, 87, 10])
+    triangle->push$<Array>([20, 4, 82, 47, 65])
+    triangle->push$<Array>([19, 1, 23, 75, 3, 34])
+    triangle->push$<Array>([88, 2, 77, 73, 7, 63, 67])
+    triangle->push$<Array>([99, 65, 4, 28, 6, 16, 70, 92])
+    triangle->push$<Array>([41, 41, 26, 56, 83, 40, 80, 70, 33])
+    triangle->push$<Array>([41, 48, 72, 33, 47, 32, 37, 16, 94, 29])
+    triangle->push$<Array>([53, 71, 44, 65, 25, 43, 91, 52, 97, 51, 14])
+    triangle->push$<Array>([70, 11, 33, 28, 77, 73, 17, 78, 39, 68, 17, 57])
+    triangle->push$<Array>([91, 71, 52, 38, 17, 14, 91, 43, 58, 50, 27, 29, 48])
+    triangle->push$<Array>([63, 66, 4, 68, 89, 53, 67, 30, 73, 16, 69, 87, 40, 31])
+    triangle->push$<Array>([4, 62, 98, 27, 23, 9, 70, 98, 73, 93, 38, 53, 60, 4, 23])
 
     io.println_i64(findmax(triangle, 0, 0))

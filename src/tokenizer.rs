@@ -33,7 +33,6 @@ pub enum TokenType {
     ShiftRight,
     Arrow,
     At,
-    Hash,
     Dollar,
 
     Equal,
@@ -68,8 +67,6 @@ pub enum TokenType {
     KeywordVar,
     KeywordDefer,
     KeywordInsta,
-    KeywordTextmacro,
-    KeywordEndmacro,
     KeywordTrue,
     KeywordFalse,
 
@@ -270,7 +267,6 @@ impl<'a> Tokenizer<'a> {
                     self.add_token(TokenType::Less)?
                 }
             }
-            '#' => self.add_token(TokenType::Hash)?,
             '@' => self.add_token(TokenType::At)?,
             '$' => self.add_token(TokenType::Dollar)?,
             '\'' => {
@@ -433,8 +429,6 @@ impl<'a> Tokenizer<'a> {
             "var" => TokenType::KeywordVar,
             "defer" => TokenType::KeywordDefer,
             "insta" => TokenType::KeywordInsta,
-            "textmacro" => TokenType::KeywordTextmacro,
-            "endmacro" => TokenType::KeywordEndmacro,
             "true" => TokenType::KeywordTrue,
             "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,

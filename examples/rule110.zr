@@ -1,28 +1,26 @@
 include "$/io.zr"
 include "$/containers.zr"
 
-DECLARE_ARRAY(bool)
-
-func rule110_step[state: Array_bool] : void
-    new_state := [] as Array_bool
+func rule110_step[state: Array] : void
+    new_state := []
     defer new_state->free()
 
     for i in 0..state->size
         left := false
         if i - 1 >= 0
-            left = state->nth(i - 1)
-        center := state->nth(i)
+            left = state->nth$<bool>(i - 1)
+        center := state->nth$<bool>(i)
         right := false
         if i + 1 < state->size
-            right = state->nth(i + 1)
+            right = state->nth$<bool>(i + 1)
 
-        new_state->push(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
+        new_state->push$<bool>(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
 
     mem.copy_n(new_state->data, state->data, state->size * 8)
 
-func print_state[state: Array_bool]: void
+func print_state[state: Array]: void
     for i in 0..state->size
-        if state->nth(i)
+        if state->nth$<bool>(i)
             io.print_char('#')
         else
             io.print_char(' ')
@@ -31,11 +29,11 @@ func print_state[state: Array_bool]: void
 func main[] : i64
     SIZE := 60
 
-    state := [] as Array_bool
+    state := []
     defer state->free()
     for i in 0..SIZE
-        state->push(false)
-    state->push(true)
+        state->push$<bool>(false)
+    state->push$<bool>(true)
 
     print_state(state)
     for i in 0..SIZE

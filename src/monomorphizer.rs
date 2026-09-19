@@ -38,7 +38,7 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
                 continue;
             }
 
-            let mangled_name = mangle(name, types);
+            let mangled_name = mangle(name.lexeme.clone(), types);
             let mut mangled_name_token = name.clone();
             mangled_name_token.lexeme = mangled_name.clone();
 
@@ -91,10 +91,10 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
     Ok(statements)
 }
 
-pub fn mangle(name: &Token, types: &Vec<Token>) -> String {
+pub fn mangle(name: String, types: &Vec<Token>) -> String {
     format!(
         "{}${}",
-        name.lexeme,
+        name,
         types
             .iter()
             .map(|t| t.lexeme.clone())
@@ -184,10 +184,16 @@ fn substitute_expr(e: &Expr, bindings: &HashMap<String, Token>) -> Expr {
             casted: Box::new(substitute_expr(casted, bindings)),
             type_name: substitute_token(type_name, bindings),
         },
-        ExprKind::MethodCall { callee, method, args } => ExprKind::MethodCall {
+        ExprKind::MethodCall {
+            callee,
+            method,
+            args,
+            type_args,
+        } => ExprKind::MethodCall {
             callee: Box::new(substitute_expr(callee, bindings)),
             method: method.clone(),
             args: args.iter().map(|a| substitute_expr(a, bindings)).collect(),
+            type_args: type_args.iter().map(|t| substitute_token(t, bindings)).collect(),
         },
     };
     Expr {

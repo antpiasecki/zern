@@ -194,17 +194,17 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-func str.split[haystack: str, needle: str]: Array_str
+func str.split[haystack: str, needle: str]: Array
     haystack_len := haystack->len()
     needle_len := needle->len()
-    result := [] as Array_str
+    result := []
 
     if !needle_len
         if !haystack_len
             return result
         else
             for i in 0..haystack_len
-                result->push(haystack->substr_n(i, 1))
+                result->push$<str>(haystack->substr_n(i, 1))
             return result
 
     start := 0
@@ -217,13 +217,13 @@ func str.split[haystack: str, needle: str]: Array_str
                     match = false
                     break
             if match
-                result->push(haystack->substr_n(start, i - start))
+                result->push$<str>(haystack->substr_n(start, i - start))
                 start = i + needle_len
                 i += needle_len
                 continue
         i += 1
 
-    result->push(haystack->substr_n(start, haystack_len - start))
+    result->push$<str>(haystack->substr_n(start, haystack_len - start))
     return result
 
 func str.to_lower[s: str] : str

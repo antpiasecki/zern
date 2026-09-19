@@ -1,19 +1,17 @@
 include "$/containers.zr"
 
-DECLARE_HASHMAP(str)
-
 struct TestRunner
-    build_blacklist: Array_str
-    run_blacklist: Array_str
-    custom_build_flags: HashMap_str
-    custom_run_args: HashMap_str
+    build_blacklist: Array
+    run_blacklist: Array
+    custom_build_flags: HashMap
+    custom_run_args: HashMap
 
 func TestRunner.run_directory[tr: TestRunner, dir: str] : void
     files, ok := os.list_directory(dir)
     if !ok
         io.panic("failed to open test directory")
     for i in 0..files->size
-        joined := dir->concat("/")->concat(files->nth(i))
+        joined := dir->concat("/")->concat(files->nth$<str>(i))
         if os.is_a_directory(joined)
             tr->run_directory(joined)
         else
@@ -29,7 +27,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Building %s...\n", x)
 
     build_cmd := "./target/release/zern "->concat(x)
-    custom_build_flags, ok := tr->custom_build_flags->get(name)
+    custom_build_flags, ok := tr->custom_build_flags->get$<str>(name)
     if ok
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
@@ -49,7 +47,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    custom_run_args, ok := tr->custom_run_args->get(name)
+    custom_run_args, ok := tr->custom_run_args->get$<str>(name)
     if ok
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
@@ -70,14 +68,14 @@ func main[] : i64
     (status as ptr)->free()
 
     tr := new TestRunner
-    tr->build_blacklist = [] as Array_str
+    tr->build_blacklist = []
     tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "serve.zr", "curl.zr", "tun_tun_tun_sahur.zr"]
-    tr->custom_build_flags = HashMap.new() as HashMap_str
-    tr->custom_build_flags->insert("raylib.zr", "-m -C \"-lraylib\"")
-    tr->custom_build_flags->insert("chip8.zr", "-m -C \"-lraylib\"")
-    tr->custom_build_flags->insert("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
-    tr->custom_build_flags->insert("serve.zr", "-m -C \"-lpthread\"")
-    tr->custom_run_args = HashMap.new() as HashMap_str
+    tr->custom_build_flags = HashMap.new()
+    tr->custom_build_flags->insert$<str>("raylib.zr", "-m -C \"-lraylib\"")
+    tr->custom_build_flags->insert$<str>("chip8.zr", "-m -C \"-lraylib\"")
+    tr->custom_build_flags->insert$<str>("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
+    tr->custom_build_flags->insert$<str>("serve.zr", "-m -C \"-lpthread\"")
+    tr->custom_run_args = HashMap.new()
 
     tr->run_directory("examples")
     io.println("DONE")

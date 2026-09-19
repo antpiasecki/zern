@@ -14,15 +14,15 @@ extern IsKeyDown[key: i64] : bool
 struct CHIP8
     memory: Buffer
     pc: i64
-    stack: Array_i64
+    stack: Array
     sp: i64
     reg: Buffer
     I: i64
     delay_timer: u8
     sound_timer: u8
-    keyboard: Array_i64
+    keyboard: Array
     display: Buffer
-    keyboard_map: Array_i64
+    keyboard_map: Array
 
 func CHIP8.init[c: CHIP8] : void
     c->memory = Buffer.alloc(4096)
@@ -38,7 +38,7 @@ func CHIP8.init[c: CHIP8] : void
     fonts := [0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0, 0x10, 0xf0, 0x10, 0xf0, 0x90, 0x90, 0xf0, 0x10, 0x10, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80, 0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0, 0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80, 0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80]
     defer fonts->free()
     for i in 0..80
-        c->memory[i] = fonts->nth(i)
+        c->memory[i] = fonts->nth$<u8>(i)
 
     c->pc = 0x200
 
@@ -170,13 +170,13 @@ func CHIP8.step[c: CHIP8] : void
         if nnn == 0x0e0
             mem.zero(c->display@[0], 64 * 32)
         else if nnn == 0x0ee
-            c->pc = c->stack->nth(c->sp)
+            c->pc = c->stack->nth$<i64>(c->sp)
             c->sp = c->sp - 1
     else if op == 0x1
         c->pc = nnn
     else if op == 0x2
         c->sp += 1
-        c->stack->set(c->sp, c->pc)
+        c->stack->set$<i64>(c->sp, c->pc)
         c->pc = nnn
     else if op == 0x3
         if c->reg[x] == kk
@@ -239,10 +239,10 @@ func CHIP8.step[c: CHIP8] : void
                     c->display[offset] = c->display[offset] ^ 1
     else if op == 0xe
         if kk == 0x9e
-            if IsKeyDown(c->keyboard_map->nth(c->reg[x] as i64))
+            if IsKeyDown(c->keyboard_map->nth$<i64>(c->reg[x] as i64))
                 c->pc += 2
         else if kk == 0xa1
-            if !(IsKeyDown(c->keyboard_map->nth(c->reg[x] as i64)) as bool)
+            if !(IsKeyDown(c->keyboard_map->nth$<i64>(c->reg[x] as i64)) as bool)
                 c->pc += 2
     else if op == 0xf
         if kk == 0x07
@@ -251,7 +251,7 @@ func CHIP8.step[c: CHIP8] : void
             key_pressed := false
             while !key_pressed && !(WindowShouldClose() as bool)
                 for i in 0..16
-                    if IsKeyDown(c->keyboard_map->nth(i))
+                    if IsKeyDown(c->keyboard_map->nth$<i64>(i))
                         key_pressed = true
                         break
         else if kk == 0x15

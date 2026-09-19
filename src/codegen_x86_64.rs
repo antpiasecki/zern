@@ -910,7 +910,7 @@ _start:
                     let callee_name = if type_args.is_empty() {
                         callee_name.lexeme.clone()
                     } else {
-                        monomorphizer::mangle(callee_name, type_args)
+                        monomorphizer::mangle(callee_name.lexeme.clone(), type_args)
                     };
                     if self.symbol_table.functions.contains_key(&callee_name) {
                         // its a function (defined/builtin/extern)
@@ -952,7 +952,7 @@ _start:
                     emit!(&mut self.output, "    mov rsi, rax");
                     emit!(&mut self.output, "    pop rdi");
                     emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call Array.push");
+                    emit!(&mut self.output, "    call Array.push$opaque");
                 }
                 emit!(&mut self.output, "    pop rax");
             }
@@ -1068,10 +1068,21 @@ _start:
                     _ => {}
                 }
             }
-            ExprKind::MethodCall { callee, method, args } => {
+            ExprKind::MethodCall {
+                callee,
+                method,
+                args,
+                type_args,
+            } => {
                 let receiver_type = &self.expr_types[&callee.id];
                 let base_type = self.strip_generic(receiver_type);
                 let func_name = format!("{}.{}", base_type, method.lexeme);
+
+                let func_name = if type_args.is_empty() {
+                    func_name.clone()
+                } else {
+                    monomorphizer::mangle(func_name.clone(), type_args)
+                };
 
                 if self.args.target_windows {
                     if (1 + args.len()) % 2 == 1 {

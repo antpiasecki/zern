@@ -5,14 +5,12 @@ include "$/net.zr"
 const TTL = 60
 const PORT = 10053
 
-DECLARE_HASHMAP(Buffer)
-
 func main[] : i64
-    records := HashMap.new() as HashMap_Buffer
+    records := HashMap.new()
 
     test_su_buffer := Buffer.alloc(4)
     mem.write32be(test_su_buffer@[0], net.pack_addr(1, 2, 3, 4))
-    records->insert("test.su", test_su_buffer)
+    records->insert$<Buffer>("test.su", test_su_buffer)
 
     s, ok := net.create_udp_server("0.0.0.0", PORT)
     if !ok
@@ -26,7 +24,7 @@ func main[] : i64
             s->send_to(sa, resp@[0], resp->size)
             resp->free()
 
-func handle_req[s: net.UDPSocket, records: HashMap_Buffer, req: Buffer, sa: ptr] : Buffer
+func handle_req[s: net.UDPSocket, records: HashMap, req: Buffer, sa: ptr] : Buffer
     defer req->free()
     defer sa->free()
 
@@ -76,7 +74,7 @@ func handle_req[s: net.UDPSocket, records: HashMap_Buffer, req: Buffer, sa: ptr]
     nxdomain := false
     rdata := 0 as ptr
     rdata_size := 0
-    record, ok := records->get(name_lower)
+    record, ok := records->get$<Buffer>(name_lower)
     if question_class == DNS_CLASS_IN && ok
         if question_type == DNS_TYPE_A && record->size == 4
             rdata = record@[0]

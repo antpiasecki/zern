@@ -134,19 +134,19 @@ func os.is_a_directory[path: str] : bool
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
 
-func os.list_directory[path: str] : Array_str, bool
+func os.list_directory[path: str] : Array, bool
     fd, ok := io.open_for_reading(path)
     if !ok
-        return 0 as Array_str, false
+        return 0 as Array, false
 
-    files := [] as Array_str
+    files := []
     buf := _stackalloc(1024)
     while true
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_items()
             io.close(fd)
-            return 0 as Array_str, false
+            return 0 as Array, false
         else if n == 0
             break
 
@@ -164,7 +164,7 @@ func os.list_directory[path: str] : Array_str, bool
                         if name[2] == 0
                             skip = true
                 if !skip
-                    files->push((name as str)->make_copy())
+                    files->push$<str>((name as str)->make_copy())
             pos += len
 
     io.close(fd)
