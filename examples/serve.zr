@@ -1,8 +1,8 @@
 // needs to be compiled with -m -C "-lpthread"
 include "$/net.zr"
 
-extern pthread_create[thread: ptr, attr: ptr, start_routine: ptr, arg: ptr] : i64
-extern pthread_detach[thread: i64] : i64
+func pthread_create[thread: ptr, attr: ptr, start_routine: ptr, arg: ptr] : i64 @[extern]
+func pthread_detach[thread: i64] : i64 @[extern]
 
 struct ConnData
     sock: i64

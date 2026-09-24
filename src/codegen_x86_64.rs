@@ -411,7 +411,7 @@ _start:
                 return_types,
                 type_vars,
                 body,
-                exported,
+                attributes: _,
             } => {
                 assert!(type_vars.is_empty());
 
@@ -420,7 +420,13 @@ _start:
                 }
 
                 let name = &name.lexeme;
-                if *exported || name == "main" {
+
+                if self.symbol_table.functions[name].attributes.contains(&"extern".into()) {
+                    emit!(&mut self.output, ".extern {}", name);
+                    return Ok(());
+                }
+
+                if name == "main" || self.symbol_table.functions[name].attributes.contains(&"export".into()) {
                     emit!(&mut self.output, ".globl {0}", name);
                 }
                 if !self.args.target_windows {
@@ -603,9 +609,6 @@ _start:
                     return error!(keyword.loc, "continue not allowed outside loops");
                 }
                 emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
-            }
-            Stmt::Extern { name, .. } => {
-                emit!(&mut self.output, ".extern {}", name.lexeme);
             }
             Stmt::Struct { .. } => {
                 // handled in SymbolTable

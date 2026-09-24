@@ -2,14 +2,14 @@
 include "$/io.zr"
 include "$/os.zr"
 
-extern InitWindow[width: i64, height: i64, title: str] : void
-extern SetTargetFPS[fps: i64] : void
-extern WindowShouldClose[] : bool
-extern BeginDrawing[] : void
-extern ClearBackground[color: i64] : void
-extern DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void
-extern EndDrawing[] : void
-extern IsKeyDown[key: i64] : bool
+func InitWindow[width: i64, height: i64, title: str] : void @[extern]
+func SetTargetFPS[fps: i64] : void @[extern]
+func WindowShouldClose[] : bool @[extern]
+func BeginDrawing[] : void @[extern]
+func ClearBackground[color: i64] : void @[extern]
+func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
+func EndDrawing[] : void @[extern]
+func IsKeyDown[key: i64] : bool @[extern]
 
 struct CHIP8
     memory: Buffer

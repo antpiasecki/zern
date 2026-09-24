@@ -236,7 +236,7 @@ impl<'a> TypeChecker<'a> {
                 return_types,
                 type_vars: _,
                 body,
-                exported: _,
+                attributes: _,
             } => {
                 let return_type = return_types
                     .iter()
@@ -321,9 +321,6 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Break(_) => {}
             Stmt::Continue(_) => {}
-            Stmt::Extern { .. } => {
-                // handled in the SymbolTable
-            }
             Stmt::Struct { name: _, fields } => {
                 for field in fields {
                     if !self.is_valid_type_name(&field.var_type.lexeme) {

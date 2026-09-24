@@ -27,7 +27,7 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
             return_types,
             type_vars,
             body,
-            exported,
+            attributes,
         } = f
         else {
             unreachable!()
@@ -76,7 +76,7 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
                 return_types: substituted_return_types,
                 type_vars: vec![],
                 body: substituted_body,
-                exported: exported.clone(),
+                attributes: attributes.clone(),
             });
         }
     }
@@ -264,7 +264,7 @@ fn substitute_stmt(s: &Stmt, bindings: &HashMap<String, Token>) -> Stmt {
             return_types,
             type_vars,
             body,
-            exported,
+            attributes,
         } => {
             let shadowed: HashSet<&str> = type_vars.iter().map(|t| t.lexeme.as_str()).collect();
             let filtered: HashMap<String, Token> = bindings
@@ -278,7 +278,7 @@ fn substitute_stmt(s: &Stmt, bindings: &HashMap<String, Token>) -> Stmt {
                 return_types: return_types.iter().map(|t| substitute_token(t, &filtered)).collect(),
                 type_vars: type_vars.clone(),
                 body: Box::new(substitute_stmt(body, &filtered)),
-                exported: *exported,
+                attributes: attributes.clone(),
             }
         }
         Stmt::Return { keyword, exprs } => Stmt::Return {
@@ -287,15 +287,6 @@ fn substitute_stmt(s: &Stmt, bindings: &HashMap<String, Token>) -> Stmt {
         },
         Stmt::Break(token) => Stmt::Break(token.clone()),
         Stmt::Continue(token) => Stmt::Continue(token.clone()),
-        Stmt::Extern {
-            name,
-            params,
-            return_type,
-        } => Stmt::Extern {
-            name: name.clone(),
-            params: substitute_params(params, bindings),
-            return_type: substitute_token(return_type, bindings),
-        },
         Stmt::Struct { name, fields } => Stmt::Struct {
             name: name.clone(),
             fields: fields

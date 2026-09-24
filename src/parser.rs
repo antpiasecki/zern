@@ -88,7 +88,7 @@ pub enum Stmt {
         return_types: Vec<Token>,
         type_vars: Vec<Token>,
         body: Box<Stmt>,
-        exported: bool,
+        attributes: Vec<Token>,
     },
     Return {
         keyword: Token,
@@ -96,11 +96,6 @@ pub enum Stmt {
     },
     Break(Token),
     Continue(Token),
-    Extern {
-        name: Token,
-        params: Params,
-        return_type: Token,
-    },
     Struct {
         name: Token,
         fields: Vec<Param>,
@@ -218,14 +213,7 @@ impl Parser {
     fn declaration(&mut self) -> Result<Stmt, ZernError> {
         if !self.is_inside_function {
             if self.match_token(&[TokenType::KeywordFunc]) {
-                return self.func_declaration(false);
-            }
-            if self.match_token(&[TokenType::KeywordExport]) {
-                self.consume(TokenType::KeywordFunc, "expected 'func' after 'export'")?;
-                return self.func_declaration(true);
-            }
-            if self.match_token(&[TokenType::KeywordExtern]) {
-                return self.extern_declaration();
+                return self.func_declaration();
             }
             if self.match_token(&[TokenType::KeywordConst]) {
                 return self.const_declaration();
@@ -250,14 +238,19 @@ impl Parser {
         self.statement()
     }
 
-    fn func_declaration(&mut self, exported: bool) -> Result<Stmt, ZernError> {
+    fn func_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
 
-        let (type_vars, params, return_types) = self.parse_function_type()?;
+        let (type_vars, params, return_types, attributes) = self.parse_function_type()?;
 
-        self.is_inside_function = true;
-        let body = Box::new(self.block()?);
-        self.is_inside_function = false;
+        let body = Box::new(if self.check(&TokenType::Indent) {
+            self.is_inside_function = true;
+            let body = self.block()?;
+            self.is_inside_function = false;
+            body
+        } else {
+            Stmt::Block(vec![])
+        });
 
         Ok(Stmt::Function {
             name,
@@ -265,24 +258,11 @@ impl Parser {
             return_types,
             type_vars,
             body,
-            exported,
+            attributes,
         })
     }
 
-    fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
-        self.consume(TokenType::Less, "expected '<' after '$'")?;
-        let mut type_vars = vec![];
-        loop {
-            type_vars.push(self.consume(TokenType::Identifier, "expected type variable")?);
-            if !self.match_token(&[TokenType::Comma]) {
-                break;
-            }
-        }
-        self.consume(TokenType::Greater, "expected '>' after type variables")?;
-        Ok(type_vars)
-    }
-
-    fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>), ZernError> {
+    fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>, Vec<Token>), ZernError> {
         let type_vars = if self.match_token(&[TokenType::Dollar]) {
             self.parse_type_vars()?
         } else {
@@ -322,6 +302,18 @@ impl Parser {
             }
         }
 
+        let mut attributes = vec![];
+        if self.match_token(&[TokenType::At]) {
+            self.consume(TokenType::LeftBracket, "expected '[' after '@'")?;
+            loop {
+                attributes.push(self.consume(TokenType::Identifier, "expected attribute")?);
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            self.consume(TokenType::RightBracket, "expected ']' after attributes")?;
+        }
+
         Ok((
             type_vars,
             if is_variadic {
@@ -330,7 +322,21 @@ impl Parser {
                 Params::Normal(params)
             },
             return_types,
+            attributes,
         ))
+    }
+
+    fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
+        self.consume(TokenType::Less, "expected '<' after '$'")?;
+        let mut type_vars = vec![];
+        loop {
+            type_vars.push(self.consume(TokenType::Identifier, "expected type variable")?);
+            if !self.match_token(&[TokenType::Comma]) {
+                break;
+            }
+        }
+        self.consume(TokenType::Greater, "expected '>' after type variables")?;
+        Ok(type_vars)
     }
 
     fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
@@ -358,19 +364,6 @@ impl Parser {
         let neg = self.match_token(&[TokenType::Minus]);
         let value = self.consume(TokenType::IntLiteral, "expected a number after '='")?;
         Ok(Stmt::Const { name, value, neg })
-    }
-
-    fn extern_declaration(&mut self) -> Result<Stmt, ZernError> {
-        let name = self.consume(TokenType::Identifier, "expected extern name")?;
-        let (type_vars, params, return_types) = self.parse_function_type()?;
-        if !type_vars.is_empty() {
-            return error!(self.previous().loc, "extern functions cannot have type variables");
-        }
-        Ok(Stmt::Extern {
-            name,
-            params,
-            return_type: return_types[0].clone(),
-        })
     }
 
     fn block(&mut self) -> Result<Stmt, ZernError> {

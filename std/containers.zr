@@ -86,20 +86,46 @@ func Array.contains_str[arr: Array, s: str] : bool
             return true
     return false
 
-insta Array.nth$<i64>
 insta Array.nth$<u8>
+insta Array.nth$<i64>
+insta Array.nth$<f64>
 insta Array.nth$<str>
-insta Array.nth$<ptr>
 insta Array.nth$<bool>
+insta Array.nth$<ptr>
+insta Array.nth$<opaque>
 insta Array.nth$<Array>
+insta Array.nth$<HashMap>
 insta Array.nth$<HashMap._Node>
-insta Array.set$<HashMap._Node>
+insta Array.set$<u8>
 insta Array.set$<i64>
+insta Array.set$<f64>
+insta Array.set$<str>
+insta Array.set$<bool>
+insta Array.set$<ptr>
+insta Array.set$<opaque>
+insta Array.set$<Array>
+insta Array.set$<HashMap>
+insta Array.set$<HashMap._Node>
+insta Array.push$<u8>
 insta Array.push$<i64>
+insta Array.push$<f64>
 insta Array.push$<str>
 insta Array.push$<bool>
+insta Array.push$<ptr>
 insta Array.push$<opaque>
 insta Array.push$<Array>
+insta Array.push$<HashMap>
+insta Array.push$<HashMap._Node>
+insta Array.last$<u8>
+insta Array.last$<i64>
+insta Array.last$<f64>
+insta Array.last$<str>
+insta Array.last$<bool>
+insta Array.last$<ptr>
+insta Array.last$<opaque>
+insta Array.last$<Array>
+insta Array.last$<HashMap>
+insta Array.last$<HashMap._Node>
 
 const HashMap._TABLE_SIZE = 100
 

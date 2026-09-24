@@ -1,15 +1,15 @@
 // needs to be compiled with -m -C "-lraylib"
 include "$/io.zr"
 
-extern InitWindow[width: i64, height: i64, title: str] : void
-extern SetTargetFPS[fps: i64] : void
-extern WindowShouldClose[] : bool
-extern BeginDrawing[] : void
-extern EndDrawing[] : void
-extern ClearBackground[color: i64] : void
-extern CloseWindow[] : void
-extern DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void
-extern IsKeyDown[key: i64] : bool
+func InitWindow[width: i64, height: i64, title: str] : void @[extern]
+func SetTargetFPS[fps: i64] : void @[extern]
+func WindowShouldClose[] : bool @[extern]
+func BeginDrawing[] : void @[extern]
+func EndDrawing[] : void @[extern]
+func ClearBackground[color: i64] : void @[extern]
+func CloseWindow[] : void @[extern]
+func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
+func IsKeyDown[key: i64] : bool @[extern]
 
 const KEY_W = 87
 const KEY_S = 83

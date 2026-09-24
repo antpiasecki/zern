@@ -20,6 +20,7 @@ pub enum FnParams {
 pub struct FnType {
     pub return_type: String,
     pub params: FnParams,
+    pub attributes: Vec<String>,
 }
 
 impl FnType {
@@ -27,6 +28,7 @@ impl FnType {
         FnType {
             return_type: return_type.to_string(),
             params: FnParams::Normal(params.iter().map(|x| x.to_string()).collect()),
+            attributes: vec![],
         }
     }
 
@@ -34,6 +36,7 @@ impl FnType {
         FnType {
             return_type: return_type.to_string(),
             params: FnParams::Variadic,
+            attributes: vec![],
         }
     }
 }
@@ -87,38 +90,13 @@ impl SymbolTable {
                 }
                 self.constants.insert(name.lexeme.clone(), value);
             }
-            Stmt::Extern {
-                name,
-                params,
-                return_type,
-            } => {
-                if self.is_name_defined(&name.lexeme) {
-                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
-                }
-                match params {
-                    Params::Normal(params) => self.functions.insert(
-                        name.lexeme.clone(),
-                        FnType {
-                            return_type: return_type.lexeme.clone(),
-                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
-                        },
-                    ),
-                    Params::Variadic => self.functions.insert(
-                        name.lexeme.clone(),
-                        FnType {
-                            return_type: return_type.lexeme.clone(),
-                            params: FnParams::Variadic,
-                        },
-                    ),
-                };
-            }
             Stmt::Function {
                 name,
                 params,
                 return_types,
                 type_vars,
                 body,
-                exported,
+                attributes,
             } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
@@ -130,12 +108,14 @@ impl SymbolTable {
                         .map(|t| t.lexeme.clone())
                         .collect::<Vec<_>>()
                         .join(",");
+                    let attributes = attributes.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>();
                     match params {
                         Params::Normal(params) => self.functions.insert(
                             name.lexeme.clone(),
                             FnType {
                                 return_type,
                                 params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                                attributes,
                             },
                         ),
                         Params::Variadic => self.functions.insert(
@@ -143,6 +123,7 @@ impl SymbolTable {
                             FnType {
                                 return_type,
                                 params: FnParams::Variadic,
+                                attributes,
                             },
                         ),
                     };
@@ -155,7 +136,7 @@ impl SymbolTable {
                             return_types: return_types.clone(),
                             type_vars: type_vars.clone(),
                             body: body.clone(),
-                            exported: *exported,
+                            attributes: attributes.clone(),
                         },
                     );
                 }

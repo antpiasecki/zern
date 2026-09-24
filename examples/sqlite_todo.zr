@@ -1,16 +1,16 @@
 // needs to be compiled with -m -C "-lsqlite3"
 include "$/io.zr"
 
-extern sqlite3_open[filename: str, ppDb: ptr] : i64
-extern sqlite3_exec[db: i64, sql: str, callback: i64, arg: i64, errmsg: i64] : i64
-extern sqlite3_prepare_v2[db: i64, zSql: str, nByte: i64, ppStmt: ptr, pzTail: i64] : i64
-extern sqlite3_bind_int[stmt: i64, index: i64, value: i64] : i64
-extern sqlite3_bind_text[stmt: i64, index: i64, value: str, n: i64, destructor: i64] : i64
-extern sqlite3_step[stmt: i64] : i64
-extern sqlite3_errmsg[db: i64] : str
-extern sqlite3_column_int[stmt: i64, iCol: i64] : i64
-extern sqlite3_column_text[stmt: i64, iCol: i64] : str
-extern sqlite3_finalize[stmt: i64] : i64
+func sqlite3_open[filename: str, ppDb: ptr] : i64 @[extern]
+func sqlite3_exec[db: i64, sql: str, callback: i64, arg: i64, errmsg: i64] : i64 @[extern]
+func sqlite3_prepare_v2[db: i64, zSql: str, nByte: i64, ppStmt: ptr, pzTail: i64] : i64 @[extern]
+func sqlite3_bind_int[stmt: i64, index: i64, value: i64] : i64 @[extern]
+func sqlite3_bind_text[stmt: i64, index: i64, value: str, n: i64, destructor: i64] : i64 @[extern]
+func sqlite3_step[stmt: i64] : i64 @[extern]
+func sqlite3_errmsg[db: i64] : str @[extern]
+func sqlite3_column_int[stmt: i64, iCol: i64] : i64 @[extern]
+func sqlite3_column_text[stmt: i64, iCol: i64] : str @[extern]
+func sqlite3_finalize[stmt: i64] : i64 @[extern]
 
 const SQLITE_ROW  = 100
 const SQLITE_DONE = 101
