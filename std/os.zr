@@ -79,23 +79,59 @@ struct os.CmdResult
     success: bool
     exit_code: i64
     max_rss: i64
+    stdout: str
 
 func os.CmdResult.ok[r: os.CmdResult] : bool
     return r->success && r->exit_code == 0
 
 func os.run_shell_command[command: str] : os.CmdResult
+    return os._run_shell_command(command, false)
+
+func os.run_shell_command_with_output[command: str] : os.CmdResult
+    return os._run_shell_command(command, true)
+
+func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
     res := new* os.CmdResult
     res->success = false
 
+    pipe := _stackalloc(8)
+    if capture_stdout
+        if _builtin_syscall(SYS_pipe, pipe) == -1
+            io.panic("os._run_shell_command: failed to pipe")
+
     pid := _builtin_syscall(SYS_fork)
     if pid < 0
+        if capture_stdout
+            io.close(mem.read32(pipe@[0]))
+            io.close(mem.read32(pipe@[4]))
         return res
 
     if pid == 0
+        if capture_stdout
+            io.close(mem.read32(pipe@[0]))
+            ret := _builtin_syscall(SYS_dup2, mem.read32(pipe@[4]), STDOUT_FILENO)
+            if ret < 0
+                io.print("dup2 errno = ")
+                io.println_i64(-ret)
+                io.panic("os._run_shell_command: failed to dup2")
+            io.close(mem.read32(pipe@[4]))
+
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
         _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
-        os.exit(1)
+        os.exit(127)
     else
+        if capture_stdout
+            io.close(mem.read32(pipe@[4]))
+            stdout := new str.Builder
+            chunk := _stackalloc(4096)
+            while true
+                n := _builtin_syscall(SYS_read, mem.read32(pipe@[0]), chunk, 4096)
+                if n <= 0
+                    break
+                stdout->append_n(chunk as str, n)
+            io.close(mem.read32(pipe@[0]))
+            res->stdout = stdout->build_and_free_buffer()
+
         status := 0
         rusage := _stackalloc(192)
         wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, rusage)

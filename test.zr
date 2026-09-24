@@ -69,13 +69,14 @@ func main[] : i64
 
     tr := new TestRunner
     tr->build_blacklist = []
-    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "serve.zr", "curl.zr", "tun_tun_tun_sahur.zr"]
+    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "serve.zr", "tun_tun_tun_sahur.zr"]
     tr->custom_build_flags = HashMap.new()
     tr->custom_build_flags->insert$<str>("raylib.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert$<str>("chip8.zr", "-m -C \"-lraylib\"")
     tr->custom_build_flags->insert$<str>("sqlite_todo.zr", "-m -C \"-lsqlite3\"")
     tr->custom_build_flags->insert$<str>("serve.zr", "-m -C \"-lpthread\"")
     tr->custom_run_args = HashMap.new()
+    tr->custom_run_args->insert$<str>("curl.zr", "http://example.com")
 
     tr->run_directory("examples")
     io.println("DONE")

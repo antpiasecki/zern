@@ -5,6 +5,8 @@ const DNS_TYPE_AAAA = 28
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
 
+var net._dns_server: str
+
 func net.listen[host: str, port: i64] : i64, bool
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
@@ -169,8 +171,21 @@ func net.resolve[domain: str] : i64, bool
     query := net.build_dns_query(domain, DNS_TYPE_A)
     defer query->free()
 
-    // TODO: this probably shouldnt be hardcoded
-    s, ok := net.create_udp_client("1.1.1.1", 53)
+    dns_server := 0 as str
+    if net._dns_server as ptr != 0
+        dns_server = net._dns_server
+    else
+        res := os.run_shell_command_with_output("grep -E '^nameserver' /etc/resolv.conf | head -n 1 | cut -d' ' -f2 | tr -d '\n'")
+        defer (res as ptr)->free()
+        defer res->stdout->free()
+        if res->ok() && res->stdout->len() > 6
+            net._dns_server = res->stdout->make_copy()
+            dns_server = net._dns_server
+        else
+            dns_server = "1.1.1.1"
+
+
+    s, ok := net.create_udp_client(dns_server, 53)
     if !ok
         return -1, false
 

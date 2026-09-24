@@ -32,6 +32,8 @@ func str.free[s: str] : void
     (s as ptr)->free()
 
 func str.len[s: str] : i64
+    if s as ptr == 0
+        io.panic("str.len: called on a null pointer")
     i := 0
     while s[i]
         i += 1
