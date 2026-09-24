@@ -277,11 +277,8 @@ _start:
                         if let Some(var) = env.get_var(&name.lexeme) {
                             emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", var.stack_offset);
                         } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                            emit!(
-                                &mut self.output,
-                                "    mov [{}+rip], rax",
-                                self.symbol_table.globals[&name.lexeme],
-                            );
+                            let (label, _) = &self.symbol_table.globals[&name.lexeme];
+                            emit!(&mut self.output, "    mov [{}+rip], rax", label);
                         } else {
                             unreachable!();
                         }
@@ -613,12 +610,9 @@ _start:
             Stmt::Struct { .. } => {
                 // handled in SymbolTable
             }
-            Stmt::GlobalVariable(name) => {
-                emit!(
-                    &mut self.bss,
-                    "    {}: .skip 8",
-                    self.symbol_table.globals[&name.lexeme]
-                );
+            Stmt::GlobalVariable { var_name, var_type: _ } => {
+                let (label, _) = &self.symbol_table.globals[&var_name.lexeme];
+                emit!(&mut self.bss, "    {}: .skip 8", label);
             }
             Stmt::Defer { keyword, block } => {
                 if env.loop_begin_label != "" {
@@ -858,11 +852,8 @@ _start:
                     if let Some(var) = env.get_var(&name.lexeme) {
                         emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", var.stack_offset);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                        emit!(
-                            &mut self.output,
-                            "    mov rax, [{}+rip]",
-                            self.symbol_table.globals[&name.lexeme],
-                        );
+                        let (label, _) = &self.symbol_table.globals[&name.lexeme];
+                        emit!(&mut self.output, "    mov rax, [{}+rip]", label,);
                     } else {
                         unreachable!();
                     }
@@ -996,11 +987,8 @@ _start:
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    lea rax, [rip + {}]", name.lexeme);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                        emit!(
-                            &mut self.output,
-                            "    lea rax, [rip + {}]",
-                            self.symbol_table.globals[&name.lexeme]
-                        );
+                        let (label, _) = &self.symbol_table.globals[&name.lexeme];
+                        emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                     } else if let Some(var) = env.get_var(&name.lexeme) {
                         emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", var.stack_offset);
                     } else {

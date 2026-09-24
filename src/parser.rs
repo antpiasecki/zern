@@ -19,10 +19,10 @@ macro_rules! recursion_guard {
         if $self.depth > 200 {
             return error!(Loc::default(), "maximum expression depth reached");
         }
-        let self_ptr = $self as *mut Self;
+        let _self_ptr = $self as *mut Self;
         let _scope_call = ScopeCall {
             c: || unsafe {
-                (*self_ptr).depth -= 1;
+                (*_self_ptr).depth -= 1;
             },
         };
     };
@@ -100,7 +100,10 @@ pub enum Stmt {
         name: Token,
         fields: Vec<Param>,
     },
-    GlobalVariable(Token),
+    GlobalVariable {
+        var_name: Token,
+        var_type: Token,
+    },
     Defer {
         keyword: Token,
         block: Box<Stmt>,
@@ -222,9 +225,10 @@ impl Parser {
                 return self.struct_declaration();
             }
             if self.match_token(&[TokenType::KeywordVar]) {
-                return Ok(Stmt::GlobalVariable(
-                    self.consume(TokenType::Identifier, "expected variable name after 'var'")?,
-                ));
+                let var_name = self.consume(TokenType::Identifier, "expected variable name after 'var'")?;
+                self.consume(TokenType::Colon, "expected ':' after variable name")?;
+                let var_type = self.consume(TokenType::Identifier, "expected variable type after ':'")?;
+                return Ok(Stmt::GlobalVariable { var_name, var_type });
             }
             if self.match_token(&[TokenType::KeywordInsta]) {
                 let name = self.consume(TokenType::Identifier, "expected function name after 'insta'")?;

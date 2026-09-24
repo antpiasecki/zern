@@ -219,11 +219,6 @@ fn substitute_stmt(s: &Stmt, bindings: &HashMap<String, Token>) -> Stmt {
             op: op.clone(),
             value: substitute_expr(value, bindings),
         },
-        Stmt::Const { name, value, neg } => Stmt::Const {
-            name: name.clone(),
-            value: value.clone(),
-            neg: *neg,
-        },
         Stmt::Block(stmts) => Stmt::Block(stmts.iter().map(|x| substitute_stmt(x, bindings)).collect()),
         Stmt::If {
             keyword,
@@ -258,53 +253,16 @@ fn substitute_stmt(s: &Stmt, bindings: &HashMap<String, Token>) -> Stmt {
             is_inclusive: *is_inclusive,
             body: Box::new(substitute_stmt(body, bindings)),
         },
-        Stmt::Function {
-            name,
-            params,
-            return_types,
-            type_vars,
-            body,
-            attributes,
-        } => {
-            let shadowed: HashSet<&str> = type_vars.iter().map(|t| t.lexeme.as_str()).collect();
-            let filtered: HashMap<String, Token> = bindings
-                .iter()
-                .filter(|(k, _)| !shadowed.contains(k.as_str()))
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            Stmt::Function {
-                name: name.clone(),
-                params: substitute_params(params, &filtered),
-                return_types: return_types.iter().map(|t| substitute_token(t, &filtered)).collect(),
-                type_vars: type_vars.clone(),
-                body: Box::new(substitute_stmt(body, &filtered)),
-                attributes: attributes.clone(),
-            }
-        }
         Stmt::Return { keyword, exprs } => Stmt::Return {
             keyword: keyword.clone(),
             exprs: exprs.iter().map(|x| substitute_expr(x, bindings)).collect(),
         },
         Stmt::Break(token) => Stmt::Break(token.clone()),
         Stmt::Continue(token) => Stmt::Continue(token.clone()),
-        Stmt::Struct { name, fields } => Stmt::Struct {
-            name: name.clone(),
-            fields: fields
-                .iter()
-                .map(|f| Param {
-                    var_type: substitute_token(&f.var_type, bindings),
-                    var_name: f.var_name.clone(),
-                })
-                .collect(),
-        },
-        Stmt::GlobalVariable(token) => Stmt::GlobalVariable(token.clone()),
         Stmt::Defer { keyword, block } => Stmt::Defer {
             keyword: keyword.clone(),
             block: Box::new(substitute_stmt(block, bindings)),
         },
-        Stmt::Instantiation { name, types } => Stmt::Instantiation {
-            name: name.clone(),
-            types: types.iter().map(|t| substitute_token(t, bindings)).collect(),
-        },
+        _ => unreachable!(),
     }
 }

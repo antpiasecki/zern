@@ -127,7 +127,8 @@ impl<'a> TypeChecker<'a> {
                         let existing_var_type: &String = if let Some(x) = env.get_var_type(&name.lexeme) {
                             x
                         } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                            &"i64".into()
+                            let (_, var_type) = &self.symbol_table.globals[&name.lexeme];
+                            &var_type.clone()
                         } else {
                             return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                         };
@@ -328,7 +329,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            Stmt::GlobalVariable(_) => {}
+            Stmt::GlobalVariable { .. } => {}
             Stmt::Defer { keyword: _, block } => {
                 self.typecheck_stmt(env, block)?;
             }
@@ -419,7 +420,8 @@ impl<'a> TypeChecker<'a> {
                 } else if let Some(x) = env.get_var_type(&name.lexeme) {
                     Ok(x.clone())
                 } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                    Ok("i64".into())
+                    let (_, var_type) = &self.symbol_table.globals[&name.lexeme];
+                    Ok(var_type.clone())
                 } else {
                     return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                 }
