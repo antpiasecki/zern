@@ -217,7 +217,23 @@ func HashMap.free_with_keys[map: HashMap] : void
     map->table->free()
     (map as ptr)->free()
 
+insta HashMap.get$<u8>
+insta HashMap.get$<i64>
+//insta HashMap.get$<f64>
 insta HashMap.get$<str>
-insta HashMap.get$<Buffer>
+insta HashMap.get$<bool>
+insta HashMap.get$<ptr>
+insta HashMap.get$<opaque>
+insta HashMap.get$<Array>
+insta HashMap.get$<HashMap>
+insta HashMap.get$<HashMap._Node>
+insta HashMap.insert$<u8>
+insta HashMap.insert$<i64>
+insta HashMap.insert$<f64>
 insta HashMap.insert$<str>
-insta HashMap.insert$<Buffer>
+insta HashMap.insert$<bool>
+insta HashMap.insert$<ptr>
+insta HashMap.insert$<opaque>
+insta HashMap.insert$<Array>
+insta HashMap.insert$<HashMap>
+insta HashMap.insert$<HashMap._Node>

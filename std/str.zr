@@ -124,7 +124,7 @@ func str.format_into[..] : i64
     if written < max_len
         target_buf[written] = 0
     else if max_len > 0
-    target_buf[max_len - 1] = 0
+        target_buf[max_len - 1] = 0
     return written
 
 func str.concat[a: str, b: str] : str

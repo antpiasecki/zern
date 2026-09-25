@@ -250,7 +250,7 @@ impl<'a> TypeChecker<'a> {
                 }
                 if return_types.len() > 1 && return_type.contains(&"f64") {
                     return error!(
-                        &return_types[2].loc,
+                        &return_types[1].loc,
                         "returning f64 among multiple values not implemented yet"
                     );
                 }
