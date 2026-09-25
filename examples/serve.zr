@@ -23,7 +23,7 @@ func handle_connection[conn: ConnData] : void
 
     pos := req->find("\r\n")
     if pos == -1
-        io.panic("TODO: bad request")
+        return
 
     first_line := req->substr_n(0, pos)
     defer first_line->free()
@@ -33,25 +33,46 @@ func handle_connection[conn: ConnData] : void
     path := parts->nth$<str>(1)
 
     if !method->equal("GET")
-        // TODO: method not supported
+        resp := "HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n405 Method Not Allowed"
+        net.send(conn->sock, resp as ptr, resp->len())
         return
 
-    if path->equal("/")
-        // TODO: index
+    if path->contains("..") || path->find("/") != 0
+        resp := "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n400 Bad Request"
+        net.send(conn->sock, resp as ptr, resp->len())
         return
 
-    // TODO: ANY validation
     file_path := "."->concat(path)
     defer file_path->free()
 
+    if os.is_a_directory(file_path)
+        b := new str.Builder
+        b->append("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<ul>\n")
+        files, ok := os.list_directory(file_path)
+        if !ok
+            resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
+            net.send(conn->sock, resp as ptr, resp->len())
+            return
+        line := _stackalloc(4096) as str
+        for i in 0..files->len
+            line->format_into(4096, "<li><a href=\"%s/%s\">%s</a></li>\n", path@[1], files->nth$<str>(i), files->nth$<str>(i))
+            b->append(line)
+        b->append("</ul>")
+        resp := b->build_str_and_free_inner()
+        defer resp->free()
+        net.send(conn->sock, resp as ptr, resp->len())
+        return
+
     file_size, ok := os.get_file_size(file_path)
     if !ok
-        // TODO: not found
+        resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
+        net.send(conn->sock, resp as ptr, resp->len())
         return
 
     fd, ok := io.open_for_reading(file_path)
     if !ok
-        // TODO: not found
+        resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
+        net.send(conn->sock, resp as ptr, resp->len())
         return
     defer io.close(fd)
 

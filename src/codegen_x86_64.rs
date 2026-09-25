@@ -1001,7 +1001,7 @@ _start:
                 }
             },
             ExprKind::New { struct_name, use_heap } => {
-                let struct_fields = &self.symbol_table.structs[self.strip_generic(&struct_name.lexeme)];
+                let struct_fields = &self.symbol_table.structs[&struct_name.lexeme];
                 let memory_size = struct_fields.len() * 8;
 
                 if *use_heap {
@@ -1067,8 +1067,7 @@ _start:
                 type_args,
             } => {
                 let receiver_type = &self.expr_types[&callee.id];
-                let base_type = self.strip_generic(receiver_type);
-                let func_name = format!("{}.{}", base_type, method.lexeme);
+                let func_name = format!("{}.{}", receiver_type, method.lexeme);
 
                 let func_name = if type_args.is_empty() {
                     func_name.clone()
@@ -1207,12 +1206,8 @@ _start:
         Ok(())
     }
 
-    fn strip_generic<'b>(&self, type_name: &'b str) -> &'b str {
-        type_name.split('<').next().unwrap_or(type_name)
-    }
-
     fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {
-        let struct_name = self.strip_generic(&self.expr_types[&left.id]);
+        let struct_name = &self.expr_types[&left.id];
 
         let Some(fields) = self.symbol_table.structs.get(struct_name) else {
             return error!(&field.loc, format!("unknown struct type: {}", struct_name));

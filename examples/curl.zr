@@ -58,7 +58,7 @@ func main[argc: i64, argv: ptr] : i64
             i += 1
         header_len = current_len
 
-        if end_index < header_len
+    if end_index < header_len
         io.print_n(header_buf@[end_index], header_len as i64 - end_index)
 
     buffer := mem.alloc(4096)

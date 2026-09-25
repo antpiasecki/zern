@@ -226,7 +226,7 @@ insta HashMap.get$<ptr>
 insta HashMap.get$<opaque>
 insta HashMap.get$<Array>
 insta HashMap.get$<HashMap>
-insta HashMap.get$<HashMap._Node>
+insta HashMap.get$<Buffer>
 insta HashMap.insert$<u8>
 insta HashMap.insert$<i64>
 insta HashMap.insert$<f64>
@@ -236,4 +236,4 @@ insta HashMap.insert$<ptr>
 insta HashMap.insert$<opaque>
 insta HashMap.insert$<Array>
 insta HashMap.insert$<HashMap>
-insta HashMap.insert$<HashMap._Node>
+insta HashMap.insert$<Buffer>

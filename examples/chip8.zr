@@ -310,7 +310,7 @@ func main[argc: i64, argv: ptr] : i64
             c->delay_timer = c->delay_timer - 1
         if c->sound_timer > 0
             c->sound_timer = c->sound_timer - 1
-            // TODO: buzzer
+            // TODO: PlaySound()
 
         for i in 0..25
             c->step()

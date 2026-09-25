@@ -111,8 +111,6 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
             io.close(mem.read32(pipe@[0]))
             ret := _builtin_syscall(SYS_dup2, mem.read32(pipe@[4]), STDOUT_FILENO)
             if ret < 0
-                io.print("dup2 errno = ")
-                io.println_i64(-ret)
                 io.panic("os._run_shell_command: failed to dup2")
             io.close(mem.read32(pipe@[4]))
 

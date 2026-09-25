@@ -62,10 +62,11 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
 
 func main[] : i64
-    status := os.run_shell_command("cargo build --release")
-    if !status->ok()
-        os.exit(1)
-    (status as ptr)->free()
+    if os.file_exists("Cargo.toml")
+        status := os.run_shell_command("cargo build --release")
+        defer (status as ptr)->free()
+        if !status->ok()
+            os.exit(1)
 
     tr := new TestRunner
     tr->build_blacklist = []
