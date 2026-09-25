@@ -440,7 +440,8 @@ _start:
 
                 match params {
                     Params::Normal(params) => {
-                        let max_reg = if self.args.target_windows { 4 } else { 6 };
+                        let max_int_reg = if self.args.target_windows { 4 } else { 6 };
+                        let max_fp_reg = if self.args.target_windows { 4 } else { 8 };
                         let stack_base = if self.args.target_windows { 48 } else { 16 };
                         let mut int_reg = 0;
                         let mut fp_reg = 0;
@@ -448,7 +449,7 @@ _start:
                         for param in params {
                             let offset = env.define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
                             if param.var_type.lexeme == "f64" {
-                                if fp_reg < max_reg {
+                                if fp_reg < max_fp_reg {
                                     emit!(&mut self.output, "    movq QWORD PTR [rbp-{}], xmm{}", offset, fp_reg);
                                 } else {
                                     emit!(
@@ -461,7 +462,7 @@ _start:
                                 }
                                 fp_reg += 1;
                             } else {
-                                if int_reg < max_reg {
+                                if int_reg < max_int_reg {
                                     let registers = self.registers();
                                     emit!(
                                         &mut self.output,
@@ -898,7 +899,7 @@ _start:
                 }
 
                 let arg_types: Vec<String> = args.iter().map(|a| self.expr_types[&a.id].clone()).collect();
-                self.emit_call_setup(&arg_types);
+                let num_stack = self.emit_call_setup(&arg_types);
 
                 if let ExprKind::Variable(callee_name) = &callee.kind {
                     let callee_name = if type_args.is_empty() {
@@ -920,7 +921,7 @@ _start:
                     emit!(&mut self.output, "    call rax");
                 }
 
-                self.emit_call_cleanup(args.len());
+                self.emit_call_cleanup(args.len(), num_stack);
                 if self.expr_types[&expr.id] == "f64" {
                     emit!(&mut self.output, "    movq rax, xmm0");
                 }
@@ -1098,9 +1099,9 @@ _start:
                 arg_types.push(receiver_type.clone());
                 arg_types.extend(args.iter().map(|a| self.expr_types[&a.id].clone()));
 
-                self.emit_call_setup(&arg_types);
+                let num_stack = self.emit_call_setup(&arg_types);
                 emit!(&mut self.output, "    call {}", func_name);
-                self.emit_call_cleanup(1 + args.len());
+                self.emit_call_cleanup(1 + args.len(), num_stack);
 
                 if self.expr_types[&expr.id] == "f64" {
                     emit!(&mut self.output, "    movq rax, xmm0");
@@ -1110,7 +1111,7 @@ _start:
         Ok(())
     }
 
-    fn emit_call_setup(&mut self, arg_types: &[String]) {
+    fn emit_call_setup(&mut self, arg_types: &[String]) -> usize {
         let arg_count = arg_types.len();
 
         let registers = self.registers();
@@ -1134,47 +1135,56 @@ _start:
 
             emit!(&mut self.output, "    mov al, {}", fp_idx);
             emit!(&mut self.output, "    add rsp, 32");
-            return;
+            return 0;
         }
 
-        let to_register = arg_count.min(6);
-        for (i, arg_type) in arg_types.iter().enumerate().take(to_register) {
+        let mut stack_indices = Vec::new();
+        let mut num_stack = 0;
+        for (i, arg_type) in arg_types.iter().enumerate() {
             let offset = 8 * (arg_count - 1 - i);
             emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset);
             if arg_type == "f64" {
-                emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
-                fp_idx += 1;
+                if fp_idx < 8 {
+                    emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
+                    fp_idx += 1;
+                } else {
+                    stack_indices.push(i);
+                    num_stack += 1;
+                }
             } else {
-                emit!(&mut self.output, "    mov {}, rax", registers[int_idx]);
-                int_idx += 1;
+                if int_idx < 6 {
+                    emit!(&mut self.output, "    mov {}, rax", registers[int_idx]);
+                    int_idx += 1;
+                } else {
+                    stack_indices.push(i);
+                    num_stack += 1;
+                }
             }
         }
 
-        // TODO: since all zern values are 64bit large we currently cannot call
-        // external functions that expect a non-64bit value past the 6th argument
-        let num_stack = arg_count.saturating_sub(6);
-        for i in 0..num_stack {
-            let arg_idx = arg_count - 1 - i;
-            let offset = 8 * (arg_count - 1 - arg_idx);
-            emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset + 8 * i);
+        for j in 0..num_stack {
+            let i = stack_indices[num_stack - 1 - j];
+            let offset = 8 * (arg_count - 1 - i);
+            emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset + 8 * j);
             emit!(&mut self.output, "    push rax");
         }
 
         emit!(&mut self.output, "    mov al, {}", fp_idx);
 
         if num_stack == 0 {
-            emit!(&mut self.output, "    add rsp, {}", 8 * to_register);
+            emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
         }
+
+        num_stack
     }
 
-    fn emit_call_cleanup(&mut self, arg_count: usize) {
+    fn emit_call_cleanup(&mut self, arg_count: usize, num_stack: usize) {
         if self.args.target_windows {
             let pad = if arg_count % 2 == 1 { 8 } else { 0 };
             emit!(&mut self.output, "    add rsp, {}", 8 * arg_count + pad);
             return;
         }
 
-        let num_stack = arg_count.saturating_sub(6);
         if num_stack > 0 {
             emit!(&mut self.output, "    add rsp, {}", 8 * (arg_count + num_stack));
         }
