@@ -22,7 +22,7 @@ func json.Value.dump[v: json.Value] : str
         keys := map->keys()
         defer keys->free()
         s->append_char('{')
-        for i in 0..keys->size
+        for i in 0..keys->len
             if i > 0
                 s->append_char(',')
             s->append_char('"')
@@ -37,7 +37,7 @@ func json.Value.dump[v: json.Value] : str
     else if v->type == json.ARRAY
         arr := v->value as Array_json.Value
         s->append_char('[')
-        for i in 0..arr->size
+        for i in 0..arr->len
             if i > 0
                 s->append_char(',')
             d := arr->nth(i)->dump()
@@ -70,14 +70,14 @@ func json.Value.free[v: json.Value] : void
         map := v->value as HashMap_json.Value
         defer map->free_with_keys()
         keys := map->keys()
-        for i in 0..keys->size
+        for i in 0..keys->len
             value, _ := map->get(keys->nth(i))
             value->free()
         keys->free()
     else if v->type == json.ARRAY
         arr := v->value as Array_json.Value
         defer arr->free()
-        for i in 0..arr->size
+        for i in 0..arr->len
             arr->nth(i)->free()
     else if v->type == json.STRING
         (v->value as str)->free()

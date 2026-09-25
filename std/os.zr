@@ -128,9 +128,9 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
                 n := _builtin_syscall(SYS_read, mem.read32(pipe@[0]), chunk, 4096)
                 if n <= 0
                     break
-                stdout->append_n(chunk as str, n)
+                stdout->append_n(chunk, n)
             io.close(mem.read32(pipe@[0]))
-            res->stdout = stdout->build_and_free_buffer()
+            res->stdout = stdout->build_str_and_free_inner()
 
         status := 0
         rusage := _stackalloc(192)

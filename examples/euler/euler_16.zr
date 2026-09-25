@@ -6,7 +6,7 @@ func main[] : i64
 
     for j in 0..1000
         carry := 0
-        for i in 0..n->size
+        for i in 0..n->len
             tmp := n->nth$<i64>(i) * 2 + carry
             n->set$<i64>(i, tmp % 10)
             carry = tmp / 10
@@ -15,7 +15,7 @@ func main[] : i64
             carry = carry / 10
 
     sum := 0
-    for i in 0..n->size
+    for i in 0..n->len
         sum += n->nth$<i64>(i)
 
     io.println_i64(sum)

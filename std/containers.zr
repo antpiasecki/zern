@@ -2,39 +2,39 @@ include "mem.zr"
 
 struct Array
     data: ptr
-    size: i64
+    len: i64
     capacity: i64
 
-func Array.preallocate_and_zero[xs: Array, size: i64] : void
-    if size > 0
-        xs->data = mem.alloc(size * 8)
-        mem.zero(xs->data, size * 8)
-        xs->size = size
-        xs->capacity = size
+func Array.preallocate_and_zero[xs: Array, len: i64] : void
+    if len > 0
+        xs->data = mem.alloc(len * 8)
+        mem.zero(xs->data, len * 8)
+        xs->len = len
+        xs->capacity = len
 
 func Array.nth$<T>[xs: Array, n: i64] : T
-    if n < 0 || n >= xs->size
+    if n < 0 || n >= xs->len
         io.panic("Array.nth: out of bounds")
     return mem.read64(xs->data@[n * 8]) as T
 
 func Array.set$<T>[xs: Array, n: i64, x: T] : void
-    if n < 0 || n >= xs->size
+    if n < 0 || n >= xs->len
         io.panic("Array.set: out of bounds")
     mem.write64(xs->data@[n * 8], x as i64)
 
 func Array.push$<T>[xs: Array, x: T] : void
-    if xs->size == xs->capacity
+    if xs->len == xs->capacity
         new_capacity := 4
         if xs->capacity != 0
             new_capacity = xs->capacity * 2
         xs->data = xs->data->realloc(new_capacity * 8)
         xs->capacity = new_capacity
 
-    mem.write64(xs->data@[xs->size * 8], x as i64)
-    xs->size += 1
+    mem.write64(xs->data@[xs->len * 8], x as i64)
+    xs->len += 1
 
 func Array.slice[xs: Array, start: i64, length: i64] : Array
-    if start < 0 || length < 0 || start + length > xs->size
+    if start < 0 || length < 0 || start + length > xs->len
         io.panic("Array.slice: out of bounds")
 
     new_array := []
@@ -44,14 +44,14 @@ func Array.slice[xs: Array, start: i64, length: i64] : Array
 
 func Array.concat[a: Array, b: Array] : Array
     new_array := []
-    new_array->preallocate_and_zero(a->size + b->size)
-    mem.copy_n(a->data, new_array->data@[0], a->size * 8)
-    mem.copy_n(b->data, new_array->data@[a->size * 8], b->size * 8)
+    new_array->preallocate_and_zero(a->len + b->len)
+    mem.copy_n(a->data, new_array->data@[0], a->len * 8)
+    mem.copy_n(b->data, new_array->data@[a->len * 8], b->len * 8)
     return new_array
 
 func Array.count$<T>[xs: Array, x: T] : i64
     n := 0
-    for i in 0..xs->size
+    for i in 0..xs->len
         if xs->nth(i) as i64 == x as i64
             n += 1
     return n
@@ -63,25 +63,25 @@ func Array.free[xs: Array] : void
 
 func Array.free_with_items[xs: Array] : void
     if xs->data != 0
-        for i in 0..xs->size
+        for i in 0..xs->len
             xs->nth$<ptr>(i)->free()
         xs->data->free()
     (xs as ptr)->free()
 
 func Array.pop$<T>[xs: Array] : T
-    if xs->size == 0
+    if xs->len == 0
         io.panic("Array.pop: empty array")
     x := xs->last$<T>()
-    xs->size = xs->size - 1
+    xs->len = xs->len - 1
     return x
 
 func Array.last$<T>[xs: Array] : T
-    if xs->size == 0
+    if xs->len == 0
         io.panic("Array.last: empty array")
-    return xs->nth$<T>(xs->size - 1)
+    return xs->nth$<T>(xs->len - 1)
 
 func Array.contains_str[arr: Array, s: str] : bool
-    for i in 0..arr->size
+    for i in 0..arr->len
         if arr->nth$<str>(i)->equal(s)
             return true
     return false

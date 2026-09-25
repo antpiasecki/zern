@@ -35,31 +35,31 @@ func main[argc: i64, argv: ptr] : i64
 
     // seems reasonable
     req := _stackalloc(4096) as str
-    req_size := req->format_into(4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
-    net.send(s, req as ptr, req_size)
+    req_len := req->format_into(4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
+    net.send(s, req as ptr, req_len)
 
     header_buf := mem.alloc(8192) as str
     defer header_buf->free()
-    header_size := 0
+    header_len := 0
     found := false
     end_index := -1
 
-    while !found && header_size < 8192
-        n := net.read(s, header_buf@[header_size], 8192 - header_size)
+    while !found && header_len < 8192
+        n := net.read(s, header_buf@[header_len], 8192 - header_len)
         if n <= 0
             break
-        current_size := header_size + n
+        current_len := header_len + n
         i = 0
-        while i <= current_size - 4
+        while i <= current_len - 4
             if header_buf[i] == '\r' && header_buf[i + 1] == '\n' && header_buf[i + 2] == '\r' && header_buf[i + 3] == '\n'
                 found = true
                 end_index = i + 4
                 break
             i += 1
-        header_size = current_size
+        header_len = current_len
 
-    if end_index < header_size
-        io.print_n(header_buf@[end_index], header_size as i64 - end_index)
+        if end_index < header_len
+        io.print_n(header_buf@[end_index], header_len as i64 - end_index)
 
     buffer := mem.alloc(4096)
     defer buffer->free()

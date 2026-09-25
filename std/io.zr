@@ -7,9 +7,9 @@ func io.panic[msg: str] : void
     _builtin_syscall(SYS_kill, os.getpid(), SIGABRT)
     os.exit(1)
 
-func io._oob_panic[size: i64, n: i64] : void
+func io._oob_panic[len: i64, n: i64] : void
     s := _stackalloc(1024) as str
-    s->format_into(1024, "index out of range (%d) with length %d", n, size)
+    s->format_into(1024, "index out of range (%d) with length %d", n, len)
     io.panic(s)
 
 func io.printf[..] : void
@@ -46,8 +46,8 @@ func io.printf[..] : void
             io.print_char(format[i])
         i += 1
 
-func io.print_n[x: ptr, size: i64] : void
-    _builtin_syscall(SYS_write, STDOUT_FILENO, x, size)
+func io.print_n[x: ptr, len: i64] : void
+    _builtin_syscall(SYS_write, STDOUT_FILENO, x, len)
 
 func io.print[x: str] : void
     io.print_n(x as ptr, x->len())
@@ -102,37 +102,37 @@ func io.read_line[] : str
         if c == '\n'
             break
         b->append_char(c)
-    return b->build_and_free_buffer()
+    return b->build_str_and_free_inner()
 
 func io.read_file[path: str] : Buffer, bool
     fd, ok := io.open_for_reading(path)
     if !ok
         return 0 as Buffer, false
 
-    size := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
-    buf := Buffer.alloc(size)
+    len := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
+    buf := Buffer.alloc(len)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := _builtin_syscall(SYS_read, fd, buf@[0], size)
+    n := _builtin_syscall(SYS_read, fd, buf@[0], len)
     io.close(fd)
 
-    if n != size
+    if n != len
         buf->free()
         return 0 as Buffer, false
 
     return buf, true
 
 func io.write_text_file[path: str, content: str] : bool
-    return io.write_binary_file(path, content as ptr, content->len())
+    return io.write_file(path, content as ptr, content->len())
 
-func io.write_binary_file[path: str, content: ptr, size: i64] : bool
+func io.write_file[path: str, content: ptr, len: i64] : bool
     fd, ok := io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
     if !ok
         return false
 
-    n := _builtin_syscall(SYS_write, fd, content, size)
+    n := _builtin_syscall(SYS_write, fd, content, len)
     io.close(fd)
-    if n != size
+    if n != len
         return false
     return true
 

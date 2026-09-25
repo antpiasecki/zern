@@ -10,7 +10,7 @@ func TestRunner.run_directory[tr: TestRunner, dir: str] : void
     files, ok := os.list_directory(dir)
     if !ok
         io.panic("failed to open test directory")
-    for i in 0..files->size
+    for i in 0..files->len
         joined := dir->concat("/")->concat(files->nth$<str>(i))
         if os.is_a_directory(joined)
             tr->run_directory(joined)

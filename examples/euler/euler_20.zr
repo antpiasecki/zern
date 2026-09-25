@@ -3,7 +3,7 @@ include "$/containers.zr"
 
 func multiply[n: Array, x: i64] : void
     carry := 0
-    for i in 0..n->size
+    for i in 0..n->len
         prod := n->nth$<i64>(i) * x + carry
         n->set$<i64>(i, prod % 10)
         carry = prod / 10
@@ -18,7 +18,7 @@ func main[] : i64
         multiply(n, i)
 
     sum := 0
-    for i in 0..n->size
+    for i in 0..n->len
         sum += n->nth$<i64>(i)
 
     io.println_i64(sum)

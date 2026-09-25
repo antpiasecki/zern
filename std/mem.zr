@@ -1,13 +1,13 @@
 include "linux_syscalls.zr"
 include "num.zr"
 
-const mem.Block.SIZE = 32
+const mem.Block.LEN = 32
 
 var mem._heap_head: mem.Block
 var mem._heap_tail: mem.Block
 
 struct mem.Block
-    size: i64
+    len: i64
     free: bool
     next: mem.Block
     prev: mem.Block
@@ -16,9 +16,9 @@ func mem.align[x: i64] : i64
     return (x + 7) & -8
 
 func mem.Block._split[blk: mem.Block, needed: i64] : void
-    if blk->size >= needed + mem.Block.SIZE + 8
-        new_blk := (blk as ptr)@[mem.Block.SIZE + needed] as mem.Block
-        new_blk->size = blk->size - needed - mem.Block.SIZE
+    if blk->len >= needed + mem.Block.LEN + 8
+        new_blk := (blk as ptr)@[mem.Block.LEN + needed] as mem.Block
+        new_blk->len = blk->len - needed - mem.Block.LEN
         new_blk->free = true
         new_blk->next = blk->next
         new_blk->prev = blk
@@ -28,18 +28,18 @@ func mem.Block._split[blk: mem.Block, needed: i64] : void
         else
             mem._heap_tail = new_blk
 
-        blk->size = needed
+        blk->len = needed
         blk->next = new_blk
 
-func mem._request_space[size: i64] : mem.Block
-    needed := size + mem.Block.SIZE
-    alloc_size := (needed + 4095) & -4096
+func mem._request_space[len: i64] : mem.Block
+    needed := len + mem.Block.LEN
+    alloc_len := (needed + 4095) & -4096
 
-    blk := _builtin_syscall(SYS_mmap, 0, alloc_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
+    blk := _builtin_syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
     if (blk as ptr as i64) == MAP_FAILED
         io.panic("mem._request_space: failed to mmap")
 
-    blk->size = alloc_size - mem.Block.SIZE
+    blk->len = alloc_len - mem.Block.LEN
     blk->free = false
     blk->next = 0 as mem.Block
     blk->prev = 0 as mem.Block
@@ -52,36 +52,36 @@ func mem._request_space[size: i64] : mem.Block
     mem._heap_tail = blk
     return blk
 
-func mem.alloc[size: i64] : ptr
-    if size <= 0
-        io.panic("mem.alloc: called with nonpositive size")
+func mem.alloc[len: i64] : ptr
+    if len <= 0
+        io.panic("mem.alloc: called with nonpositive len")
 
-    size = mem.align(size)
+    len = mem.align(len)
 
     // try to cut off a piece of an already available block
     cur := mem._heap_head as mem.Block
     while cur as ptr
-        if cur->free && cur->size >= size
-            cur->_split(size)
+        if cur->free && cur->len >= len
+            cur->_split(len)
             cur->free = false
-            return (cur as ptr)@[mem.Block.SIZE]
+            return (cur as ptr)@[mem.Block.LEN]
         cur = cur->next
 
     // otherwise request a new block
-    blk := mem._request_space(size)
+    blk := mem._request_space(len)
 
     if mem._heap_head as ptr != 0
         mem._heap_head = blk
 
-    blk->_split(size)
+    blk->_split(len)
 
-    return (blk as ptr)@[mem.Block.SIZE]
+    return (blk as ptr)@[mem.Block.LEN]
 
 // releases freed and page aligned blocks back to OS
 func mem.trim[] : void
     cur := mem._heap_tail as mem.Block
     while cur as ptr && cur->free
-        block_total := cur->size + mem.Block.SIZE
+        block_total := cur->len + mem.Block.LEN
         if (cur as i64 & 4095) != 0 || (block_total & 4095) != 0
             break
 
@@ -101,7 +101,7 @@ func ptr.free[x: ptr] : void
     if x == 0
         return
 
-    blk := x@[-mem.Block.SIZE] as mem.Block
+    blk := x@[-mem.Block.LEN] as mem.Block
     if blk->free
         io.panic("ptr.free: double free detected")
 
@@ -110,9 +110,9 @@ func ptr.free[x: ptr] : void
     // coalesce forwards
     next := blk->next
     if next as ptr && next->free
-        expected_next := (blk as ptr)@[mem.Block.SIZE + blk->size] as mem.Block
+        expected_next := (blk as ptr)@[mem.Block.LEN + blk->len] as mem.Block
         if expected_next as ptr == next as ptr
-            blk->size += mem.Block.SIZE + next->size
+            blk->len += mem.Block.LEN + next->len
             blk->next = next->next
             if next->next as ptr
                 next->next->prev = blk
@@ -122,9 +122,9 @@ func ptr.free[x: ptr] : void
     // coalesce backwards
     prev := blk->prev
     if prev as ptr && prev->free
-        expected_blk := (prev as ptr)@[mem.Block.SIZE + prev->size] as mem.Block
+        expected_blk := (prev as ptr)@[mem.Block.LEN + prev->len] as mem.Block
         if expected_blk as ptr == blk as ptr
-            prev->size += mem.Block.SIZE + blk->size
+            prev->len += mem.Block.LEN + blk->len
             prev->next = blk->next
             if blk->next as ptr
                 blk->next->prev = prev
@@ -132,62 +132,62 @@ func ptr.free[x: ptr] : void
                 mem._heap_tail = prev
             blk = prev
 
-func ptr.realloc[x: ptr, new_size: i64] : ptr
+func ptr.realloc[x: ptr, new_len: i64] : ptr
     if !x
-        return mem.alloc(new_size)
+        return mem.alloc(new_len)
 
-    if new_size < 0
-        io.panic("mem.realloc: negative new_size")
+    if new_len < 0
+        io.panic("mem.realloc: negative new_len")
 
-    if new_size == 0
+    if new_len == 0
         x->free()
         return 0 as ptr
 
-    new_size = mem.align(new_size)
+    new_len = mem.align(new_len)
 
-    blk := x@[-mem.Block.SIZE] as mem.Block
-    if blk->size >= new_size
-        blk->_split(new_size)
+    blk := x@[-mem.Block.LEN] as mem.Block
+    if blk->len >= new_len
+        blk->_split(new_len)
         return x
 
     next := blk->next
-    expected_next := (blk as ptr)@[mem.Block.SIZE + blk->size] as mem.Block
+    expected_next := (blk as ptr)@[mem.Block.LEN + blk->len] as mem.Block
 
     // try to resize in place
     if next as ptr && next->free && expected_next as ptr == next as ptr
-        combined := blk->size + mem.Block.SIZE + next->size
-        if combined >= new_size
-            blk->size = combined
+        combined := blk->len + mem.Block.LEN + next->len
+        if combined >= new_len
+            blk->len = combined
             blk->next = next->next
             if next->next as ptr
                 next->next->prev = blk
             if mem._heap_tail as ptr == next as ptr
                 mem._heap_tail = blk
-            blk->_split(new_size)
+            blk->_split(new_len)
             return x
 
     // otherwise allocate a new buffer and copy
-    new_ptr := mem.alloc(new_size)
-    mem.copy_n(x, new_ptr, math.min(blk->size, new_size))
+    new_ptr := mem.alloc(new_len)
+    mem.copy_n(x, new_ptr, math.min(blk->len, new_len))
     x->free()
     return new_ptr
 
-func ptr.zero_and_free[x: ptr, size: i64] : void
-    mem.zero(x, size)
+func ptr.zero_and_free[x: ptr, len: i64] : void
+    mem.zero(x, len)
     x->free()
 
-func mem.zero[x: ptr, size: i64] : void
+func mem.zero[x: ptr, len: i64] : void
     i := 0
-    while i + 8 <= size
+    while i + 8 <= len
         mem.write64(x@[i], 0)
         i += 8
-    while i < size
+    while i < len
         x[i] = 0 as u8
         i += 1
 
 func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
     if n < 0
-        io.panic("mem.copy_n: negative size")
+        io.panic("mem.copy_n: negative length")
     if n == 0
         return
     if !src
@@ -258,16 +258,22 @@ func mem.write64be[x: ptr, d: i64] : void
 
 // sneaky length-prefixed ptr
 struct Buffer
-    size: i64
+    len: i64
 
 func Buffer.alloc[n: i64] : Buffer
     out := mem.alloc(8 + n) as Buffer
-    out->size = n
+    out->len = n
     return out
 
-func Buffer.realloc[b: Buffer, new_size: i64] : Buffer
-    new_b := (b as ptr)->realloc(8 + new_size) as Buffer
-    new_b->size = new_size
+func Buffer.alloc_zeroed[n: i64] : Buffer
+    out := Buffer.alloc(n)
+    if n > 0
+        mem.zero(out@[0], n)
+    return out
+
+func Buffer.realloc[b: Buffer, new_len: i64] : Buffer
+    new_b := (b as ptr)->realloc(8 + new_len) as Buffer
+    new_b->len = new_len
     return new_b
 
 func Buffer.free[b: Buffer] : void

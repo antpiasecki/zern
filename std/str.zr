@@ -40,9 +40,9 @@ func str.len[s: str] : i64
     return i
 
 func str.make_copy[s: str] : str
-    size := s->len() + 1
-    dup := mem.alloc(size) as str
-    mem.copy_n(s as ptr, dup as ptr, size)
+    len := s->len() + 1
+    dup := mem.alloc(len) as str
+    mem.copy_n(s as ptr, dup as ptr, len)
     return dup
 
 func str.equal[a: str, b: str] : bool
@@ -66,8 +66,8 @@ func str.equal_n[a: str, b: str, n: i64] : bool
 // return value can be inaccurate if output is too large to fit in the buffer
 func str.format_into[..] : i64
     target_buf := _var_arg(0) as ptr
-    max_size := _var_arg(1) as i64
-    if max_size <= 0
+    max_len := _var_arg(1) as i64
+    if max_len <= 0
         return 0
     format := _var_arg(2) as ptr
     i := 0
@@ -80,7 +80,7 @@ func str.format_into[..] : i64
         if format[i] == '%'
             i += 1
 
-            remaining := max_size - written - 1
+            remaining := max_len - written - 1
             if remaining <= 0
                 break
 
@@ -116,15 +116,15 @@ func str.format_into[..] : i64
             else
                 io.panic("str.format_into: unrecognized format")
         else
-            if written < max_size - 1
+            if written < max_len - 1
                 target_buf[written] = format[i]
             written += 1
         i += 1
 
-    if written < max_size
+    if written < max_len
         target_buf[written] = 0
-    else if max_size > 0
-        target_buf[max_size - 1] = 0
+    else if max_len > 0
+    target_buf[max_len - 1] = 0
     return written
 
 func str.concat[a: str, b: str] : str
@@ -336,45 +336,56 @@ func str.hex_decode[s: str] : str
 
 struct str.Builder
     data: ptr
-    size: i64
+    len: i64
     capacity: i64
 
-func str.Builder._grow[b: str.Builder, needed: i64] : void
-    if b->size + needed > b->capacity
-        new_capacity := 64
-        if b->capacity != 0
-            new_capacity = b->capacity * 2
-        while new_capacity < b->size + needed
-            new_capacity = new_capacity * 2
-        b->data = b->data->realloc(new_capacity)
-        b->capacity = new_capacity
-
 func str.Builder.append_char[b: str.Builder, c: u8] : void
-    b->_grow(1)
-    b->data[b->size] = c
-    b->size += 1
+    b->_maybe_grow(1)
+    b->data[b->len] = c
+    b->len += 1
 
 func str.Builder.append[b: str.Builder, s: str] : void
-    b->append_n(s, s->len())
+    b->append_n(s as ptr, s->len())
 
-func str.Builder.append_n[b: str.Builder, s: str, len: i64] : void
-    b->_grow(len)
-    mem.copy_n(s as ptr, b->data@[b->size], len)
-    b->size += len
+func str.Builder.append_n[b: str.Builder, s: ptr, len: i64] : void
+    b->_maybe_grow(len)
+    mem.copy_n(s, b->data@[b->len], len)
+    b->len += len
 
-func str.Builder.build[b: str.Builder] : str
-    s := mem.alloc(b->size + 1) as str
-    mem.copy_n(b->data, s as ptr, b->size)
-    s[b->size] = 0
+func str.Builder.manual_n[b: str.Builder, len: i64] : ptr
+    b->_maybe_grow(len)
+    p := b->data@[b->len]
+    b->advance(len)
+    return p
+
+func str.Builder.advance[b: str.Builder, n: i64] : void
+    b->len += n
+
+func str.Builder.build_str_and_free_inner[b: str.Builder] : str
+    s := mem.alloc(b->len + 1) as str
+    mem.copy_n(b->data, s as ptr, b->len)
+    s[b->len] = 0
+    b->free_buffer()
     return s
 
-func str.Builder.build_and_free_buffer[b: str.Builder] : str
-    s := b->build()
+func str.Builder.build_buffer_and_free_inner[b: str.Builder] : Buffer
+    s := Buffer.alloc(b->len)
+    mem.copy_n(b->data, s@[0], b->len)
     b->free_buffer()
     return s
 
 func str.Builder.free_buffer[b: str.Builder] : void
     if b->data != 0
         b->data->free()
-    b->size = 0
+    b->len = 0
     b->capacity = 0
+
+func str.Builder._maybe_grow[b: str.Builder, needed: i64] : void
+    if b->len + needed > b->capacity
+        new_capacity := 64
+        if b->capacity != 0
+            new_capacity = b->capacity * 2
+        while new_capacity < b->len + needed
+            new_capacity = new_capacity * 2
+        b->data = b->data->realloc(new_capacity)
+        b->capacity = new_capacity
