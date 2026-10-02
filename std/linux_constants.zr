@@ -16,10 +16,11 @@ const PROT_WRITE = 2
 const PROT_EXEC  = 4
 
 const MAP_FAILED    = -1
-const MAP_SHARED    = 1
-const MAP_PRIVATE   = 2
-const MAP_FIXED     = 16
-const MAP_ANONYMOUS = 32
+const MAP_SHARED    = 0x1
+const MAP_PRIVATE   = 0x2
+const MAP_FIXED     = 0x10
+const MAP_ANONYMOUS = 0x20
+const MAP_STACK     = 0x20000
 
 const O_RDONLY   = 0
 const O_WRONLY   = 1

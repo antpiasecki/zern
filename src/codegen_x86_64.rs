@@ -198,11 +198,57 @@ _builtin_syscall:
     mov r9, [rsp+8]
     syscall
     ret
+
+.section .text._builtin_spawn_thread
+_builtin_spawn_thread:
+    and rdx, -16
+    sub rdx, 32
+    mov [rdx], rdi
+    mov [rdx+8], rsi
+    mov [rdx+16], rcx
+    mov [rdx+24], r8
+    mov rsi, rdx
+    // CLONE_VM|FS|FILES|SIGHAND|THREAD|SYSVSEM
+    mov edi, 0x50f00
+    xor edx, edx
+    xor r10d, r10d
+    xor r8d, r8d
+    mov eax, 56
+    // clone
+    syscall
+    test rax, rax
+    jz .Lspawn_child
+    ret
+.Lspawn_child:
+    xor ebp, ebp
+    pop rax
+    pop rdi
+    call rax
+    mov rdi, [rsp]
+    mov rsi, [rsp+8]
+    mov eax, 11
+    // munmap
+    syscall
+    xor edi, edi
+    mov eax, 60
+    // exit thread
+    syscall
+
+.section .text._builtin_lock
+_builtin_lock:
+    mov eax, 1
+    xchg [rdi], rax
+    test rax, rax
+    jz .Llock_done
+    pause
+    jmp _builtin_lock
+.Llock_done:
+    ret
 "
             );
         }
 
-        match (self.args.use_crt, self.args.target_windows) {
+        match (self.args.link_with_cc, self.args.target_windows) {
             (false, false) => {
                 emit!(
                     &mut self.output,
@@ -223,7 +269,7 @@ _start:
     // exit(main())
     call main
     mov rdi, rax
-    mov rax, 60
+    mov rax, 231
     syscall
 "
                 );

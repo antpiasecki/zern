@@ -69,15 +69,23 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         if args.target_windows {
             run_command(format!(
                 "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto -Wl,--gc-sections {}",
-                args.cflags
+                args.link_flags
             ));
-        } else if args.use_crt {
+        } else if args.link_with_cc {
             run_command(format!(
                 "cc -no-pie -o {out} {out}.o -flto -Wl,--gc-sections {}",
-                args.cflags
+                args.link_flags
             ));
         } else {
-            run_command(format!("ld -static -o {out} {out}.o --gc-sections -e _start"));
+            run_command(format!(
+                "ld {} -o {out} {out}.o --gc-sections -e _start {}",
+                if !args.link_dynamic {
+                    "-static"
+                } else {
+                    "--dynamic-linker /lib64/ld-linux-x86-64.so.2"
+                },
+                args.link_flags
+            ));
         }
 
         if args.run_exe {
@@ -112,9 +120,10 @@ struct Args {
     emit_only: bool,
     emit_debug: bool,
     run_exe: bool,
-    use_crt: bool,
+    link_dynamic: bool,
+    link_with_cc: bool,
     target_windows: bool,
-    cflags: String,
+    link_flags: String,
 }
 
 impl Args {
@@ -127,9 +136,10 @@ impl Args {
             emit_only: false,
             emit_debug: false,
             run_exe: false,
-            use_crt: false,
+            link_dynamic: false,
+            link_with_cc: false,
             target_windows: false,
-            cflags: String::new(),
+            link_flags: String::new(),
         };
 
         while let Some(arg) = args.next() {
@@ -146,15 +156,17 @@ impl Args {
                 out.emit_only = true;
             } else if arg == "-r" {
                 out.run_exe = true;
-            } else if arg == "-m" {
-                out.use_crt = true;
+            } else if arg == "-c" {
+                out.link_with_cc = true;
             } else if arg == "-g" {
                 out.emit_debug = true;
             } else if arg == "-w" {
                 out.target_windows = true;
+            } else if arg == "-d" {
+                out.link_dynamic = true;
             } else if arg == "-C" {
                 match args.next() {
-                    Some(s) => out.cflags = s,
+                    Some(s) => out.link_flags = s,
                     None => {
                         eprintln!("ERROR: -C option requires a value");
                         print_usage();
@@ -183,13 +195,8 @@ impl Args {
             exit(1);
         }
 
-        if !out.use_crt && !out.cflags.is_empty() {
-            eprintln!("ERROR: You can't set CFLAGS if you're not using the C runtime. Add the -m flag.");
-            exit(1);
-        }
-
-        if !out.use_crt && out.target_windows {
-            eprintln!("ERROR: Using the -w flag without -m is not implemented yet. Add -m to flags.");
+        if !out.link_with_cc && out.target_windows {
+            eprintln!("ERROR: Using the -w flag without -c is not implemented yet. Try again with -c.");
             exit(1);
         }
 
@@ -198,14 +205,15 @@ impl Args {
 }
 
 fn print_usage() {
-    println!("Usage: zern [-o path] [-r] [-m] [-g] [-w] [-C cflags] [--emit-only] path");
+    println!("Usage: zern [-o path] [-r] [-g] [-w] [-d] [-c] [-C flags] [--emit-only] path");
     println!();
     println!("  -o <path>   - specifies the output path");
     println!("  -r          - runs the output executable after compilation");
-    println!("  -m          - link against the C runtime");
-    println!("  -w          - build a Windows executable");
-    println!("  -g          - emit debug information in the binary");
-    println!("  -C <flags>  - flags to pass to the C compiler");
+    println!("  -w          - build a Windows executable using MinGW");
+    println!("  -g          - emit debug information into the binary");
+    println!("  -d          - link dynamically");
+    println!("  -c          - link dynamically using the C compiler");
+    println!("  -C <flags>  - specify flags to pass to the linker (or C compiler if -c is provided)");
     println!("  --emit-only - only emit the assembly");
 }
 

@@ -5,6 +5,7 @@ const mem.Block.LEN = 32
 
 var mem._heap_head: mem.Block
 var mem._heap_tail: mem.Block
+var mem._lock: i64
 
 struct mem.Block
     len: i64
@@ -58,6 +59,10 @@ func mem.alloc[len: i64] : ptr
 
     len = mem.align(len)
 
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
+
     // try to cut off a piece of an already available block
     cur := mem._heap_head as mem.Block
     while cur as ptr
@@ -79,6 +84,10 @@ func mem.alloc[len: i64] : ptr
 
 // releases freed and page aligned blocks back to OS
 func mem.trim[] : void
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
+
     cur := mem._heap_tail as mem.Block
     while cur as ptr && cur->free
         block_total := cur->len + mem.Block.LEN
@@ -100,6 +109,10 @@ func mem.trim[] : void
 func ptr.free[x: ptr] : void
     if x == 0
         return
+
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
 
     blk := x@[-mem.Block.LEN] as mem.Block
     if blk->free
@@ -143,11 +156,14 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
         x->free()
         return 0 as ptr
 
+    _builtin_lock(^mem._lock)
+
     new_len = mem.align(new_len)
 
     blk := x@[-mem.Block.LEN] as mem.Block
     if blk->len >= new_len
         blk->_split(new_len)
+        mem._lock = 0
         return x
 
     next := blk->next
@@ -164,7 +180,10 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
             if mem._heap_tail as ptr == next as ptr
                 mem._heap_tail = blk
             blk->_split(new_len)
+            mem._lock = 0
             return x
+
+    mem._lock = 0
 
     // otherwise allocate a new buffer and copy
     new_ptr := mem.alloc(new_len)

@@ -1,4 +1,4 @@
-// needs to be compiled with -m -C "-lraylib"
+// needs to be compiled with -d -C "-lraylib"
 include "$/io.zr"
 
 func InitWindow[width: i64, height: i64, title: str] : void @[extern]
