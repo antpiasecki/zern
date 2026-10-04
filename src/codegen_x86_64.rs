@@ -5,6 +5,7 @@ use crate::{
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
+    typechecker::split_type_list,
 };
 
 struct Var {
@@ -388,7 +389,10 @@ _start:
                     let offset = match env.get_var(&target.lexeme) {
                         Some(var) => var.stack_offset,
                         None => {
-                            let types: Vec<&str> = self.expr_types[&value.id].split(',').collect();
+                            let ty = &self.expr_types[&value.id];
+                            let Some(types) = split_type_list(ty) else {
+                                return error!(&op.loc, "invalid multiple return type");
+                            };
                             env.define_var(target.lexeme.clone(), types[i].to_string())
                         }
                     };
@@ -463,20 +467,21 @@ _start:
                 }
 
                 let name = &name.lexeme;
+                let mangled = mangle(name);
 
                 if self.symbol_table.functions[name].attributes.contains(&"extern".into()) {
-                    emit!(&mut self.output, ".extern {}", name);
+                    emit!(&mut self.output, ".extern {}", mangled);
                     return Ok(());
                 }
 
                 if name == "main" || self.symbol_table.functions[name].attributes.contains(&"export".into()) {
-                    emit!(&mut self.output, ".globl {0}", name);
+                    emit!(&mut self.output, ".globl {}", mangled);
                 }
                 if !self.args.target_windows {
-                    emit!(&mut self.output, ".type {0}, @function", name);
+                    emit!(&mut self.output, ".type {}, @function", mangled);
                 }
-                emit!(&mut self.output, ".section .text.{}", name);
-                emit!(&mut self.output, "{}:", name);
+                emit!(&mut self.output, ".section .text.{}", mangled);
+                emit!(&mut self.output, "{}:", mangled);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
                 emit!(&mut self.output, "    push rbx");
@@ -565,7 +570,7 @@ _start:
                 }
 
                 if !self.args.target_windows {
-                    emit!(&mut self.output, ".size {0}, . - {0}", name);
+                    emit!(&mut self.output, ".size {0}, . - {0}", mangled);
                 }
 
                 // patch the stack size after we know how much we actually need
@@ -951,11 +956,11 @@ _start:
                     let callee_name = if type_args.is_empty() {
                         callee_name.lexeme.clone()
                     } else {
-                        monomorphizer::mangle(callee_name.lexeme.clone(), type_args)
+                        monomorphizer::type_name(&callee_name.lexeme, type_args)
                     };
                     if self.symbol_table.functions.contains_key(&callee_name) {
                         // its a function (defined/builtin/extern)
-                        emit!(&mut self.output, "    call {}", callee_name);
+                        emit!(&mut self.output, "    call {}", mangle(&callee_name));
                     } else {
                         // its a variable containing function address
                         self.compile_expr(env, callee)?;
@@ -993,7 +998,7 @@ _start:
                     emit!(&mut self.output, "    mov rsi, rax");
                     emit!(&mut self.output, "    pop rdi");
                     emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call Array.push$opaque");
+                    emit!(&mut self.output, "    call {}", mangle("Array.push::<opaque>"));
                 }
                 emit!(&mut self.output, "    pop rax");
             }
@@ -1113,12 +1118,12 @@ _start:
                 type_args,
             } => {
                 let receiver_type = &self.expr_types[&callee.id];
-                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+                let func_name = format!("{}.{}", monomorphizer::method_owner(receiver_type), method.lexeme);
 
                 let func_name = if type_args.is_empty() {
                     func_name.clone()
                 } else {
-                    monomorphizer::mangle(func_name.clone(), type_args)
+                    monomorphizer::type_name(&func_name, type_args)
                 };
 
                 if self.args.target_windows {
@@ -1145,7 +1150,7 @@ _start:
                 arg_types.extend(args.iter().map(|a| self.expr_types[&a.id].clone()));
 
                 let num_stack = self.emit_call_setup(&arg_types);
-                emit!(&mut self.output, "    call {}", func_name);
+                emit!(&mut self.output, "    call {}", mangle(&func_name));
                 self.emit_call_cleanup(1 + args.len(), num_stack);
 
                 if self.expr_types[&expr.id] == "f64" {
@@ -1305,4 +1310,20 @@ _start:
             &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
         }
     }
+}
+
+fn mangle(name: &str) -> String {
+    let Some((name, rest)) = name.split_once("::") else {
+        return name.into();
+    };
+    format!("{}${}", name, fnv1a64(rest))
+}
+
+fn fnv1a64(s: &str) -> String {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in s.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    format!("{:x}", h)
 }

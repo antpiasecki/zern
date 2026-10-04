@@ -23,6 +23,7 @@ pub enum TokenType {
     Xor,
     Bang,
     Colon,
+    DoubleColon,
     BitAnd,
     BitOr,
     LogicalAnd,
@@ -33,7 +34,6 @@ pub enum TokenType {
     ShiftRight,
     Arrow,
     At,
-    Dollar,
 
     Equal,
     DoubleEqual,
@@ -193,7 +193,13 @@ impl<'a> Tokenizer<'a> {
             ',' => self.add_token(TokenType::Comma)?,
             '%' => self.add_token(TokenType::Mod)?,
             '^' => self.add_token(TokenType::Xor)?,
-            ':' => self.add_token(TokenType::Colon)?,
+            ':' => {
+                if self.match_char(':') {
+                    self.add_token(TokenType::DoubleColon)?
+                } else {
+                    self.add_token(TokenType::Colon)?
+                }
+            }
             '-' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::MinusEqual)?
@@ -266,7 +272,6 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             '@' => self.add_token(TokenType::At)?,
-            '$' => self.add_token(TokenType::Dollar)?,
             '\'' => {
                 if self.eof() {
                     return error!(self.loc, "unterminated char literal");

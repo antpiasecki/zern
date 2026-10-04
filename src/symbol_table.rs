@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::{Params, Stmt},
-    tokenizer::{ZernError, error},
+    tokenizer::{Token, ZernError, error},
 };
 
 pub struct StructField {
@@ -44,6 +44,7 @@ impl FnType {
 pub struct SymbolTable {
     pub functions: HashMap<String, FnType>,
     pub generic_functions: HashMap<String, Stmt>,
+    pub generic_structs: HashMap<String, Stmt>,
     pub constants: HashMap<String, i64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
     pub globals: HashMap<String, (String, String)>,
@@ -67,6 +68,7 @@ impl SymbolTable {
                 ("_stackalloc".into(), FnType::new(vec!["i64"], "ptr")),
             ]),
             generic_functions: HashMap::new(),
+            generic_structs: HashMap::new(),
             constants: HashMap::new(),
             structs: HashMap::new(),
             globals: HashMap::from([("_builtin_environ".into(), ("_builtin_environ".into(), "ptr".into()))]),
@@ -108,11 +110,7 @@ impl SymbolTable {
                 }
 
                 if type_vars.is_empty() {
-                    let return_type = return_types
-                        .iter()
-                        .map(|t| t.lexeme.clone())
-                        .collect::<Vec<_>>()
-                        .join(",");
+                    let return_type = return_types_tokens_to_type(return_types);
                     let attributes = attributes.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>();
                     match params {
                         Params::Normal(params) => self.functions.insert(
@@ -146,10 +144,20 @@ impl SymbolTable {
                     );
                 }
             }
-            Stmt::Struct { name, fields } => {
+            Stmt::Struct {
+                name,
+                type_vars,
+                fields,
+            } => {
                 if self.is_name_defined(&name.lexeme) {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
+
+                if !type_vars.is_empty() {
+                    self.generic_structs.insert(name.lexeme.clone(), stmt.clone());
+                    return Ok(());
+                }
+
                 let mut fields_map: HashMap<String, StructField> = HashMap::new();
 
                 let mut offset: usize = 0;
@@ -182,8 +190,24 @@ impl SymbolTable {
     fn is_name_defined(&self, s: &str) -> bool {
         self.functions.contains_key(s)
             || self.generic_functions.contains_key(s)
+            || self.generic_structs.contains_key(s)
             || self.constants.contains_key(s)
             || self.structs.contains_key(s)
             || self.globals.contains_key(s)
+    }
+}
+
+pub fn return_types_tokens_to_type(return_types: &[Token]) -> String {
+    if return_types.len() == 1 {
+        return_types[0].lexeme.clone()
+    } else {
+        format!(
+            "({})",
+            return_types
+                .iter()
+                .map(|t| t.lexeme.clone())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
     }
 }

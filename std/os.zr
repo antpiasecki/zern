@@ -198,7 +198,7 @@ func os.list_directory[path: str] : Array, bool
                         if name[2] == 0
                             skip = true
                 if !skip
-                    files->push$<str>((name as str)->make_copy())
+                    files->push::<str>((name as str)->make_copy())
             pos += len
 
     io.close(fd)

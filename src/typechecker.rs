@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     monomorphizer,
     parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
-    symbol_table::{FnParams, SymbolTable},
+    symbol_table::{FnParams, SymbolTable, return_types_tokens_to_type},
     tokenizer::{Loc, TokenType, ZernError, error},
 };
 
@@ -106,7 +106,7 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Declare { name, initializer } => {
                 let actual_type = self.typecheck_expr(env, initializer)?;
-                if actual_type.contains(',') {
+                if actual_type.starts_with('(') {
                     return error!(&name.loc, "cannot assign multi-return call to a single variable");
                 }
 
@@ -118,7 +118,7 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Assign { left, op, value } => {
                 let value_type = self.typecheck_expr(env, value)?;
-                if value_type.contains(',') {
+                if value_type.starts_with('(') {
                     return error!(&op.loc, "cannot assign multi-return call to a single variable");
                 }
 
@@ -169,7 +169,12 @@ impl<'a> TypeChecker<'a> {
             }
             Stmt::Destructure { targets, op, value } => {
                 let value_type = self.typecheck_expr(env, value)?;
-                let types: Vec<&str> = value_type.split(',').collect();
+                if !value_type.starts_with('(') {
+                    return error!(&op.loc, "cannot destructure a non-multiple value");
+                }
+                let Some(types) = split_type_list(&value_type) else {
+                    return error!(&op.loc, "invalid multiple return type");
+                };
                 if types.len() != targets.len() {
                     return error!(&op.loc, "destructure target count does not match return count");
                 }
@@ -239,15 +244,11 @@ impl<'a> TypeChecker<'a> {
                 body,
                 attributes: _,
             } => {
-                let return_type = return_types
-                    .iter()
-                    .map(|t| t.lexeme.clone())
-                    .collect::<Vec<_>>()
-                    .join(",");
-
+                let return_type = return_types_tokens_to_type(return_types);
                 if return_types.len() > 2 {
                     return error!(&return_types[2].loc, "functions cannot return more than two values");
                 }
+
                 if return_types.len() > 1 && return_type.contains(&"f64") {
                     return error!(
                         &return_types[1].loc,
@@ -309,20 +310,25 @@ impl<'a> TypeChecker<'a> {
                 env.pop_scope();
             }
             Stmt::Return { keyword, exprs } => {
-                let joined_type = if exprs.is_empty() {
-                    "void".into()
-                } else {
-                    exprs
-                        .iter()
-                        .map(|e| self.typecheck_expr(env, e))
-                        .collect::<Result<Vec<String>, _>>()?
-                        .join(",")
+                let types = exprs
+                    .iter()
+                    .map(|e| self.typecheck_expr(env, e))
+                    .collect::<Result<Vec<String>, _>>()?;
+
+                let type_str = match types.len() {
+                    0 => "void".to_string(),
+                    1 => types[0].clone(),
+                    _ => format!("({})", types.join(",")),
                 };
-                expect_type!(joined_type, self.current_function_return_type, keyword.loc);
+                expect_type!(type_str, self.current_function_return_type, keyword.loc);
             }
             Stmt::Break(_) => {}
             Stmt::Continue(_) => {}
-            Stmt::Struct { name: _, fields } => {
+            Stmt::Struct {
+                name: _,
+                type_vars: _,
+                fields,
+            } => {
                 for field in fields {
                     if !self.is_valid_type_name(&field.var_type.lexeme) {
                         return error!(&field.var_type.loc, format!("unknown type: {}", &field.var_type.lexeme));
@@ -436,7 +442,7 @@ impl<'a> TypeChecker<'a> {
                     let callee_name = if type_args.is_empty() {
                         callee_name.lexeme.clone()
                     } else {
-                        monomorphizer::mangle(callee_name.lexeme.clone(), type_args)
+                        monomorphizer::type_name(&callee_name.lexeme, type_args)
                     };
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name) {
                         // its a function (defined/builtin/extern)
@@ -489,6 +495,7 @@ impl<'a> TypeChecker<'a> {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
+                // TODO
                 Ok("Array".into())
             }
             ExprKind::Index {
@@ -550,12 +557,12 @@ impl<'a> TypeChecker<'a> {
                 type_args,
             } => {
                 let receiver_type = self.typecheck_expr(env, callee)?;
-                let func_name = format!("{}.{}", receiver_type, method.lexeme);
+                let func_name = format!("{}.{}", monomorphizer::method_owner(&receiver_type), method.lexeme);
 
                 let func_name = if type_args.is_empty() {
                     func_name.clone()
                 } else {
-                    monomorphizer::mangle(func_name, type_args)
+                    monomorphizer::type_name(&func_name, type_args)
                 };
 
                 let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
@@ -599,8 +606,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {
-        if name.contains(',') {
-            return name.split(',').all(|part| self.is_valid_type_name(part));
+        if let Some(parts) = split_type_list(name) {
+            return parts.iter().all(|part| self.is_valid_type_name(part));
         }
         if BUILTIN_TYPES.contains(&name) {
             return true;
@@ -610,4 +617,26 @@ impl<'a> TypeChecker<'a> {
         }
         false
     }
+}
+
+pub fn split_type_list(s: &str) -> Option<Vec<&str>> {
+    let s = s.strip_prefix('(')?.strip_suffix(')')?;
+    let mut depth = 0;
+    let mut start = 0;
+    let mut out = vec![];
+
+    for (i, c) in s.char_indices() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                out.push(s[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+
+    out.push(s[start..].trim());
+    Some(out)
 }

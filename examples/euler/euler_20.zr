@@ -4,11 +4,11 @@ include "$/containers.zr"
 func multiply[n: Array, x: i64] : void
     carry := 0
     for i in 0..n->len
-        prod := n->nth$<i64>(i) * x + carry
-        n->set$<i64>(i, prod % 10)
+        prod := n->nth::<i64>(i) * x + carry
+        n->set::<i64>(i, prod % 10)
         carry = prod / 10
     while carry > 0
-        n->push$<i64>(carry % 10)
+        n->push::<i64>(carry % 10)
         carry = carry / 10
 
 func main[] : i64
@@ -19,6 +19,6 @@ func main[] : i64
 
     sum := 0
     for i in 0..n->len
-        sum += n->nth$<i64>(i)
+        sum += n->nth::<i64>(i)
 
     io.println_i64(sum)

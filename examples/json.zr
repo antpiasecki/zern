@@ -6,8 +6,8 @@ func main[] : i64
 
     io.println(v->dump())
 
-    map := v->get$<HashMap>()
-    names_val, ok := map->get$<json.Value>("names")
-    names := names_val->get$<Array>()
+    map := v->get::<HashMap>()
+    names_val, ok := map->get::<json.Value>("names")
+    names := names_val->get::<Array>()
     for i in 0..names->len
-        io.println(names->nth$<json.Value>(i)->get$<str>())
+        io.println(names->nth::<json.Value>(i)->get::<str>())

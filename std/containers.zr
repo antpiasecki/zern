@@ -12,17 +12,17 @@ func Array.preallocate_and_zero[xs: Array, len: i64] : void
         xs->len = len
         xs->capacity = len
 
-func Array.nth$<T>[xs: Array, n: i64] : T
+func Array.nth::<T>[xs: Array, n: i64] : T
     if n < 0 || n >= xs->len
         io.panic("Array.nth: out of bounds")
     return mem.read64(xs->data@[n * 8]) as T
 
-func Array.set$<T>[xs: Array, n: i64, x: T] : void
+func Array.set::<T>[xs: Array, n: i64, x: T] : void
     if n < 0 || n >= xs->len
         io.panic("Array.set: out of bounds")
     mem.write64(xs->data@[n * 8], x as i64)
 
-func Array.push$<T>[xs: Array, x: T] : void
+func Array.push::<T>[xs: Array, x: T] : void
     if xs->len == xs->capacity
         new_capacity := 4
         if xs->capacity != 0
@@ -49,7 +49,7 @@ func Array.concat[a: Array, b: Array] : Array
     mem.copy_n(b->data, new_array->data@[a->len * 8], b->len * 8)
     return new_array
 
-func Array.count$<T>[xs: Array, x: T] : i64
+func Array.count::<T>[xs: Array, x: T] : i64
     n := 0
     for i in 0..xs->len
         if xs->nth(i) as i64 == x as i64
@@ -64,68 +64,68 @@ func Array.free[xs: Array] : void
 func Array.free_with_items[xs: Array] : void
     if xs->data != 0
         for i in 0..xs->len
-            xs->nth$<ptr>(i)->free()
+            xs->nth::<ptr>(i)->free()
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.pop$<T>[xs: Array] : T
+func Array.pop::<T>[xs: Array] : T
     if xs->len == 0
         io.panic("Array.pop: empty array")
-    x := xs->last$<T>()
+    x := xs->last::<T>()
     xs->len = xs->len - 1
     return x
 
-func Array.last$<T>[xs: Array] : T
+func Array.last::<T>[xs: Array] : T
     if xs->len == 0
         io.panic("Array.last: empty array")
-    return xs->nth$<T>(xs->len - 1)
+    return xs->nth::<T>(xs->len - 1)
 
 func Array.contains_str[arr: Array, s: str] : bool
     for i in 0..arr->len
-        if arr->nth$<str>(i)->equal(s)
+        if arr->nth::<str>(i)->equal(s)
             return true
     return false
 
-insta Array.nth$<u8>
-insta Array.nth$<i64>
-insta Array.nth$<f64>
-insta Array.nth$<str>
-insta Array.nth$<bool>
-insta Array.nth$<ptr>
-insta Array.nth$<opaque>
-insta Array.nth$<Array>
-insta Array.nth$<HashMap>
-insta Array.nth$<HashMap._Node>
-insta Array.set$<u8>
-insta Array.set$<i64>
-insta Array.set$<f64>
-insta Array.set$<str>
-insta Array.set$<bool>
-insta Array.set$<ptr>
-insta Array.set$<opaque>
-insta Array.set$<Array>
-insta Array.set$<HashMap>
-insta Array.set$<HashMap._Node>
-insta Array.push$<u8>
-insta Array.push$<i64>
-insta Array.push$<f64>
-insta Array.push$<str>
-insta Array.push$<bool>
-insta Array.push$<ptr>
-insta Array.push$<opaque>
-insta Array.push$<Array>
-insta Array.push$<HashMap>
-insta Array.push$<HashMap._Node>
-insta Array.last$<u8>
-insta Array.last$<i64>
-insta Array.last$<f64>
-insta Array.last$<str>
-insta Array.last$<bool>
-insta Array.last$<ptr>
-insta Array.last$<opaque>
-insta Array.last$<Array>
-insta Array.last$<HashMap>
-insta Array.last$<HashMap._Node>
+insta Array.nth::<u8>
+insta Array.nth::<i64>
+insta Array.nth::<f64>
+insta Array.nth::<str>
+insta Array.nth::<bool>
+insta Array.nth::<ptr>
+insta Array.nth::<opaque>
+insta Array.nth::<Array>
+insta Array.nth::<HashMap>
+insta Array.nth::<HashMap._Node>
+insta Array.set::<u8>
+insta Array.set::<i64>
+insta Array.set::<f64>
+insta Array.set::<str>
+insta Array.set::<bool>
+insta Array.set::<ptr>
+insta Array.set::<opaque>
+insta Array.set::<Array>
+insta Array.set::<HashMap>
+insta Array.set::<HashMap._Node>
+insta Array.push::<u8>
+insta Array.push::<i64>
+insta Array.push::<f64>
+insta Array.push::<str>
+insta Array.push::<bool>
+insta Array.push::<ptr>
+insta Array.push::<opaque>
+insta Array.push::<Array>
+insta Array.push::<HashMap>
+insta Array.push::<HashMap._Node>
+insta Array.last::<u8>
+insta Array.last::<i64>
+insta Array.last::<f64>
+insta Array.last::<str>
+insta Array.last::<bool>
+insta Array.last::<ptr>
+insta Array.last::<opaque>
+insta Array.last::<Array>
+insta Array.last::<HashMap>
+insta Array.last::<HashMap._Node>
 
 const HashMap._TABLE_SIZE = 100
 
@@ -150,9 +150,9 @@ func HashMap._djb2[key: str] : i64
     hash = (hash & 0x7fffffffffffffff) // prevent negative
     return hash % HashMap._TABLE_SIZE
 
-func HashMap.insert$<T>[map: HashMap, key: str, value: T] : void
+func HashMap.insert::<T>[map: HashMap, key: str, value: T] : void
     index := HashMap._djb2(key)
-    current := map->table->nth$<HashMap._Node>(index)
+    current := map->table->nth::<HashMap._Node>(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -163,12 +163,12 @@ func HashMap.insert$<T>[map: HashMap, key: str, value: T] : void
     new_node := new* HashMap._Node
     new_node->key = key->make_copy()
     new_node->value = value as opaque
-    new_node->next = map->table->nth$<HashMap._Node>(index)
-    map->table->set$<HashMap._Node>(index, new_node)
+    new_node->next = map->table->nth::<HashMap._Node>(index)
+    map->table->set::<HashMap._Node>(index, new_node)
 
-func HashMap.get$<T>[map: HashMap, key: str] : T, bool
+func HashMap.get::<T>[map: HashMap, key: str] : T, bool
     index := HashMap._djb2(key)
-    current := map->table->nth$<HashMap._Node>(index)
+    current := map->table->nth::<HashMap._Node>(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -179,7 +179,7 @@ func HashMap.get$<T>[map: HashMap, key: str] : T, bool
 
 func HashMap.delete[map: HashMap, key: str] : void
     index := HashMap._djb2(key)
-    current := map->table->nth$<HashMap._Node>(index)
+    current := map->table->nth::<HashMap._Node>(index)
     prev := 0 as HashMap._Node
 
     while current as ptr
@@ -187,7 +187,7 @@ func HashMap.delete[map: HashMap, key: str] : void
             if prev as ptr
                 prev->next = current->next
             else
-                map->table->set$<HashMap._Node>(index, current->next)
+                map->table->set::<HashMap._Node>(index, current->next)
 
             current->key->free()
             (current as ptr)->free()
@@ -199,15 +199,15 @@ func HashMap.delete[map: HashMap, key: str] : void
 func HashMap.keys[map: HashMap] : Array
     out := []
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth$<HashMap._Node>(i)
+        current := map->table->nth::<HashMap._Node>(i)
         while current as ptr
-            out->push$<str>(current->key)
+            out->push::<str>(current->key)
             current = current->next
     return out
 
 func HashMap.free_with_keys[map: HashMap] : void
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth$<HashMap._Node>(i)
+        current := map->table->nth::<HashMap._Node>(i)
         while current as ptr
             tmp := current
             current = current->next
@@ -217,23 +217,23 @@ func HashMap.free_with_keys[map: HashMap] : void
     map->table->free()
     (map as ptr)->free()
 
-insta HashMap.get$<u8>
-insta HashMap.get$<i64>
-//insta HashMap.get$<f64>
-insta HashMap.get$<str>
-insta HashMap.get$<bool>
-insta HashMap.get$<ptr>
-insta HashMap.get$<opaque>
-insta HashMap.get$<Array>
-insta HashMap.get$<HashMap>
-insta HashMap.get$<Buffer>
-insta HashMap.insert$<u8>
-insta HashMap.insert$<i64>
-insta HashMap.insert$<f64>
-insta HashMap.insert$<str>
-insta HashMap.insert$<bool>
-insta HashMap.insert$<ptr>
-insta HashMap.insert$<opaque>
-insta HashMap.insert$<Array>
-insta HashMap.insert$<HashMap>
-insta HashMap.insert$<Buffer>
+insta HashMap.get::<u8>
+insta HashMap.get::<i64>
+//insta HashMap.get::<f64>
+insta HashMap.get::<str>
+insta HashMap.get::<bool>
+insta HashMap.get::<ptr>
+insta HashMap.get::<opaque>
+insta HashMap.get::<Array>
+insta HashMap.get::<HashMap>
+insta HashMap.get::<Buffer>
+insta HashMap.insert::<u8>
+insta HashMap.insert::<i64>
+insta HashMap.insert::<f64>
+insta HashMap.insert::<str>
+insta HashMap.insert::<bool>
+insta HashMap.insert::<ptr>
+insta HashMap.insert::<opaque>
+insta HashMap.insert::<Array>
+insta HashMap.insert::<HashMap>
+insta HashMap.insert::<Buffer>

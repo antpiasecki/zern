@@ -10,11 +10,71 @@ use crate::{
 };
 
 pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -> Result<Vec<Stmt>, ZernError> {
-    let mut instantiations: Vec<(&Token, &Vec<Token>)> = vec![];
+    let mut instantiations: Vec<(Token, Vec<Token>)> = vec![];
     for stmt in &statements {
         if let Stmt::Instantiation { name, types } = stmt {
-            instantiations.push((name, types));
+            instantiations.push((name.clone(), types.clone()));
         }
+    }
+
+    let mut new_structs = vec![];
+    let mut instantiated_structs: HashSet<String> = HashSet::new();
+
+    for (name, template) in &symbol_table.generic_structs {
+        let Stmt::Struct {
+            name: template_name,
+            type_vars,
+            fields,
+        } = template
+        else {
+            unreachable!()
+        };
+
+        for (insta_name, types) in &instantiations {
+            if insta_name.lexeme != *name {
+                continue;
+            }
+            if types.len() != type_vars.len() {
+                return error!(
+                    insta_name.loc,
+                    format!(
+                        "'{}' expects {} type argument(s), got {}",
+                        template_name.lexeme,
+                        type_vars.len(),
+                        types.len()
+                    )
+                );
+            }
+
+            let mangled_name = type_name(&name, types);
+            if !instantiated_structs.insert(mangled_name.clone()) {
+                continue;
+            }
+
+            let bindings: HashMap<String, Token> = type_vars
+                .iter()
+                .map(|tv| tv.lexeme.clone())
+                .zip(types.iter().cloned())
+                .collect();
+
+            let mut concrete_name = template_name.clone();
+            concrete_name.lexeme = mangled_name;
+            new_structs.push(Stmt::Struct {
+                name: concrete_name,
+                type_vars: vec![],
+                fields: fields
+                    .iter()
+                    .map(|field| Param {
+                        var_type: substitute_token(&field.var_type, &bindings),
+                        var_name: field.var_name.clone(),
+                    })
+                    .collect(),
+            });
+        }
+    }
+
+    for structure in &new_structs {
+        symbol_table.register_declaration(structure)?;
     }
 
     let mut new_fns = vec![];
@@ -38,7 +98,7 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
                 continue;
             }
 
-            let mangled_name = mangle(name.lexeme.clone(), types);
+            let mangled_name = type_name(&name.lexeme, types);
             let mut mangled_name_token = name.clone();
             mangled_name_token.lexeme = mangled_name.clone();
 
@@ -86,28 +146,47 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
     }
 
     statements.retain(|s| !matches!(s, Stmt::Function { type_vars, .. } if !type_vars.is_empty()));
+    statements.retain(|s| !matches!(s, Stmt::Struct { type_vars, .. } if !type_vars.is_empty()));
+    statements.extend(new_structs);
     statements.extend(new_fns);
 
     Ok(statements)
 }
 
-pub fn mangle(name: String, types: &Vec<Token>) -> String {
+pub fn type_name(name: &str, types: &[Token]) -> String {
     format!(
-        "{}${}",
+        "{}::<{}>",
         name,
-        types
-            .iter()
-            .map(|t| t.lexeme.clone())
-            .collect::<Vec<String>>()
-            .join("$")
+        types.iter().map(|t| t.lexeme.as_str()).collect::<Vec<_>>().join(", ")
     )
 }
 
+pub fn method_owner(receiver_type: &str) -> &str {
+    receiver_type.split("::").next().unwrap_or(receiver_type)
+}
+
 fn substitute_token(t: &Token, bindings: &HashMap<String, Token>) -> Token {
-    match bindings.get(&t.lexeme) {
-        Some(bound) => bound.clone(),
-        None => t.clone(),
+    let mut result = t.clone();
+    let mut output = String::new();
+    let mut word = String::new();
+
+    for c in t.lexeme.chars().chain(std::iter::once(' ')) {
+        if c.is_ascii_alphanumeric() || c == '_' {
+            word.push(c);
+        } else {
+            if let Some(bound) = bindings.get(&word) {
+                output.push_str(&bound.lexeme);
+            } else {
+                output.push_str(&word);
+            }
+
+            word.clear();
+            output.push(c);
+        }
     }
+
+    result.lexeme = output.trim_end().to_string();
+    result
 }
 
 fn substitute_params(params: &Params, bindings: &HashMap<String, Token>) -> Params {

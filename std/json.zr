@@ -11,10 +11,10 @@ struct json.Value
     type: i64
     value: opaque
 
-insta Array.nth$<json.Value>
-insta Array.push$<json.Value>
-insta HashMap.get$<json.Value>
-insta HashMap.insert$<json.Value>
+insta Array.nth::<json.Value>
+insta Array.push::<json.Value>
+insta HashMap.get::<json.Value>
+insta HashMap.insert::<json.Value>
 
 func json.Value.dump[v: json.Value] : str
     s := new str.Builder
@@ -28,10 +28,10 @@ func json.Value.dump[v: json.Value] : str
             if i > 0
                 s->append_char(',')
             s->append_char('"')
-            s->append(keys->nth$<str>(i))
+            s->append(keys->nth::<str>(i))
             s->append_char('"')
             s->append_char(':')
-            value, _ := map->get$<json.Value>(keys->nth$<str>(i))
+            value, _ := map->get::<json.Value>(keys->nth::<str>(i))
             d := value->dump()
             s->append(d)
             d->free()
@@ -42,7 +42,7 @@ func json.Value.dump[v: json.Value] : str
         for i in 0..arr->len
             if i > 0
                 s->append_char(',')
-            d := arr->nth$<json.Value>(i)->dump()
+            d := arr->nth::<json.Value>(i)->dump()
             s->append(d)
             d->free()
         s->append_char(']')
@@ -73,27 +73,27 @@ func json.Value.free[v: json.Value] : void
         defer map->free_with_keys()
         keys := map->keys()
         for i in 0..keys->len
-            value, _ := map->get$<json.Value>(keys->nth$<str>(i))
+            value, _ := map->get::<json.Value>(keys->nth::<str>(i))
             value->free()
         keys->free()
     else if v->type == json.ARRAY
         arr := v->value as Array
         defer arr->free()
         for i in 0..arr->len
-            arr->nth$<json.Value>(i)->free()
+            arr->nth::<json.Value>(i)->free()
     else if v->type == json.STRING
         (v->value as str)->free()
 
     (v as ptr)->free()
 
-func json.Value.get$<T>[x: json.Value] : T
+func json.Value.get::<T>[x: json.Value] : T
     return x->value as T
 
-insta json.Value.get$<f64>
-insta json.Value.get$<str>
-insta json.Value.get$<bool>
-insta json.Value.get$<Array>
-insta json.Value.get$<HashMap>
+insta json.Value.get::<f64>
+insta json.Value.get::<str>
+insta json.Value.get::<bool>
+insta json.Value.get::<Array>
+insta json.Value.get::<HashMap>
 
 func json.parse[s: str] : json.Value
     p := new json.Parser
@@ -132,7 +132,7 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
                 p->_skip_whitespace()
 
                 value := p->_parse_value()
-                (out->value as HashMap)->insert$<json.Value>(key, value)
+                (out->value as HashMap)->insert::<json.Value>(key, value)
                 key->free()
 
                 p->_skip_whitespace()
@@ -155,7 +155,7 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
         while p->_peek() != ']'
             p->_skip_whitespace()
 
-            (out->value as Array)->push$<json.Value>(p->_parse_value())
+            (out->value as Array)->push::<json.Value>(p->_parse_value())
             p->_skip_whitespace()
 
             if p->_peek() == ','

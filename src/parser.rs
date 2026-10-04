@@ -98,6 +98,7 @@ pub enum Stmt {
     Continue(Token),
     Struct {
         name: Token,
+        type_vars: Vec<Token>,
         fields: Vec<Param>,
     },
     GlobalVariable {
@@ -227,13 +228,13 @@ impl Parser {
             if self.match_token(&[TokenType::KeywordVar]) {
                 let var_name = self.consume(TokenType::Identifier, "expected variable name after 'var'")?;
                 self.consume(TokenType::Colon, "expected ':' after variable name")?;
-                let var_type = self.consume(TokenType::Identifier, "expected variable type after ':'")?;
+                let var_type = self.parse_type_name()?;
                 return Ok(Stmt::GlobalVariable { var_name, var_type });
             }
             if self.match_token(&[TokenType::KeywordInsta]) {
                 let name = self.consume(TokenType::Identifier, "expected function name after 'insta'")?;
-                self.consume(TokenType::Dollar, "expected $ after function name")?;
-                let types = self.parse_type_vars()?;
+                self.consume(TokenType::DoubleColon, "expected '::' after function name")?;
+                let types = self.parse_type_args()?;
                 return Ok(Stmt::Instantiation { name, types });
             }
             return error!(self.peek().loc, "statements not allowed outside function body");
@@ -267,7 +268,7 @@ impl Parser {
     }
 
     fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>, Vec<Token>), ZernError> {
-        let type_vars = if self.match_token(&[TokenType::Dollar]) {
+        let type_vars = if self.match_token(&[TokenType::DoubleColon]) {
             self.parse_type_vars()?
         } else {
             vec![]
@@ -285,7 +286,7 @@ impl Parser {
                     let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
                     self.consume(TokenType::Colon, "expected ':' after parameter name")?;
 
-                    let var_type = self.consume(TokenType::Identifier, "expected type after ':'")?;
+                    let var_type = self.parse_type_name()?;
 
                     params.push(Param { var_type, var_name });
                     if !self.match_token(&[TokenType::Comma]) {
@@ -300,7 +301,7 @@ impl Parser {
 
         let mut return_types = vec![];
         loop {
-            return_types.push(self.consume(TokenType::Identifier, "expected return type after ':'")?);
+            return_types.push(self.parse_type_name()?);
             if !self.match_token(&[TokenType::Comma]) {
                 break;
             }
@@ -331,7 +332,7 @@ impl Parser {
     }
 
     fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
-        self.consume(TokenType::Less, "expected '<' after '$'")?;
+        self.consume(TokenType::Less, "expected '<' after '::'")?;
         let mut type_vars = vec![];
         loop {
             type_vars.push(self.consume(TokenType::Identifier, "expected type variable")?);
@@ -343,8 +344,45 @@ impl Parser {
         Ok(type_vars)
     }
 
+    fn parse_type_args(&mut self) -> Result<Vec<Token>, ZernError> {
+        self.consume(TokenType::Less, "expected '<' after '::'")?;
+        let mut types = vec![];
+        loop {
+            types.push(self.parse_type_name()?);
+            if !self.match_token(&[TokenType::Comma]) {
+                break;
+            }
+        }
+        self.consume(TokenType::Greater, "expected '>' after type arguments")?;
+        Ok(types)
+    }
+
+    fn parse_type_name(&mut self) -> Result<Token, ZernError> {
+        let mut name = self.consume(TokenType::Identifier, "expected type")?;
+        if self.match_token(&[TokenType::DoubleColon]) {
+            let args = self.parse_type_args()?;
+
+            name.lexeme.push_str("::<");
+            name.lexeme.push_str(
+                &args
+                    .iter()
+                    .map(|arg| arg.lexeme.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+            name.lexeme.push_str(">");
+        }
+        Ok(name)
+    }
+
     fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected struct name")?;
+
+        let type_vars = if self.match_token(&[TokenType::DoubleColon]) {
+            self.parse_type_vars()?
+        } else {
+            vec![]
+        };
 
         let mut fields = vec![];
         if self.match_token(&[TokenType::Indent]) {
@@ -352,14 +390,18 @@ impl Parser {
                 let var_name = self.consume(TokenType::Identifier, "expected field name")?;
                 self.consume(TokenType::Colon, "expected ':' after field name")?;
 
-                let var_type = self.consume(TokenType::Identifier, "expected type after ':'")?;
+                let var_type = self.parse_type_name()?;
 
                 fields.push(Param { var_type, var_name });
             }
             self.consume(TokenType::Dedent, "expected dedent after struct fields")?;
         }
 
-        Ok(Stmt::Struct { name, fields })
+        Ok(Stmt::Struct {
+            name,
+            type_vars,
+            fields,
+        })
     }
 
     fn const_declaration(&mut self) -> Result<Stmt, ZernError> {
@@ -641,7 +683,7 @@ impl Parser {
         let mut expr = self.unary()?;
 
         while self.match_token(&[TokenType::KeywordAs]) {
-            let type_name = self.consume(TokenType::Identifier, "expected type after 'as'")?;
+            let type_name = self.parse_type_name()?;
             expr = Expr::new(ExprKind::Cast {
                 casted: Box::new(expr),
                 type_name,
@@ -685,9 +727,9 @@ impl Parser {
                 break;
             }
 
-            if self.check(&TokenType::Dollar) || self.check(&TokenType::LeftParen) {
-                let type_args = if self.match_token(&[TokenType::Dollar]) {
-                    self.parse_type_vars()?
+            if self.check(&TokenType::DoubleColon) || self.check(&TokenType::LeftParen) {
+                let type_args = if self.match_token(&[TokenType::DoubleColon]) {
+                    self.parse_type_args()?
                 } else {
                     vec![]
                 };
@@ -732,11 +774,11 @@ impl Parser {
                 })
             } else if self.match_token(&[TokenType::Arrow]) {
                 if self.check(&TokenType::Identifier)
-                    && (self.check_ahead(&TokenType::Dollar) || self.check_ahead(&TokenType::LeftParen))
+                    && (self.check_ahead(&TokenType::DoubleColon) || self.check_ahead(&TokenType::LeftParen))
                 {
                     let method = self.consume(TokenType::Identifier, "expected method name")?;
-                    let type_args = if self.match_token(&[TokenType::Dollar]) {
-                        self.parse_type_vars()?
+                    let type_args = if self.match_token(&[TokenType::DoubleColon]) {
+                        self.parse_type_args()?
                     } else {
                         vec![]
                     };
@@ -802,7 +844,7 @@ impl Parser {
             Ok(Expr::new(ExprKind::ArrayLiteral(xs)))
         } else if self.match_token(&[TokenType::KeywordNew]) {
             let use_heap = self.match_token(&[TokenType::Star]);
-            let struct_name = self.consume(TokenType::Identifier, "expected type after 'new'")?;
+            let struct_name = self.parse_type_name()?;
             Ok(Expr::new(ExprKind::New { struct_name, use_heap }))
         } else if self.match_token(&[TokenType::Identifier]) {
             Ok(Expr::new(ExprKind::Variable(self.previous().clone())))
