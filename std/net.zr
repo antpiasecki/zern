@@ -146,7 +146,7 @@ func net.UDPPacket.free[pkt: net.UDPPacket] : void
 func net.resolve[domain: str] : i64, bool
     // if domain is already an ip, skip dns resolution
     parts := domain->split(".")
-    defer parts->free_with_items()
+    defer parts->free_with_items::<str>()
     if parts->len == 4
         valid := true
         for i in 0..4

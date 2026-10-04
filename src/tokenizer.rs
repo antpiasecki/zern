@@ -254,9 +254,7 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             '>' => {
-                if self.match_char('>') {
-                    self.add_token(TokenType::ShiftRight)?
-                } else if self.match_char('=') {
+                if self.match_char('=') {
                     self.add_token(TokenType::GreaterEqual)?
                 } else {
                     self.add_token(TokenType::Greater)?

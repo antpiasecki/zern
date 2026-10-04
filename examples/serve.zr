@@ -24,7 +24,7 @@ func handle_connection[conn: ConnData] : void
     first_line := req->substr_n(0, pos)
     defer first_line->free()
     parts := first_line->split(" ")
-    defer parts->free_with_items()
+    defer parts->free_with_items::<str>()
     method := parts->nth::<str>(0)
     path := parts->nth::<str>(1)
 

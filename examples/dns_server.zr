@@ -5,8 +5,13 @@ include "$/net.zr"
 const TTL = 60
 const PORT = 10053
 
+insta HashMap::<Buffer>
+insta HashMap.new::<Buffer>
+insta HashMap.get::<Buffer>
+insta HashMap.insert::<Buffer>
+
 func main[] : i64
-    records := HashMap.new()
+    records := HashMap.new::<Buffer>()
 
     test_su_buffer := Buffer.alloc(4)
     mem.write32be(test_su_buffer@[0], net.pack_addr(1, 2, 3, 4))
@@ -24,7 +29,7 @@ func main[] : i64
             s->send_to(sa, resp@[0], resp->len)
             resp->free()
 
-func handle_req[s: net.UDPSocket, records: HashMap, req: Buffer, sa: ptr] : Buffer
+func handle_req[s: net.UDPSocket, records: HashMap::<Buffer>, req: Buffer, sa: ptr] : Buffer
     defer req->free()
     defer sa->free()
 

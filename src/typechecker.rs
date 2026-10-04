@@ -495,8 +495,11 @@ impl<'a> TypeChecker<'a> {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
-                // TODO
-                Ok("Array".into())
+                let item_type = match exprs.len() {
+                    0 => "opaque>".into(),
+                    _ => self.typecheck_expr(env, &exprs[0])?,
+                };
+                Ok(format!("Array::<{}>", item_type))
             }
             ExprKind::Index {
                 indexed,
@@ -574,7 +577,11 @@ impl<'a> TypeChecker<'a> {
 
                 match &func_type.params {
                     FnParams::Normal(params) => {
-                        if params.is_empty() || params[0] != receiver_type {
+                        if params.is_empty()
+                            || !(params[0] == receiver_type
+                                || !params[0].contains("::")
+                                    && monomorphizer::method_owner(&receiver_type) == params[0])
+                        {
                             return error!(
                                 method.loc,
                                 format!("first parameter of the method must be of type {}", receiver_type)

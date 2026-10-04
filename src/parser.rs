@@ -659,14 +659,19 @@ impl Parser {
         recursion_guard!(self);
         let mut expr = self.cast()?;
 
-        while self.match_token(&[
-            TokenType::Star,
-            TokenType::Slash,
-            TokenType::Mod,
-            TokenType::ShiftLeft,
-            TokenType::ShiftRight,
-        ]) {
-            let op = self.previous().clone();
+        while matches!(
+            &self.peek().token_type,
+            TokenType::Star | TokenType::Slash | TokenType::Mod | TokenType::ShiftLeft
+        ) || (self.check(&TokenType::Greater) && self.check_ahead(&TokenType::Greater))
+        {
+            let mut op = self.peek().clone();
+            self.current += 1;
+
+            if op.token_type == TokenType::Greater {
+                self.current += 1;
+                op.token_type = TokenType::ShiftRight;
+            }
+
             let right = self.unary()?;
             expr = Expr::new(ExprKind::Binary {
                 left: Box::new(expr),

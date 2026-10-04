@@ -196,10 +196,10 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-func str.split[haystack: str, needle: str]: Array
+func str.split[haystack: str, needle: str]: Array::<str>
     haystack_len := haystack->len()
     needle_len := needle->len()
-    result := []
+    result := [] as Array::<str>
 
     if !needle_len
         if !haystack_len
