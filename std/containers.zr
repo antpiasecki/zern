@@ -5,6 +5,10 @@ struct Array<T>
     len: i64
     capacity: i64
 
+// codegen needs Array<opaque>
+func _ugly_array_hack[] : void
+    new Array<opaque>
+
 func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
     if len > 0
         xs->data = mem.alloc(len * 8)
@@ -37,13 +41,13 @@ func Array.slice<T>[xs: Array<T>, start: i64, length: i64] : Array<T>
     if start < 0 || length < 0 || start + length > xs->len
         io.panic("Array.slice: out of bounds")
 
-    new_array := []
+    new_array := [] as Array<T>
     new_array->preallocate_and_zero(length)
     mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
     return new_array
 
 func Array.concat<T>[a: Array<T>, b: Array<T>] : Array<T>
-    new_array := []
+    new_array := [] as Array<T>
     new_array->preallocate_and_zero(a->len + b->len)
     mem.copy_n(a->data, new_array->data@[0], a->len * 8)
     mem.copy_n(b->data, new_array->data@[a->len * 8], b->len * 8)
@@ -61,17 +65,17 @@ func Array.free<T>[xs: Array<T>] : void
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.free_with_items<T>[xs: Array<T>] : void
+func Array.free_with_ptr_items<T>[xs: Array<T>] : void
     if xs->data != 0
         for i in 0..xs->len
-            xs->nth(i)->free()
+            (xs->nth(i) as ptr)->free()
         xs->data->free()
     (xs as ptr)->free()
 
 func Array.pop<T>[xs: Array<T>] : T
     if xs->len == 0
         io.panic("Array.pop: empty array")
-    x := xs->last()
+    x := xs->last() as T
     xs->len = xs->len - 1
     return x
 
@@ -86,58 +90,6 @@ func Array.contains_str[arr: Array<str>, s: str] : bool
             return true
     return false
 
-insta Array<u8>
-insta Array<i64>
-insta Array<f64>
-insta Array<str>
-insta Array<bool>
-insta Array<ptr>
-insta Array<opaque>
-insta Array.preallocate_and_zero<u8>
-insta Array.preallocate_and_zero<i64>
-insta Array.preallocate_and_zero<f64>
-insta Array.preallocate_and_zero<str>
-insta Array.preallocate_and_zero<bool>
-insta Array.preallocate_and_zero<ptr>
-insta Array.preallocate_and_zero<opaque>
-insta Array.nth<u8>
-insta Array.nth<i64>
-insta Array.nth<f64>
-insta Array.nth<str>
-insta Array.nth<bool>
-insta Array.nth<ptr>
-insta Array.nth<opaque>
-insta Array.set<u8>
-insta Array.set<i64>
-insta Array.set<f64>
-insta Array.set<str>
-insta Array.set<bool>
-insta Array.set<ptr>
-insta Array.set<opaque>
-insta Array.push<u8>
-insta Array.push<i64>
-insta Array.push<f64>
-insta Array.push<str>
-insta Array.push<bool>
-insta Array.push<ptr>
-insta Array.push<opaque>
-insta Array.last<u8>
-insta Array.last<i64>
-insta Array.last<f64>
-insta Array.last<str>
-insta Array.last<bool>
-insta Array.last<ptr>
-insta Array.last<opaque>
-insta Array.free<u8>
-insta Array.free<i64>
-insta Array.free<f64>
-insta Array.free<str>
-insta Array.free<bool>
-insta Array.free<ptr>
-insta Array.free<opaque>
-insta Array.free_with_items<str>
-insta Array.free_with_items<ptr>
-
 const HashMap._TABLE_SIZE = 100
 
 struct HashMap<T>
@@ -147,12 +99,6 @@ struct HashMap._Node
     key: str
     value: opaque
     next: HashMap._Node
-
-insta Array<HashMap._Node>
-insta Array.preallocate_and_zero<HashMap._Node>
-insta Array.nth<HashMap._Node>
-insta Array.set<HashMap._Node>
-insta Array.free<HashMap._Node>
 
 func HashMap.new<T>[] : HashMap<T>
     map := new* HashMap<T>
@@ -233,28 +179,3 @@ func HashMap.free_with_keys<T>[map: HashMap<T>] : void
 
     map->table->free()
     (map as ptr)->free()
-
-insta HashMap<u8>
-insta HashMap<i64>
-insta HashMap<str>
-insta HashMap<bool>
-insta HashMap<ptr>
-insta HashMap<opaque>
-insta HashMap.new<u8>
-insta HashMap.new<i64>
-insta HashMap.new<str>
-insta HashMap.new<bool>
-insta HashMap.new<ptr>
-insta HashMap.new<opaque>
-insta HashMap.get<u8>
-insta HashMap.get<i64>
-insta HashMap.get<str>
-insta HashMap.get<bool>
-insta HashMap.get<ptr>
-insta HashMap.get<opaque>
-insta HashMap.insert<u8>
-insta HashMap.insert<i64>
-insta HashMap.insert<str>
-insta HashMap.insert<bool>
-insta HashMap.insert<ptr>
-insta HashMap.insert<opaque>

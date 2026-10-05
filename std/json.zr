@@ -11,17 +11,6 @@ struct json.Value
     type: i64
     value: opaque
 
-insta Array<json.Value>
-insta Array.nth<json.Value>
-insta Array.push<json.Value>
-insta Array.free<json.Value>
-insta HashMap<json.Value>
-insta HashMap.new<json.Value>
-insta HashMap.get<json.Value>
-insta HashMap.keys<json.Value>
-insta HashMap.insert<json.Value>
-insta HashMap.free_with_keys<json.Value>
-
 func json.Value.dump[v: json.Value] : str
     s := new str.Builder
 
@@ -94,12 +83,6 @@ func json.Value.free[v: json.Value] : void
 
 func json.Value.get<T>[x: json.Value] : T
     return x->value as T
-
-insta json.Value.get<f64>
-insta json.Value.get<str>
-insta json.Value.get<bool>
-insta json.Value.get<Array<json.Value>>
-insta json.Value.get<HashMap<json.Value>>
 
 func json.parse[s: str] : json.Value
     p := new json.Parser

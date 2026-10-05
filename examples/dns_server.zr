@@ -5,11 +5,6 @@ include "$/net.zr"
 const TTL = 60
 const PORT = 10053
 
-insta HashMap<Buffer>
-insta HashMap.new<Buffer>
-insta HashMap.get<Buffer>
-insta HashMap.insert<Buffer>
-
 func main[] : i64
     records := HashMap.new::<Buffer>()
 

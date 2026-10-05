@@ -36,7 +36,8 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         symbol_table.register_declaration(stmt)?;
     }
 
-    let statements = monomorphizer::monomorphize(statements, &mut symbol_table)?;
+    let mut monomorphizer = monomorphizer::Monomorphizer::new(&mut symbol_table);
+    let statements = monomorphizer.monomorphize(statements)?;
 
     symbol_table
         .constants

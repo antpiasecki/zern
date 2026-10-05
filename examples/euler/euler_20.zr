@@ -12,7 +12,7 @@ func multiply[n: Array<i64>, x: i64] : void
         carry = carry / 10
 
 func main[] : i64
-    n := [1]
+    n := [1] as Array<i64>
 
     for i in 2..=100
         multiply(n, i)

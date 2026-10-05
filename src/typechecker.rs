@@ -339,13 +339,6 @@ impl<'a> TypeChecker<'a> {
             Stmt::Defer { keyword: _, block } => {
                 self.typecheck_stmt(env, block)?;
             }
-            Stmt::Instantiation { name: _, types } => {
-                for t in types {
-                    if !self.is_valid_type_name(&t.lexeme) {
-                        return error!(&t.loc, format!("unknown type: {}", &t.lexeme));
-                    }
-                }
-            }
         }
         Ok(())
     }
@@ -495,11 +488,7 @@ impl<'a> TypeChecker<'a> {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
-                let item_type = match exprs.len() {
-                    0 => "opaque>".into(),
-                    _ => self.typecheck_expr(env, &exprs[0])?,
-                };
-                Ok(format!("Array<{}>", item_type))
+                Ok("Array<opaque>".into())
             }
             ExprKind::Index {
                 indexed,

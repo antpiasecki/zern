@@ -2,7 +2,7 @@ include "$/io.zr"
 include "$/containers.zr"
 
 func main[] : i64
-    n := [1]
+    n := [1] as Array<i64>
 
     for j in 0..1000
         carry := 0

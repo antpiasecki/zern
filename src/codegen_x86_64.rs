@@ -672,9 +672,6 @@ _start:
                 }
                 env.scopes.last_mut().unwrap().defers.push(*block.clone());
             }
-            Stmt::Instantiation { .. } => {
-                // handled in the monomorphizer
-            }
         }
         Ok(())
     }
@@ -1326,11 +1323,11 @@ fn mangle(name: &str) -> String {
     let Some(pos) = name.find('<') else {
         return name.into();
     };
-    format!("{}${}", &name[..pos], fnv1a64(&name[pos..]))
+    format!("{}${}", &name[..pos], hash(&name[pos..]))
 }
 
-fn fnv1a64(s: &str) -> String {
-    let mut h: u64 = 0xcbf29ce484222325;
+fn hash(s: &str) -> String {
+    let mut h: u64 = 0x24cfab8851262372;
     for b in s.bytes() {
         h ^= b as u64;
         h = h.wrapping_mul(0x100000001b3);
