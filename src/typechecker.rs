@@ -499,7 +499,7 @@ impl<'a> TypeChecker<'a> {
                     0 => "opaque>".into(),
                     _ => self.typecheck_expr(env, &exprs[0])?,
                 };
-                Ok(format!("Array::<{}>", item_type))
+                Ok(format!("Array<{}>", item_type))
             }
             ExprKind::Index {
                 indexed,
@@ -562,10 +562,20 @@ impl<'a> TypeChecker<'a> {
                 let receiver_type = self.typecheck_expr(env, callee)?;
                 let func_name = format!("{}.{}", monomorphizer::method_owner(&receiver_type), method.lexeme);
 
-                let func_name = if type_args.is_empty() {
+                let inferred_args = if type_args.is_empty() {
+                    self.symbol_table
+                        .generic_functions
+                        .get(&func_name)
+                        .map(|method| monomorphizer::infer_method_type_args(&receiver_type, method))
+                        .unwrap_or_default()
+                } else {
+                    type_args.clone()
+                };
+
+                let func_name = if inferred_args.is_empty() {
                     func_name.clone()
                 } else {
-                    monomorphizer::type_name(&func_name, type_args)
+                    monomorphizer::type_name(&func_name, &inferred_args)
                 };
 
                 let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
@@ -579,8 +589,7 @@ impl<'a> TypeChecker<'a> {
                     FnParams::Normal(params) => {
                         if params.is_empty()
                             || !(params[0] == receiver_type
-                                || !params[0].contains("::")
-                                    && monomorphizer::method_owner(&receiver_type) == params[0])
+                                || !params[0].contains("<") && monomorphizer::method_owner(&receiver_type) == params[0])
                         {
                             return error!(
                                 method.loc,
@@ -608,6 +617,7 @@ impl<'a> TypeChecker<'a> {
             }
         }?;
 
+        assert!(!expr_type.contains(":"));
         self.expr_types.insert(expr.id, expr_type.clone());
         Ok(expr_type)
     }

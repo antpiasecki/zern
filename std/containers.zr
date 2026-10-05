@@ -1,28 +1,28 @@
 include "mem.zr"
 
-struct Array::<T>
+struct Array<T>
     data: ptr
     len: i64
     capacity: i64
 
-func Array.preallocate_and_zero::<T>[xs: Array::<T>, len: i64] : void
+func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
     if len > 0
         xs->data = mem.alloc(len * 8)
         mem.zero(xs->data, len * 8)
         xs->len = len
         xs->capacity = len
 
-func Array.nth::<T>[xs: Array::<T>, n: i64] : T
+func Array.nth<T>[xs: Array<T>, n: i64] : T
     if n < 0 || n >= xs->len
         io.panic("Array.nth: out of bounds")
     return mem.read64(xs->data@[n * 8]) as T
 
-func Array.set::<T>[xs: Array::<T>, n: i64, x: T] : void
+func Array.set<T>[xs: Array<T>, n: i64, x: T] : void
     if n < 0 || n >= xs->len
         io.panic("Array.set: out of bounds")
     mem.write64(xs->data@[n * 8], x as i64)
 
-func Array.push::<T>[xs: Array::<T>, x: T] : void
+func Array.push<T>[xs: Array<T>, x: T] : void
     if xs->len == xs->capacity
         new_capacity := 4
         if xs->capacity != 0
@@ -33,7 +33,7 @@ func Array.push::<T>[xs: Array::<T>, x: T] : void
     mem.write64(xs->data@[xs->len * 8], x as i64)
     xs->len += 1
 
-func Array.slice::<T>[xs: Array::<T>, start: i64, length: i64] : Array::<T>
+func Array.slice<T>[xs: Array<T>, start: i64, length: i64] : Array<T>
     if start < 0 || length < 0 || start + length > xs->len
         io.panic("Array.slice: out of bounds")
 
@@ -42,122 +42,122 @@ func Array.slice::<T>[xs: Array::<T>, start: i64, length: i64] : Array::<T>
     mem.copy_n(xs->data@[start * 8], new_array->data, length * 8)
     return new_array
 
-func Array.concat::<T>[a: Array::<T>, b: Array::<T>] : Array::<T>
+func Array.concat<T>[a: Array<T>, b: Array<T>] : Array<T>
     new_array := []
     new_array->preallocate_and_zero(a->len + b->len)
     mem.copy_n(a->data, new_array->data@[0], a->len * 8)
     mem.copy_n(b->data, new_array->data@[a->len * 8], b->len * 8)
     return new_array
 
-func Array.count::<T>[xs: Array::<T>, x: T] : i64
+func Array.count<T>[xs: Array<T>, x: T] : i64
     n := 0
     for i in 0..xs->len
         if xs->nth(i) as i64 == x as i64
             n += 1
     return n
 
-func Array.free::<T>[xs: Array::<T>] : void
+func Array.free<T>[xs: Array<T>] : void
     if xs->data != 0
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.free_with_items::<T>[xs: Array::<T>] : void
+func Array.free_with_items<T>[xs: Array<T>] : void
     if xs->data != 0
         for i in 0..xs->len
-            xs->nth::<T>(i)->free()
+            xs->nth(i)->free()
         xs->data->free()
     (xs as ptr)->free()
 
-func Array.pop::<T>[xs: Array::<T>] : T
+func Array.pop<T>[xs: Array<T>] : T
     if xs->len == 0
         io.panic("Array.pop: empty array")
-    x := xs->last::<T>()
+    x := xs->last()
     xs->len = xs->len - 1
     return x
 
-func Array.last::<T>[xs: Array::<T>] : T
+func Array.last<T>[xs: Array<T>] : T
     if xs->len == 0
         io.panic("Array.last: empty array")
-    return xs->nth::<T>(xs->len - 1)
+    return xs->nth(xs->len - 1)
 
-func Array.contains_str[arr: Array::<str>, s: str] : bool
+func Array.contains_str[arr: Array<str>, s: str] : bool
     for i in 0..arr->len
-        if arr->nth::<str>(i)->equal(s)
+        if arr->nth(i)->equal(s)
             return true
     return false
 
-insta Array::<u8>
-insta Array::<i64>
-insta Array::<f64>
-insta Array::<str>
-insta Array::<bool>
-insta Array::<ptr>
-insta Array::<opaque>
-insta Array.preallocate_and_zero::<u8>
-insta Array.preallocate_and_zero::<i64>
-insta Array.preallocate_and_zero::<f64>
-insta Array.preallocate_and_zero::<str>
-insta Array.preallocate_and_zero::<bool>
-insta Array.preallocate_and_zero::<ptr>
-insta Array.preallocate_and_zero::<opaque>
-insta Array.nth::<u8>
-insta Array.nth::<i64>
-insta Array.nth::<f64>
-insta Array.nth::<str>
-insta Array.nth::<bool>
-insta Array.nth::<ptr>
-insta Array.nth::<opaque>
-insta Array.set::<u8>
-insta Array.set::<i64>
-insta Array.set::<f64>
-insta Array.set::<str>
-insta Array.set::<bool>
-insta Array.set::<ptr>
-insta Array.set::<opaque>
-insta Array.push::<u8>
-insta Array.push::<i64>
-insta Array.push::<f64>
-insta Array.push::<str>
-insta Array.push::<bool>
-insta Array.push::<ptr>
-insta Array.push::<opaque>
-insta Array.last::<u8>
-insta Array.last::<i64>
-insta Array.last::<f64>
-insta Array.last::<str>
-insta Array.last::<bool>
-insta Array.last::<ptr>
-insta Array.last::<opaque>
-insta Array.free::<u8>
-insta Array.free::<i64>
-insta Array.free::<f64>
-insta Array.free::<str>
-insta Array.free::<bool>
-insta Array.free::<ptr>
-insta Array.free::<opaque>
-insta Array.free_with_items::<str>
-insta Array.free_with_items::<ptr>
+insta Array<u8>
+insta Array<i64>
+insta Array<f64>
+insta Array<str>
+insta Array<bool>
+insta Array<ptr>
+insta Array<opaque>
+insta Array.preallocate_and_zero<u8>
+insta Array.preallocate_and_zero<i64>
+insta Array.preallocate_and_zero<f64>
+insta Array.preallocate_and_zero<str>
+insta Array.preallocate_and_zero<bool>
+insta Array.preallocate_and_zero<ptr>
+insta Array.preallocate_and_zero<opaque>
+insta Array.nth<u8>
+insta Array.nth<i64>
+insta Array.nth<f64>
+insta Array.nth<str>
+insta Array.nth<bool>
+insta Array.nth<ptr>
+insta Array.nth<opaque>
+insta Array.set<u8>
+insta Array.set<i64>
+insta Array.set<f64>
+insta Array.set<str>
+insta Array.set<bool>
+insta Array.set<ptr>
+insta Array.set<opaque>
+insta Array.push<u8>
+insta Array.push<i64>
+insta Array.push<f64>
+insta Array.push<str>
+insta Array.push<bool>
+insta Array.push<ptr>
+insta Array.push<opaque>
+insta Array.last<u8>
+insta Array.last<i64>
+insta Array.last<f64>
+insta Array.last<str>
+insta Array.last<bool>
+insta Array.last<ptr>
+insta Array.last<opaque>
+insta Array.free<u8>
+insta Array.free<i64>
+insta Array.free<f64>
+insta Array.free<str>
+insta Array.free<bool>
+insta Array.free<ptr>
+insta Array.free<opaque>
+insta Array.free_with_items<str>
+insta Array.free_with_items<ptr>
 
 const HashMap._TABLE_SIZE = 100
 
-struct HashMap::<T>
-    table: Array::<HashMap._Node>
+struct HashMap<T>
+    table: Array<HashMap._Node>
 
 struct HashMap._Node
     key: str
     value: opaque
     next: HashMap._Node
 
-insta Array::<HashMap._Node>
-insta Array.preallocate_and_zero::<HashMap._Node>
-insta Array.nth::<HashMap._Node>
-insta Array.set::<HashMap._Node>
-insta Array.free::<HashMap._Node>
+insta Array<HashMap._Node>
+insta Array.preallocate_and_zero<HashMap._Node>
+insta Array.nth<HashMap._Node>
+insta Array.set<HashMap._Node>
+insta Array.free<HashMap._Node>
 
-func HashMap.new::<T>[] : HashMap::<T>
-    map := new* HashMap::<T>
-    map->table = [] as Array::<HashMap._Node>
-    map->table->preallocate_and_zero::<HashMap._Node>(HashMap._TABLE_SIZE)
+func HashMap.new<T>[] : HashMap<T>
+    map := new* HashMap<T>
+    map->table = [] as Array<HashMap._Node>
+    map->table->preallocate_and_zero(HashMap._TABLE_SIZE)
     return map
 
 func HashMap._djb2[key: str] : i64
@@ -167,9 +167,9 @@ func HashMap._djb2[key: str] : i64
     hash = (hash & 0x7fffffffffffffff) // prevent negative
     return hash % HashMap._TABLE_SIZE
 
-func HashMap.insert::<T>[map: HashMap::<T>, key: str, value: T] : void
+func HashMap.insert<T>[map: HashMap<T>, key: str, value: T] : void
     index := HashMap._djb2(key)
-    current := map->table->nth::<HashMap._Node>(index)
+    current := map->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -180,12 +180,12 @@ func HashMap.insert::<T>[map: HashMap::<T>, key: str, value: T] : void
     new_node := new* HashMap._Node
     new_node->key = key->make_copy()
     new_node->value = value as opaque
-    new_node->next = map->table->nth::<HashMap._Node>(index)
-    map->table->set::<HashMap._Node>(index, new_node)
+    new_node->next = map->table->nth(index)
+    map->table->set(index, new_node)
 
-func HashMap.get::<T>[map: HashMap::<T>, key: str] : T, bool
+func HashMap.get<T>[map: HashMap<T>, key: str] : T, bool
     index := HashMap._djb2(key)
-    current := map->table->nth::<HashMap._Node>(index)
+    current := map->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -194,9 +194,9 @@ func HashMap.get::<T>[map: HashMap::<T>, key: str] : T, bool
 
     return 0 as T, false
 
-func HashMap.delete::<T>[map: HashMap::<T>, key: str] : void
+func HashMap.delete<T>[map: HashMap<T>, key: str] : void
     index := HashMap._djb2(key)
-    current := map->table->nth::<HashMap._Node>(index)
+    current := map->table->nth(index)
     prev := 0 as HashMap._Node
 
     while current as ptr
@@ -204,7 +204,7 @@ func HashMap.delete::<T>[map: HashMap::<T>, key: str] : void
             if prev as ptr
                 prev->next = current->next
             else
-                map->table->set::<HashMap._Node>(index, current->next)
+                map->table->set(index, current->next)
 
             current->key->free()
             (current as ptr)->free()
@@ -213,48 +213,48 @@ func HashMap.delete::<T>[map: HashMap::<T>, key: str] : void
         prev = current
         current = current->next
 
-func HashMap.keys::<T>[map: HashMap::<T>] : Array::<str>
-    out := [] as Array::<str>
+func HashMap.keys<T>[map: HashMap<T>] : Array<str>
+    out := [] as Array<str>
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth::<HashMap._Node>(i)
+        current := map->table->nth(i)
         while current as ptr
-            out->push::<str>(current->key)
+            out->push(current->key)
             current = current->next
     return out
 
-func HashMap.free_with_keys::<T>[map: HashMap::<T>] : void
+func HashMap.free_with_keys<T>[map: HashMap<T>] : void
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth::<HashMap._Node>(i)
+        current := map->table->nth(i)
         while current as ptr
             tmp := current
             current = current->next
             tmp->key->free()
             (tmp as ptr)->free()
 
-    map->table->free::<HashMap._Node>()
+    map->table->free()
     (map as ptr)->free()
 
-insta HashMap::<u8>
-insta HashMap::<i64>
-insta HashMap::<str>
-insta HashMap::<bool>
-insta HashMap::<ptr>
-insta HashMap::<opaque>
-insta HashMap.new::<u8>
-insta HashMap.new::<i64>
-insta HashMap.new::<str>
-insta HashMap.new::<bool>
-insta HashMap.new::<ptr>
-insta HashMap.new::<opaque>
-insta HashMap.get::<u8>
-insta HashMap.get::<i64>
-insta HashMap.get::<str>
-insta HashMap.get::<bool>
-insta HashMap.get::<ptr>
-insta HashMap.get::<opaque>
-insta HashMap.insert::<u8>
-insta HashMap.insert::<i64>
-insta HashMap.insert::<str>
-insta HashMap.insert::<bool>
-insta HashMap.insert::<ptr>
-insta HashMap.insert::<opaque>
+insta HashMap<u8>
+insta HashMap<i64>
+insta HashMap<str>
+insta HashMap<bool>
+insta HashMap<ptr>
+insta HashMap<opaque>
+insta HashMap.new<u8>
+insta HashMap.new<i64>
+insta HashMap.new<str>
+insta HashMap.new<bool>
+insta HashMap.new<ptr>
+insta HashMap.new<opaque>
+insta HashMap.get<u8>
+insta HashMap.get<i64>
+insta HashMap.get<str>
+insta HashMap.get<bool>
+insta HashMap.get<ptr>
+insta HashMap.get<opaque>
+insta HashMap.insert<u8>
+insta HashMap.insert<i64>
+insta HashMap.insert<str>
+insta HashMap.insert<bool>
+insta HashMap.insert<ptr>
+insta HashMap.insert<opaque>

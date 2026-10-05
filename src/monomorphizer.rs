@@ -155,14 +155,77 @@ pub fn monomorphize(mut statements: Vec<Stmt>, symbol_table: &mut SymbolTable) -
 
 pub fn type_name(name: &str, types: &[Token]) -> String {
     format!(
-        "{}::<{}>",
+        "{}<{}>",
         name,
         types.iter().map(|t| t.lexeme.as_str()).collect::<Vec<_>>().join(", ")
     )
 }
 
 pub fn method_owner(receiver_type: &str) -> &str {
-    receiver_type.split("::").next().unwrap_or(receiver_type)
+    receiver_type.split("<").next().unwrap_or(receiver_type)
+}
+
+pub fn infer_method_type_args(receiver_type: &str, method: &Stmt) -> Vec<Token> {
+    let Stmt::Function {
+        type_vars,
+        params: Params::Normal(params),
+        ..
+    } = method
+    else {
+        return vec![];
+    };
+
+    if params.is_empty() || type_vars.is_empty() {
+        return vec![];
+    }
+
+    let Some(open) = receiver_type.find('<') else {
+        return vec![];
+    };
+
+    let Some(inner) = receiver_type.strip_suffix('>') else {
+        return vec![];
+    };
+
+    let args = split_type_args(&inner[open + 1..]);
+
+    if args.len() != type_vars.len() {
+        return vec![];
+    }
+
+    type_vars
+        .iter()
+        .zip(args)
+        .map(|(var, arg)| {
+            let mut token = var.clone();
+            token.lexeme = arg.to_string();
+            token
+        })
+        .collect()
+}
+
+fn split_type_args(input: &str) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut depth = 0;
+    let mut start = 0;
+
+    for (i, c) in input.char_indices() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth -= 1,
+            ',' if depth == 0 => {
+                result.push(input[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+
+    if start < input.len() {
+        result.push(input[start..].trim());
+    }
+
+    result
 }
 
 fn substitute_token(t: &Token, bindings: &HashMap<String, Token>) -> Token {

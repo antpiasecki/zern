@@ -998,7 +998,7 @@ _start:
                     emit!(&mut self.output, "    mov rsi, rax");
                     emit!(&mut self.output, "    pop rdi");
                     emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call {}", mangle("Array.push::<opaque>"));
+                    emit!(&mut self.output, "    call {}", mangle("Array.push<opaque>"));
                 }
                 emit!(&mut self.output, "    pop rax");
             }
@@ -1120,10 +1120,20 @@ _start:
                 let receiver_type = &self.expr_types[&callee.id];
                 let func_name = format!("{}.{}", monomorphizer::method_owner(receiver_type), method.lexeme);
 
-                let func_name = if type_args.is_empty() {
-                    func_name.clone()
+                let inferred_args = if type_args.is_empty() {
+                    self.symbol_table
+                        .generic_functions
+                        .get(&func_name)
+                        .map(|template| monomorphizer::infer_method_type_args(receiver_type, template))
+                        .unwrap_or_default()
                 } else {
-                    monomorphizer::type_name(&func_name, type_args)
+                    type_args.clone()
+                };
+
+                let func_name = if inferred_args.is_empty() {
+                    func_name
+                } else {
+                    monomorphizer::type_name(&func_name, &inferred_args)
                 };
 
                 if self.args.target_windows {
@@ -1313,10 +1323,10 @@ _start:
 }
 
 fn mangle(name: &str) -> String {
-    let Some((name, rest)) = name.split_once("::") else {
+    let Some(pos) = name.find('<') else {
         return name.into();
     };
-    format!("{}${}", name, fnv1a64(rest))
+    format!("{}${}", &name[..pos], fnv1a64(&name[pos..]))
 }
 
 fn fnv1a64(s: &str) -> String {

@@ -11,44 +11,44 @@ struct json.Value
     type: i64
     value: opaque
 
-insta Array::<json.Value>
-insta Array.nth::<json.Value>
-insta Array.push::<json.Value>
-insta Array.free::<json.Value>
-insta HashMap::<json.Value>
-insta HashMap.new::<json.Value>
-insta HashMap.get::<json.Value>
-insta HashMap.keys::<json.Value>
-insta HashMap.insert::<json.Value>
-insta HashMap.free_with_keys::<json.Value>
+insta Array<json.Value>
+insta Array.nth<json.Value>
+insta Array.push<json.Value>
+insta Array.free<json.Value>
+insta HashMap<json.Value>
+insta HashMap.new<json.Value>
+insta HashMap.get<json.Value>
+insta HashMap.keys<json.Value>
+insta HashMap.insert<json.Value>
+insta HashMap.free_with_keys<json.Value>
 
 func json.Value.dump[v: json.Value] : str
     s := new str.Builder
 
     if v->type == json.OBJECT
-        map := v->value as HashMap::<json.Value>
-        keys := map->keys::<json.Value>()
-        defer keys->free::<str>()
+        map := v->value as HashMap<json.Value>
+        keys := map->keys()
+        defer keys->free()
         s->append_char('{')
         for i in 0..keys->len
             if i > 0
                 s->append_char(',')
             s->append_char('"')
-            s->append(keys->nth::<str>(i))
+            s->append(keys->nth(i))
             s->append_char('"')
             s->append_char(':')
-            value, _ := map->get::<json.Value>(keys->nth::<str>(i))
+            value, _ := map->get(keys->nth(i))
             d := value->dump()
             s->append(d)
             d->free()
         s->append_char('}')
     else if v->type == json.ARRAY
-        arr := v->value as Array::<json.Value>
+        arr := v->value as Array<json.Value>
         s->append_char('[')
         for i in 0..arr->len
             if i > 0
                 s->append_char(',')
-            d := arr->nth::<json.Value>(i)->dump()
+            d := arr->nth(i)->dump()
             s->append(d)
             d->free()
         s->append_char(']')
@@ -75,31 +75,31 @@ func json.Value.dump[v: json.Value] : str
 
 func json.Value.free[v: json.Value] : void
     if v->type == json.OBJECT
-        map := v->value as HashMap::<json.Value>
-        defer map->free_with_keys::<json.Value>()
-        keys := map->keys::<json.Value>()
+        map := v->value as HashMap<json.Value>
+        defer map->free_with_keys()
+        keys := map->keys()
         for i in 0..keys->len
-            value, _ := map->get::<json.Value>(keys->nth::<str>(i))
+            value, _ := map->get(keys->nth(i))
             value->free()
-        keys->free::<str>()
+        keys->free()
     else if v->type == json.ARRAY
-        arr := v->value as Array::<json.Value>
-        defer arr->free::<json.Value>()
+        arr := v->value as Array<json.Value>
+        defer arr->free()
         for i in 0..arr->len
-            arr->nth::<json.Value>(i)->free()
+            arr->nth(i)->free()
     else if v->type == json.STRING
         (v->value as str)->free()
 
     (v as ptr)->free()
 
-func json.Value.get::<T>[x: json.Value] : T
+func json.Value.get<T>[x: json.Value] : T
     return x->value as T
 
-insta json.Value.get::<f64>
-insta json.Value.get::<str>
-insta json.Value.get::<bool>
-insta json.Value.get::<Array::<json.Value>>
-insta json.Value.get::<HashMap::<json.Value>>
+insta json.Value.get<f64>
+insta json.Value.get<str>
+insta json.Value.get<bool>
+insta json.Value.get<Array<json.Value>>
+insta json.Value.get<HashMap<json.Value>>
 
 func json.parse[s: str] : json.Value
     p := new json.Parser
@@ -138,7 +138,7 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
                 p->_skip_whitespace()
 
                 value := p->_parse_value()
-                (out->value as HashMap::<json.Value>)->insert::<json.Value>(key, value)
+                (out->value as HashMap<json.Value>)->insert(key, value)
                 key->free()
 
                 p->_skip_whitespace()
@@ -161,7 +161,7 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
         while p->_peek() != ']'
             p->_skip_whitespace()
 
-            (out->value as Array::<json.Value>)->push::<json.Value>(p->_parse_value())
+            (out->value as Array<json.Value>)->push(p->_parse_value())
             p->_skip_whitespace()
 
             if p->_peek() == ','

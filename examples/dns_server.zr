@@ -5,17 +5,17 @@ include "$/net.zr"
 const TTL = 60
 const PORT = 10053
 
-insta HashMap::<Buffer>
-insta HashMap.new::<Buffer>
-insta HashMap.get::<Buffer>
-insta HashMap.insert::<Buffer>
+insta HashMap<Buffer>
+insta HashMap.new<Buffer>
+insta HashMap.get<Buffer>
+insta HashMap.insert<Buffer>
 
 func main[] : i64
     records := HashMap.new::<Buffer>()
 
     test_su_buffer := Buffer.alloc(4)
     mem.write32be(test_su_buffer@[0], net.pack_addr(1, 2, 3, 4))
-    records->insert::<Buffer>("test.su", test_su_buffer)
+    records->insert("test.su", test_su_buffer)
 
     s, ok := net.create_udp_server("0.0.0.0", PORT)
     if !ok
@@ -29,7 +29,7 @@ func main[] : i64
             s->send_to(sa, resp@[0], resp->len)
             resp->free()
 
-func handle_req[s: net.UDPSocket, records: HashMap::<Buffer>, req: Buffer, sa: ptr] : Buffer
+func handle_req[s: net.UDPSocket, records: HashMap<Buffer>, req: Buffer, sa: ptr] : Buffer
     defer req->free()
     defer sa->free()
 
@@ -79,7 +79,7 @@ func handle_req[s: net.UDPSocket, records: HashMap::<Buffer>, req: Buffer, sa: p
     nxdomain := false
     rdata := 0 as ptr
     rdata_len := 0
-    record, ok := records->get::<Buffer>(name_lower)
+    record, ok := records->get(name_lower)
     if question_class == DNS_CLASS_IN && ok
         if question_type == DNS_TYPE_A && record->len == 4
             rdata = record@[0]

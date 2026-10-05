@@ -233,7 +233,6 @@ impl Parser {
             }
             if self.match_token(&[TokenType::KeywordInsta]) {
                 let name = self.consume(TokenType::Identifier, "expected function name after 'insta'")?;
-                self.consume(TokenType::DoubleColon, "expected '::' after function name")?;
                 let types = self.parse_type_args()?;
                 return Ok(Stmt::Instantiation { name, types });
             }
@@ -268,7 +267,7 @@ impl Parser {
     }
 
     fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>, Vec<Token>), ZernError> {
-        let type_vars = if self.match_token(&[TokenType::DoubleColon]) {
+        let type_vars = if self.is_type_args() {
             self.parse_type_vars()?
         } else {
             vec![]
@@ -332,7 +331,7 @@ impl Parser {
     }
 
     fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
-        self.consume(TokenType::Less, "expected '<' after '::'")?;
+        self.consume(TokenType::Less, "expected '<'")?;
         let mut type_vars = vec![];
         loop {
             type_vars.push(self.consume(TokenType::Identifier, "expected type variable")?);
@@ -345,7 +344,7 @@ impl Parser {
     }
 
     fn parse_type_args(&mut self) -> Result<Vec<Token>, ZernError> {
-        self.consume(TokenType::Less, "expected '<' after '::'")?;
+        self.consume(TokenType::Less, "expected '<'")?;
         let mut types = vec![];
         loop {
             types.push(self.parse_type_name()?);
@@ -359,10 +358,10 @@ impl Parser {
 
     fn parse_type_name(&mut self) -> Result<Token, ZernError> {
         let mut name = self.consume(TokenType::Identifier, "expected type")?;
-        if self.match_token(&[TokenType::DoubleColon]) {
+        if self.is_type_args() {
             let args = self.parse_type_args()?;
 
-            name.lexeme.push_str("::<");
+            name.lexeme.push_str("<");
             name.lexeme.push_str(
                 &args
                     .iter()
@@ -378,7 +377,7 @@ impl Parser {
     fn struct_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected struct name")?;
 
-        let type_vars = if self.match_token(&[TokenType::DoubleColon]) {
+        let type_vars = if self.is_type_args() {
             self.parse_type_vars()?
         } else {
             vec![]
@@ -859,6 +858,14 @@ impl Parser {
                 format!("expected expression, got '{}'", self.peek().lexeme)
             )
         }
+    }
+
+    fn is_type_args(&mut self) -> bool {
+        let prev = self.previous();
+        let p = self.peek();
+        p.token_type == TokenType::Less
+            && prev.loc.line == p.loc.line
+            && prev.loc.column + prev.loc.length == p.loc.column
     }
 
     fn consume(&mut self, token_type: TokenType, message: &str) -> Result<Token, ZernError> {
