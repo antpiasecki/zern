@@ -499,7 +499,7 @@ impl<'a> Monomorphizer<'a> {
     }
 }
 
-fn split_type_args(input: &str) -> Vec<&str> {
+pub fn split_type_args(input: &str) -> Vec<&str> {
     let mut result = Vec::new();
     let mut depth = 0;
     let mut start = 0;

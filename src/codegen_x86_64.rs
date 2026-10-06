@@ -5,7 +5,7 @@ use crate::{
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
-    typechecker::split_type_list,
+    typechecker::split_multiple_type,
 };
 
 struct Var {
@@ -390,7 +390,7 @@ _start:
                         Some(var) => var.stack_offset,
                         None => {
                             let ty = &self.expr_types[&value.id];
-                            let Some(types) = split_type_list(ty) else {
+                            let Some(types) = split_multiple_type(ty) else {
                                 return error!(&op.loc, "invalid multiple return type");
                             };
                             env.define_var(target.lexeme.clone(), types[i].to_string())

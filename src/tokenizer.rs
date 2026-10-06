@@ -97,8 +97,8 @@ pub struct Loc {
     pub length: usize,
 }
 
-impl Default for Loc {
-    fn default() -> Self {
+impl Loc {
+    pub fn unknown_loc() -> Self {
         Self {
             filename: "<unknown>".into(),
             line: 0,
@@ -110,7 +110,11 @@ impl Default for Loc {
 
 impl fmt::Display for Loc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}:{}", self.filename, self.line, self.column)
+        if &*self.filename == "<unknown>" {
+            write!(f, "compiler")
+        } else {
+            write!(f, "{}:{}:{}", self.filename, self.line, self.column)
+        }
     }
 }
 
@@ -154,7 +158,7 @@ impl<'a> Tokenizer<'a> {
                 column: 1,
                 length: 1,
             },
-            start_loc: Loc::default(),
+            start_loc: Loc::unknown_loc(),
             included_paths,
         }
     }

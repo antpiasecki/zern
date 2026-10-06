@@ -17,7 +17,7 @@ macro_rules! recursion_guard {
     ($self:ident) => {
         $self.depth += 1;
         if $self.depth > 200 {
-            return error!(Loc::default(), "maximum expression depth reached");
+            return error!(Loc::unknown_loc(), "maximum expression depth reached");
         }
         let _self_ptr = $self as *mut Self;
         let _scope_call = ScopeCall {

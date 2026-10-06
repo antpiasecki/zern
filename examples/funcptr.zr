@@ -1,0 +1,19 @@
+include "$/io.zr"
+
+func map<I, O>[f: funcptr<O, I>, xs: Array<I>] : Array<O>
+    out := [] as Array<O>
+    out->preallocate_and_zero(xs->len)
+    for i in 0..xs->len
+        out->set(i, f(xs->nth(i)))
+    return out
+
+func square_and_reverse[x: i64] : str
+    tmp := (x * x)->to_str()
+    defer tmp->free()
+    return tmp->reverse()
+
+func main[] : i64
+    numbers := [1, 2, 3, 4, 5, 6, 7] as Array<i64>
+    out := map::<i64, str>(^square_and_reverse, numbers)
+    for i in 0..out->len
+        io.println(out->nth(i))

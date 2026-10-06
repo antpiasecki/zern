@@ -172,7 +172,7 @@ impl<'a> TypeChecker<'a> {
                 if !value_type.starts_with('(') {
                     return error!(&op.loc, "cannot destructure a non-multiple value");
                 }
-                let Some(types) = split_type_list(&value_type) else {
+                let Some(types) = split_multiple_type(&value_type) else {
                     return error!(&op.loc, "invalid multiple return type");
                 };
                 if types.len() != targets.len() {
@@ -467,12 +467,17 @@ impl<'a> TypeChecker<'a> {
                         Ok(fn_type.return_type.clone())
                     } else {
                         // its a variable containing function address
-                        expect_type!(self.typecheck_expr(env, callee)?, "ptr", paren.loc);
-
-                        for arg in args {
-                            self.typecheck_expr(env, arg)?;
+                        let var_type = self.typecheck_expr(env, callee)?;
+                        if !var_type.starts_with("funcptr<") {
+                            return error!(&paren.loc, format!("expected funcptr, got {}", var_type));
                         }
-                        Ok("opaque".into())
+                        let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
+                        let return_type = param_types.remove(0);
+
+                        for (arg, param_type) in args.into_iter().zip(param_types) {
+                            expect_type!(self.typecheck_expr(env, arg)?, param_type, paren.loc);
+                        }
+                        Ok(return_type.into())
                     }
                 } else {
                     // its an expression that evalutes to function address
@@ -505,7 +510,23 @@ impl<'a> TypeChecker<'a> {
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
             ExprKind::AddrOf { op, expr } => match &expr.kind {
-                ExprKind::Variable(_) => Ok("ptr".into()),
+                ExprKind::Variable(name) => {
+                    if let Some(f) = self.symbol_table.functions.get(&name.lexeme) {
+                        let params_str = match &f.params {
+                            FnParams::Normal(params) => {
+                                if !params.is_empty() {
+                                    format!(", {}", params.join(", "))
+                                } else {
+                                    String::new()
+                                }
+                            }
+                            FnParams::Variadic => String::new(), // TODO
+                        };
+                        Ok(format!("funcptr<{}{}>", f.return_type, params_str))
+                    } else {
+                        Ok("ptr".into())
+                    }
+                }
                 _ => {
                     error!(&op.loc, "can only take address of variables and functions")
                 }
@@ -612,10 +633,14 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn is_valid_type_name(&self, name: &str) -> bool {
-        if let Some(parts) = split_type_list(name) {
+        if let Some(parts) = split_multiple_type(name) {
             return parts.iter().all(|part| self.is_valid_type_name(part));
         }
         if BUILTIN_TYPES.contains(&name) {
+            return true;
+        }
+        // TODO: extremely lax but kinda harmless
+        if name.starts_with("funcptr<") {
             return true;
         }
         if self.symbol_table.structs.contains_key(name) {
@@ -625,7 +650,7 @@ impl<'a> TypeChecker<'a> {
     }
 }
 
-pub fn split_type_list(s: &str) -> Option<Vec<&str>> {
+pub fn split_multiple_type(s: &str) -> Option<Vec<&str>> {
     let s = s.strip_prefix('(')?.strip_suffix(')')?;
     let mut depth = 0;
     let mut start = 0;
