@@ -1,5 +1,5 @@
-include "$/io.zr"
-include "$/containers.zr"
+include "io.zr"
+include "containers.zr"
 
 func multiply[n: Array<i64>, x: i64] : void
     carry := 0

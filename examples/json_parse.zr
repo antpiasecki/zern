@@ -1,4 +1,4 @@
-include "$/json.zr"
+include "json.zr"
 
 func main[] : i64
     v := json.parse("{\"apples\": 3, \"names\": [\"Alice\", \"Bob\"]}")

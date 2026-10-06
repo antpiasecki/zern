@@ -206,12 +206,12 @@ func os.list_directory[path: str] : Array<str>, bool
 
 const os._STACK_SIZE = 0x40000
 
-func os.spawn_thread[fn: ptr, arg: opaque] : i64
+func os.spawn_thread[f: funcptr, arg: opaque] : i64
     ret := _builtin_syscall(SYS_mmap, 0, os._STACK_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0)
     if ret < 0 && ret > -4096
         io.panic("os.spawn_thread: failed to mmap")
     base := ret as ptr
-    tid := _builtin_spawn_thread(fn, arg, base@[os._STACK_SIZE], base, os._STACK_SIZE)
+    tid := _builtin_spawn_thread(f, arg, base@[os._STACK_SIZE], base, os._STACK_SIZE)
     if tid < 0
         io.panic("os.spawn_thread: failed to spawn thread")
     return tid

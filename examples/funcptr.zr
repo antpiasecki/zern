@@ -1,4 +1,4 @@
-include "$/io.zr"
+include "io.zr"
 
 func map<I, O>[f: funcptr<O, I>, xs: Array<I>] : Array<O>
     out := [] as Array<O>

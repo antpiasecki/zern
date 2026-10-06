@@ -1,5 +1,5 @@
 // loosely based on https://github.com/songgao/water
-include "$/net.zr"
+include "net.zr"
 
 const FRAME_SIZE = 1500
 

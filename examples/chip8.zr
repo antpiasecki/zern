@@ -1,6 +1,6 @@
 // needs to be compiled with -d -C "-lraylib"
-include "$/io.zr"
-include "$/os.zr"
+include "io.zr"
+include "os.zr"
 
 func InitWindow[width: i64, height: i64, title: str] : void @[extern]
 func SetTargetFPS[fps: i64] : void @[extern]

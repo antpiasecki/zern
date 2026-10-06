@@ -461,15 +461,13 @@ impl<'a> Tokenizer<'a> {
         self.include_file(path)
     }
 
-    fn include_file(&mut self, mut path: String) -> Result<(), ZernError> {
-        if path.starts_with("$/") {
-            path = find_std_path().join(&path[2..]).to_string_lossy().into_owned();
-        }
-
+    fn include_file(&mut self, path: String) -> Result<(), ZernError> {
         let base_dir = Path::new(self.loc.filename.as_ref()).parent().unwrap();
-        let resolved_path = base_dir.join(&path);
 
-        let Ok(canonical) = fs::canonicalize(&resolved_path) else {
+        let resolved_path =
+            fs::canonicalize(base_dir.join(&path)).or_else(|_| fs::canonicalize(find_std_path().join(&path)));
+
+        let Ok(canonical) = resolved_path else {
             return error!(self.loc, format!("failed to resolve {}", path));
         };
 

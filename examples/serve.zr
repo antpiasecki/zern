@@ -1,4 +1,4 @@
-include "$/net.zr"
+include "net.zr"
 
 struct ConnData
     sock: i64
@@ -105,4 +105,4 @@ func main[argc: i64, argv: ptr] : i64
         conn_data->addr = mem.alloc(30) as str
         conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr@[2]))
 
-        os.spawn_thread(^handle_connection, conn_data as opaque)
+        os.spawn_thread(^handle_connection as funcptr, conn_data as opaque)

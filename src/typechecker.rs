@@ -468,16 +468,22 @@ impl<'a> TypeChecker<'a> {
                     } else {
                         // its a variable containing function address
                         let var_type = self.typecheck_expr(env, callee)?;
-                        if !var_type.starts_with("funcptr<") {
+                        if var_type == "funcptr" {
+                            for arg in args {
+                                self.typecheck_expr(env, arg)?;
+                            }
+                            Ok("opaque".into())
+                        } else if var_type.starts_with("funcptr<") {
+                            let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
+                            let return_type = param_types.remove(0);
+
+                            for (arg, param_type) in args.into_iter().zip(param_types) {
+                                expect_type!(self.typecheck_expr(env, arg)?, param_type, paren.loc);
+                            }
+                            Ok(return_type.into())
+                        } else {
                             return error!(&paren.loc, format!("expected funcptr, got {}", var_type));
                         }
-                        let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
-                        let return_type = param_types.remove(0);
-
-                        for (arg, param_type) in args.into_iter().zip(param_types) {
-                            expect_type!(self.typecheck_expr(env, arg)?, param_type, paren.loc);
-                        }
-                        Ok(return_type.into())
                     }
                 } else {
                     // its an expression that evalutes to function address
@@ -640,7 +646,7 @@ impl<'a> TypeChecker<'a> {
             return true;
         }
         // TODO: extremely lax but kinda harmless
-        if name.starts_with("funcptr<") {
+        if name == "funcptr" || name.starts_with("funcptr<") {
             return true;
         }
         if self.symbol_table.structs.contains_key(name) {

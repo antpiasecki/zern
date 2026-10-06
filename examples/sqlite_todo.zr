@@ -1,5 +1,5 @@
 // needs to be compiled with -d -C "-lsqlite3"
-include "$/io.zr"
+include "io.zr"
 
 func sqlite3_open[filename: str, ppDb: ptr] : i64 @[extern]
 func sqlite3_exec[db: i64, sql: str, callback: i64, arg: i64, errmsg: i64] : i64 @[extern]

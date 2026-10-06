@@ -1,6 +1,6 @@
 // port of https://git.ton1.dev/toni/dns-server
-include "$/containers.zr"
-include "$/net.zr"
+include "containers.zr"
+include "net.zr"
 
 const TTL = 60
 const PORT = 10053

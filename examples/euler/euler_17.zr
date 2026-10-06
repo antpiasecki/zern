@@ -1,5 +1,5 @@
-include "$/io.zr"
-include "$/containers.zr"
+include "io.zr"
+include "containers.zr"
 
 func main[] : i64
     s1 := [0, 3, 3, 5, 4, 4, 3, 5, 5, 4] as Array<i64>
