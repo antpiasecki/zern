@@ -104,10 +104,8 @@ func io.read_line[] : str
         b->append_char(c)
     return b->build_str_and_free_inner()
 
-func io.read_file[path: str] : Buffer, bool
-    fd, ok := io.open_for_reading(path)
-    if !ok
-        return 0 as Buffer, false
+func io.read_file[path: str] : Result<Buffer>
+    fd := try io.open_for_reading(path)
 
     len := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
     buf := Buffer.alloc(len)
@@ -116,34 +114,33 @@ func io.read_file[path: str] : Buffer, bool
     n := _builtin_syscall(SYS_read, fd, buf@[0], len)
     io.close(fd)
 
+    // TODO?
     if n != len
         buf->free()
-        return 0 as Buffer, false
+        return err::<Buffer>("n != len in io.read_file")
 
-    return buf, true
+    return ok::<Buffer>(buf)
 
-func io.write_text_file[path: str, content: str] : bool
+func io.write_text_file[path: str, content: str] : Result<i64>
     return io.write_file(path, content as ptr, content->len())
 
-func io.write_file[path: str, content: ptr, len: i64] : bool
-    fd, ok := io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
-    if !ok
-        return false
+func io.write_file[path: str, content: ptr, len: i64] : Result<i64>
+    fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
+    defer io.close(fd)
 
     n := _builtin_syscall(SYS_write, fd, content, len)
-    io.close(fd)
     if n != len
-        return false
-    return true
+        return err::<i64>("n != len in io.write_file")
+    return ok::<i64>(n)
 
-func io.open_for_reading[path: str] : i64, bool
+func io.open_for_reading[path: str] : Result<i64>
     return io.open_with_flags_and_mode(path, O_RDONLY, 0)
 
-func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : i64, bool
+func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : Result<i64>
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, flags, mode)
     if fd < 0
-        return -1, false
-    return fd, true
+        return err::<i64>("failed to open")
+    return ok::<i64>(fd)
 
 func io.send_file[out_fd: i64, in_fd: i64, offset: ptr, count: i64] : i64
     return _builtin_syscall(SYS_sendfile, out_fd, in_fd, offset, count)

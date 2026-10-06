@@ -7,51 +7,46 @@ const DNS_RECURSION_DESIRED = 256
 
 var net._dns_server: str
 
-func net.listen[host: str, port: i64] : i64, bool
+func net.listen[host: str, port: i64] : Result<i64>
+    packed_host := try net.resolve(host)
+
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
-        return -1, false
+        return err::<i64>("failed to create tcp socket")
 
     val := 1
     if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^val, 8) < 0
         io.close(s)
-        return -1, false
-
-    packed_host, ok := net.resolve(host)
-    if !ok
-        io.close(s)
-        return -1, false
+        return err::<i64>("failed to setsockopt")
 
     sa := _stackalloc(16)
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         io.close(s)
-        return -1, false
+        return err::<i64>("failed to bind")
 
     if _builtin_syscall(SYS_listen, s, SOMAXCONN) < 0
         io.close(s)
-        return -1, false
+        return err::<i64>("failed to listen")
 
-    return s, true
+    return ok::<i64>(s)
 
-func net.connect[host: str, port: i64] : i64, bool
+func net.connect[host: str, port: i64] : Result<i64>
+    packed_host := try net.resolve(host)
+
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
-        return -1, false
-
-    packed_host, ok := net.resolve(host)
-    if !ok
-        return -1, false
+        return err::<i64>("failed to create tcp socket")
 
     sa := _stackalloc(16)
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         io.close(s)
-        return -1, false
+        return err::<i64>("failed to connect")
 
-    return s, true
+    return ok::<i64>(s)
 
 func net.accept[s: i64, addr: ptr] : i64
     addrlen := 16
@@ -103,33 +98,27 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     s->addr->free()
     (s as ptr)->free()
 
-func net.create_udp_client[host: str, port: i64] : net.UDPSocket, bool
+func net.create_udp_client[host: str, port: i64] : Result<net.UDPSocket>
+    packed_host := try net.resolve(host)
+
     s := new* net.UDPSocket
-
-    packed_host, ok := net.resolve(host)
-    if !ok
-        (s as ptr)->free()
-        return 0 as net.UDPSocket, false
-
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
         (s as ptr)->free()
-        return 0 as net.UDPSocket, false
+        return err::<net.UDPSocket>("failed to create udp socket")
 
     s->addr = mem.alloc(16)
     net._build_sa(s->addr, packed_host, port)
-    return s, true
+    return ok::<net.UDPSocket>(s)
 
-func net.create_udp_server[host: str, port: i64] : net.UDPSocket, bool
-    s, ok := net.create_udp_client(host, port)
-    if !ok
-        return 0 as net.UDPSocket, false
+func net.create_udp_server[host: str, port: i64] : Result<net.UDPSocket>
+    s := try net.create_udp_client(host, port)
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
         s->close_and_free()
-        return 0 as net.UDPSocket, false
+        return err::<net.UDPSocket>("failed to bind")
 
-    return s, true
+    return ok::<net.UDPSocket>(s)
 
 func net.UDPSocket.send_to[s: net.UDPSocket, addr: ptr, data: ptr, len: i64] : void
     _builtin_syscall(SYS_sendto, s->fd, data, len, 0, addr, 16)
@@ -143,7 +132,7 @@ func net.UDPPacket.free[pkt: net.UDPPacket] : void
     pkt->source_addr->free()
     (pkt as ptr)->free()
 
-func net.resolve[domain: str] : i64, bool
+func net.resolve[domain: str] : Result<i64>
     // if domain is already an ip, skip dns resolution
     parts := domain->split(".")
     defer parts->free_with_ptr_items()
@@ -166,7 +155,7 @@ func net.resolve[domain: str] : i64, bool
             c := parts->nth(2)->parse_i64()
             d := parts->nth(3)->parse_i64()
             if a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255
-                return net.pack_addr(a, b, c, d), true
+                return ok::<i64>(net.pack_addr(a, b, c, d))
 
     query := net.build_dns_query(domain, DNS_TYPE_A)
     defer query->free()
@@ -185,15 +174,13 @@ func net.resolve[domain: str] : i64, bool
             dns_server = "1.1.1.1"
 
 
-    s, ok := net.create_udp_client(dns_server, 53)
-    if !ok
-        return -1, false
+    s := try net.create_udp_client(dns_server, 53)
+    defer s->close_and_free()
 
     s->send_to(s->addr, query@[0], query->len)
     data, sa := s->receive(1024)
     defer data->free()
     defer sa->free()
-    s->close_and_free()
 
     // TODO: do actual parsing
 
@@ -207,7 +194,7 @@ func net.resolve[domain: str] : i64, bool
     pos += 12 // skip name(2), type(2), class(2), ttl(4), rdlength(2)
 
     out := net.pack_addr(data[pos] as i64, data[pos+1] as i64, data[pos+2] as i64, data[pos+3] as i64)
-    return out, true
+    return ok::<i64>(out)
 
 func net.encode_dns_name[domain: str] : Buffer
     domain_len := domain->len()

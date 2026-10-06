@@ -404,6 +404,10 @@ impl<'a> Monomorphizer<'a> {
                     type_args,
                 }
             }
+            ExprKind::Try { keyword, expr } => ExprKind::Try {
+                keyword: keyword.clone(),
+                expr: Box::new(self.substitute_expr(expr, bindings)),
+            },
         };
         Expr {
             id: NEXT_EXPR_ID.fetch_add(1, Ordering::SeqCst),

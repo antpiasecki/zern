@@ -562,11 +562,7 @@ _start:
                 if !self.output.trim_end().ends_with("    ret") {
                     self.emit_all_defers(env)?;
                     emit!(&mut self.output, "    mov rax, 0");
-                    emit!(&mut self.output, "    mov rsp, rbp");
-                    emit!(&mut self.output, "    sub rsp, 8");
-                    emit!(&mut self.output, "    pop rbx");
-                    emit!(&mut self.output, "    pop rbp");
-                    emit!(&mut self.output, "    ret");
+                    self.emit_ret();
                 }
 
                 if !self.args.target_windows {
@@ -596,11 +592,7 @@ _start:
                 if env.are_we_returning_f64 {
                     emit!(&mut self.output, "    movq xmm0, rax");
                 }
-                emit!(&mut self.output, "    mov rsp, rbp");
-                emit!(&mut self.output, "    sub rsp, 8");
-                emit!(&mut self.output, "    pop rbx");
-                emit!(&mut self.output, "    pop rbp");
-                emit!(&mut self.output, "    ret");
+                self.emit_ret();
             }
             Stmt::For {
                 var,
@@ -1164,6 +1156,27 @@ _start:
                     emit!(&mut self.output, "    movq rax, xmm0");
                 }
             }
+            ExprKind::Try { keyword: _, expr } => {
+                if self.args.target_windows {
+                    todo!("windows can't use std Result anyway");
+                }
+                let ok_label = self.label();
+                self.compile_expr(env, expr)?;
+                emit!(&mut self.output, "    push rax");
+                emit!(&mut self.output, "    cmp QWORD PTR [rax+8], 0");
+                emit!(&mut self.output, "    je {}", ok_label);
+
+                self.emit_all_defers(env)?;
+                emit!(&mut self.output, "    pop rax");
+                self.emit_ret();
+
+                emit!(&mut self.output, "{}:", ok_label);
+                emit!(&mut self.output, "    pop rax");
+                emit!(&mut self.output, "    push QWORD PTR [rax]");
+                emit!(&mut self.output, "    mov rdi, rax");
+                emit!(&mut self.output, "    call ptr.free");
+                emit!(&mut self.output, "    pop rax");
+            }
         }
         Ok(())
     }
@@ -1308,6 +1321,14 @@ _start:
 
         emit!(&mut self.output, "{}:", done_label);
         Ok(())
+    }
+
+    fn emit_ret(&mut self) {
+        emit!(&mut self.output, "    mov rsp, rbp");
+        emit!(&mut self.output, "    sub rsp, 8");
+        emit!(&mut self.output, "    pop rbx");
+        emit!(&mut self.output, "    pop rbp");
+        emit!(&mut self.output, "    ret");
     }
 
     fn registers(&self) -> &'static [&'static str] {

@@ -1,5 +1,40 @@
 include "mem.zr"
 
+struct Result<T>
+    value: T
+    err: str
+
+func Result.free<T>[r: Result<T>] : void
+    (r as ptr)->free()
+
+func Result.is_err<T>[r: Result<T>] : bool
+    return r->err as bool
+
+func Result.unpack<T>[r: Result<T>] : T, str
+    v := r->value
+    err := r->err
+    r->free()
+    return v, err
+
+func Result.expect<T>[r: Result<T>, msg: str] : T
+    if r->is_err()
+        full_msg := _stackalloc(1024) as str
+        full_msg->format_into(1024, "%s: %s", msg, r->err)
+        io.panic(full_msg)
+    v := r->value
+    r->free()
+    return v
+
+func ok<T>[value: T] : Result<T>
+    r := new* Result<T>
+    r->value = value
+    return r
+
+func err<T>[err: str] : Result<T>
+    r := new* Result<T>
+    r->err = err
+    return r
+
 struct Array<T>
     data: ptr
     len: i64

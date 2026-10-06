@@ -64,6 +64,7 @@ pub enum TokenType {
     KeywordAs,
     KeywordVar,
     KeywordDefer,
+    KeywordTry,
     KeywordTrue,
     KeywordFalse,
 
@@ -430,6 +431,7 @@ impl<'a> Tokenizer<'a> {
             "as" => TokenType::KeywordAs,
             "var" => TokenType::KeywordVar,
             "defer" => TokenType::KeywordDefer,
+            "try" => TokenType::KeywordTry,
             "true" => TokenType::KeywordTrue,
             "false" => TokenType::KeywordFalse,
             _ => TokenType::Identifier,

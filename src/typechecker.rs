@@ -631,6 +631,20 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
+            ExprKind::Try { keyword, expr } => {
+                let expr_type = self.typecheck_expr(env, expr)?;
+                let Some((base_type, inner_type)) = expr_type.split_once('<') else {
+                    return error!(keyword.loc, "only a Result can be try-ed");
+                };
+                if base_type != "Result" {
+                    return error!(keyword.loc, "only a Result can be try-ed");
+                }
+                if expr_type.split('<').next().unwrap() != self.current_function_return_type.split('<').next().unwrap()
+                {
+                    return error!(keyword.loc, "try can be used only in a function returning a Result");
+                }
+                Ok(inner_type.strip_suffix(">").unwrap().into())
+            }
         }?;
 
         assert!(!expr_type.contains(":"));

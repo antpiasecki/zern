@@ -183,6 +183,10 @@ pub enum ExprKind {
         args: Vec<Expr>,
         type_args: Vec<Token>,
     },
+    Try {
+        keyword: Token,
+        expr: Box<Expr>,
+    },
 }
 
 pub struct Parser {
@@ -705,6 +709,14 @@ impl Parser {
             return Ok(Expr::new(ExprKind::Unary {
                 op,
                 right: Box::new(right),
+            }));
+        }
+        if self.match_token(&[TokenType::KeywordTry]) {
+            let keyword = self.previous().clone();
+            let expr = self.unary()?;
+            return Ok(Expr::new(ExprKind::Try {
+                keyword,
+                expr: Box::new(expr),
             }));
         }
 
