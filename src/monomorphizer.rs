@@ -330,7 +330,6 @@ impl<'a> Monomorphizer<'a> {
             ExprKind::Variable(token) => ExprKind::Variable(token.clone()),
             ExprKind::Call {
                 callee,
-                paren,
                 args,
                 type_args,
             } => {
@@ -347,7 +346,6 @@ impl<'a> Monomorphizer<'a> {
 
                 ExprKind::Call {
                     callee: Box::new(callee),
-                    paren: paren.clone(),
                     args,
                     type_args,
                 }
@@ -357,17 +355,14 @@ impl<'a> Monomorphizer<'a> {
             }
             ExprKind::Index {
                 indexed,
-                bracket,
                 is_offset,
                 index,
             } => ExprKind::Index {
                 indexed: Box::new(self.substitute_expr(indexed, bindings)),
-                bracket: bracket.clone(),
                 is_offset: *is_offset,
                 index: Box::new(self.substitute_expr(index, bindings)),
             },
-            ExprKind::AddrOf { op, expr } => ExprKind::AddrOf {
-                op: op.clone(),
+            ExprKind::AddrOf { expr } => ExprKind::AddrOf {
                 expr: Box::new(self.substitute_expr(expr, bindings)),
             },
             ExprKind::New { struct_name, use_heap } => ExprKind::New {
@@ -404,14 +399,14 @@ impl<'a> Monomorphizer<'a> {
                     type_args,
                 }
             }
-            ExprKind::Try { keyword, expr } => ExprKind::Try {
-                keyword: keyword.clone(),
+            ExprKind::Try { expr } => ExprKind::Try {
                 expr: Box::new(self.substitute_expr(expr, bindings)),
             },
         };
         Expr {
             id: NEXT_EXPR_ID.fetch_add(1, Ordering::SeqCst),
             kind,
+            loc: e.loc.clone(),
         }
     }
 

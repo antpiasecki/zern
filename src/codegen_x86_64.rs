@@ -94,6 +94,7 @@ pub struct CodegenX86_64<'a> {
     bss: String,
     label_counter: usize,
     rodata_counter: usize,
+    file_ids: HashMap<String, usize>,
     pub args: &'a Args,
     pub symbol_table: &'a SymbolTable,
     pub expr_types: &'a HashMap<usize, String>,
@@ -111,6 +112,7 @@ impl<'a> CodegenX86_64<'a> {
             bss: String::new(),
             label_counter: 1,
             rodata_counter: 1,
+            file_ids: HashMap::new(),
             args,
             symbol_table,
             expr_types,
@@ -332,7 +334,6 @@ _start:
                     }
                     ExprKind::Index {
                         indexed,
-                        bracket: _,
                         is_offset: _,
                         index,
                     } => {
@@ -669,6 +670,25 @@ _start:
     }
 
     pub fn compile_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<(), ZernError> {
+        if self.args.emit_debug {
+            let file_id = match self.file_ids.get(&*expr.loc.filename) {
+                Some(id) => *id,
+                None => {
+                    let id = self.file_ids.len();
+                    emit!(&mut self.output, ".file {} \"{}\"", id, expr.loc.filename);
+                    self.file_ids.insert((*expr.loc.filename).into(), id);
+                    id
+                }
+            };
+            emit!(
+                &mut self.output,
+                ".loc {} {} {}",
+                file_id,
+                expr.loc.line,
+                expr.loc.column
+            );
+        }
+
         match &expr.kind {
             ExprKind::Binary { left, op, right } => {
                 self.compile_expr(env, left)?;
@@ -902,7 +922,6 @@ _start:
             }
             ExprKind::Call {
                 callee,
-                paren: _,
                 args,
                 type_args,
             } => {
@@ -993,7 +1012,6 @@ _start:
             }
             ExprKind::Index {
                 indexed,
-                bracket: _,
                 is_offset,
                 index,
             } => {
@@ -1023,7 +1041,7 @@ _start:
                     emit!(&mut self.output, "    movzx rax, BYTE PTR [rax]");
                 }
             }
-            ExprKind::AddrOf { op, expr } => match &expr.kind {
+            ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
                         emit!(&mut self.output, "    lea rax, [rip + {}]", name.lexeme);
@@ -1037,7 +1055,7 @@ _start:
                     }
                 }
                 _ => {
-                    return error!(&op.loc, "can only take address of variables and functions");
+                    return error!(&expr.loc, "can only take address of variables and functions");
                 }
             },
             ExprKind::New { struct_name, use_heap } => {
@@ -1156,7 +1174,7 @@ _start:
                     emit!(&mut self.output, "    movq rax, xmm0");
                 }
             }
-            ExprKind::Try { keyword: _, expr } => {
+            ExprKind::Try { expr } => {
                 if self.args.target_windows {
                     todo!("windows can't use std Result anyway");
                 }

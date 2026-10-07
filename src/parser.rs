@@ -117,14 +117,16 @@ pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
 pub struct Expr {
     pub id: usize,
     pub kind: ExprKind,
+    pub loc: Loc,
 }
 
 impl Expr {
-    pub fn new(kind: ExprKind) -> Expr {
+    pub fn new(kind: ExprKind, loc: &Loc) -> Expr {
         NEXT_EXPR_ID.fetch_add(1, Ordering::SeqCst);
         Expr {
             id: NEXT_EXPR_ID.load(Ordering::SeqCst),
             kind,
+            loc: loc.clone(),
         }
     }
 }
@@ -150,19 +152,16 @@ pub enum ExprKind {
     Variable(Token),
     Call {
         callee: Box<Expr>,
-        paren: Token,
         args: Vec<Expr>,
         type_args: Vec<Token>,
     },
     ArrayLiteral(Vec<Expr>),
     Index {
         indexed: Box<Expr>,
-        bracket: Token,
         is_offset: bool,
         index: Box<Expr>,
     },
     AddrOf {
-        op: Token,
         expr: Box<Expr>,
     },
     New {
@@ -184,7 +183,6 @@ pub enum ExprKind {
         type_args: Vec<Token>,
     },
     Try {
-        keyword: Token,
         expr: Box<Expr>,
     },
 }
@@ -493,11 +491,14 @@ impl Parser {
                         loc: op.loc,
                         orig_loc: None,
                     },
-                    value: Expr::new(ExprKind::Binary {
-                        left: Box::new(expr),
-                        op: binary_token,
-                        right: Box::new(right),
-                    }),
+                    value: Expr::new(
+                        ExprKind::Binary {
+                            left: Box::new(expr),
+                            op: binary_token,
+                            right: Box::new(right),
+                        },
+                        &self.previous().loc,
+                    ),
                 })
             } else {
                 Ok(Stmt::Expression(expr))
@@ -577,11 +578,14 @@ impl Parser {
         while self.match_token(&[TokenType::LogicalOr, TokenType::LogicalAnd]) {
             let op = self.previous().clone();
             let right = self.equality()?;
-            expr = Expr::new(ExprKind::Logical {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            })
+            expr = Expr::new(
+                ExprKind::Logical {
+                    left: Box::new(expr),
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -594,11 +598,14 @@ impl Parser {
         while self.match_token(&[TokenType::DoubleEqual, TokenType::NotEqual]) {
             let op = self.previous().clone();
             let right = self.comparison()?;
-            expr = Expr::new(ExprKind::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            })
+            expr = Expr::new(
+                ExprKind::Binary {
+                    left: Box::new(expr),
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -616,11 +623,14 @@ impl Parser {
         ]) {
             let op = self.previous().clone();
             let right = self.term()?;
-            expr = Expr::new(ExprKind::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            })
+            expr = Expr::new(
+                ExprKind::Binary {
+                    left: Box::new(expr),
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -639,11 +649,14 @@ impl Parser {
         ]) {
             let op = self.previous().clone();
             let right = self.factor()?;
-            expr = Expr::new(ExprKind::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            })
+            expr = Expr::new(
+                ExprKind::Binary {
+                    left: Box::new(expr),
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -667,11 +680,14 @@ impl Parser {
             }
 
             let right = self.unary()?;
-            expr = Expr::new(ExprKind::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            })
+            expr = Expr::new(
+                ExprKind::Binary {
+                    left: Box::new(expr),
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -683,10 +699,13 @@ impl Parser {
 
         while self.match_token(&[TokenType::KeywordAs]) {
             let type_name = self.parse_type_name()?;
-            expr = Expr::new(ExprKind::Cast {
-                casted: Box::new(expr),
-                type_name,
-            })
+            expr = Expr::new(
+                ExprKind::Cast {
+                    casted: Box::new(expr),
+                    type_name,
+                },
+                &self.previous().loc,
+            )
         }
 
         Ok(expr)
@@ -696,28 +715,27 @@ impl Parser {
         recursion_guard!(self);
 
         if self.match_token(&[TokenType::Xor]) {
-            let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Expr::new(ExprKind::AddrOf {
-                op,
-                expr: Box::new(right),
-            }));
+            return Ok(Expr::new(
+                ExprKind::AddrOf { expr: Box::new(right) },
+                &self.previous().loc,
+            ));
         }
         if self.match_token(&[TokenType::Bang, TokenType::Minus]) {
             let op = self.previous().clone();
             let right = self.unary()?;
-            return Ok(Expr::new(ExprKind::Unary {
-                op,
-                right: Box::new(right),
-            }));
+            return Ok(Expr::new(
+                ExprKind::Unary {
+                    op,
+                    right: Box::new(right),
+                },
+                &self.previous().loc,
+            ));
         }
         if self.match_token(&[TokenType::KeywordTry]) {
             let keyword = self.previous().clone();
             let expr = self.unary()?;
-            return Ok(Expr::new(ExprKind::Try {
-                keyword,
-                expr: Box::new(expr),
-            }));
+            return Ok(Expr::new(ExprKind::Try { expr: Box::new(expr) }, &keyword.loc));
         }
 
         self.call()
@@ -754,31 +772,37 @@ impl Parser {
 
                 let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
 
-                expr = Expr::new(ExprKind::Call {
-                    callee: Box::new(expr),
-                    paren,
-                    args,
-                    type_args,
-                })
+                expr = Expr::new(
+                    ExprKind::Call {
+                        callee: Box::new(expr),
+                        args,
+                        type_args,
+                    },
+                    &paren.loc,
+                )
             } else if self.match_token(&[TokenType::LeftBracket]) {
                 let index = self.expression()?;
                 let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
-                expr = Expr::new(ExprKind::Index {
-                    indexed: Box::new(expr),
-                    bracket,
-                    is_offset: false,
-                    index: Box::new(index),
-                })
+                expr = Expr::new(
+                    ExprKind::Index {
+                        indexed: Box::new(expr),
+                        is_offset: false,
+                        index: Box::new(index),
+                    },
+                    &bracket.loc,
+                )
             } else if self.match_token(&[TokenType::At]) {
                 self.consume(TokenType::LeftBracket, "expected '[' after '@'")?;
                 let index = self.expression()?;
                 let bracket = self.consume(TokenType::RightBracket, "expected ']' after index")?;
-                expr = Expr::new(ExprKind::Index {
-                    indexed: Box::new(expr),
-                    bracket,
-                    is_offset: true,
-                    index: Box::new(index),
-                })
+                expr = Expr::new(
+                    ExprKind::Index {
+                        indexed: Box::new(expr),
+                        is_offset: true,
+                        index: Box::new(index),
+                    },
+                    &bracket.loc,
+                )
             } else if self.match_token(&[TokenType::Arrow]) {
                 if self.check(&TokenType::Identifier)
                     && (self.check_ahead(&TokenType::DoubleColon) || self.check_ahead(&TokenType::LeftParen))
@@ -801,18 +825,24 @@ impl Parser {
                         }
                     }
                     self.consume(TokenType::RightParen, "expected ')'")?;
-                    expr = Expr::new(ExprKind::MethodCall {
-                        callee: Box::new(expr),
-                        method,
-                        args,
-                        type_args,
-                    });
+                    expr = Expr::new(
+                        ExprKind::MethodCall {
+                            callee: Box::new(expr),
+                            method,
+                            args,
+                            type_args,
+                        },
+                        &self.previous().loc,
+                    );
                 } else {
                     let field = self.consume(TokenType::Identifier, "expected field name after '->'")?;
-                    expr = Expr::new(ExprKind::MemberAccess {
-                        left: Box::new(expr),
-                        field,
-                    });
+                    expr = Expr::new(
+                        ExprKind::MemberAccess {
+                            left: Box::new(expr),
+                            field,
+                        },
+                        &self.previous().loc,
+                    );
                 }
             } else {
                 break;
@@ -831,11 +861,14 @@ impl Parser {
             TokenType::KeywordTrue,
             TokenType::KeywordFalse,
         ]) {
-            Ok(Expr::new(ExprKind::Literal(self.previous().clone())))
+            Ok(Expr::new(
+                ExprKind::Literal(self.previous().clone()),
+                &self.previous().loc,
+            ))
         } else if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "expected ')' after expression")?;
-            Ok(Expr::new(ExprKind::Grouping(Box::new(expr))))
+            Ok(Expr::new(ExprKind::Grouping(Box::new(expr)), &self.previous().loc))
         } else if self.match_token(&[TokenType::LeftBracket]) {
             let mut xs = vec![];
             if !self.check(&TokenType::RightBracket) {
@@ -848,13 +881,16 @@ impl Parser {
             }
             self.consume(TokenType::RightBracket, "expected ']' after values")?;
 
-            Ok(Expr::new(ExprKind::ArrayLiteral(xs)))
+            Ok(Expr::new(ExprKind::ArrayLiteral(xs), &self.previous().loc))
         } else if self.match_token(&[TokenType::KeywordNew]) {
             let use_heap = self.match_token(&[TokenType::Star]);
             let struct_name = self.parse_type_name()?;
-            Ok(Expr::new(ExprKind::New { struct_name, use_heap }))
+            Ok(Expr::new(ExprKind::New { struct_name, use_heap }, &self.previous().loc))
         } else if self.match_token(&[TokenType::Identifier]) {
-            Ok(Expr::new(ExprKind::Variable(self.previous().clone())))
+            Ok(Expr::new(
+                ExprKind::Variable(self.previous().clone()),
+                &self.previous().loc,
+            ))
         } else {
             error!(
                 self.peek().loc,

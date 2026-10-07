@@ -136,20 +136,15 @@ impl<'a> TypeChecker<'a> {
                     }
                     ExprKind::Index {
                         indexed,
-                        bracket,
                         is_offset,
                         index,
                     } => {
                         if *is_offset {
-                            return error!(bracket.loc, "@ not allowed when assigning to an index");
+                            return error!(left.loc, "@ not allowed when assigning to an index");
                         }
-                        expect_types!(
-                            self.typecheck_expr(env, indexed)?,
-                            ["ptr", "str", "Buffer"],
-                            bracket.loc
-                        );
-                        expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
-                        expect_types!(value_type.clone(), ["u8", "i64"], bracket.loc);
+                        expect_types!(self.typecheck_expr(env, indexed)?, ["ptr", "str", "Buffer"], left.loc);
+                        expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], left.loc);
+                        expect_types!(value_type.clone(), ["u8", "i64"], left.loc);
                     }
                     ExprKind::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
@@ -427,7 +422,6 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::Call {
                 callee,
-                paren,
                 args,
                 type_args,
             } => {
@@ -443,12 +437,12 @@ impl<'a> TypeChecker<'a> {
                             FnParams::Normal(params) => {
                                 if params.len() != args.len() {
                                     return error!(
-                                        &paren.loc,
+                                        &expr.loc,
                                         format!("expected {} arguments, got {}", params.len(), args.len())
                                     );
                                 }
                                 for (i, arg) in args.iter().enumerate() {
-                                    expect_type!(self.typecheck_expr(env, arg)?, params[i], paren.loc);
+                                    expect_type!(self.typecheck_expr(env, arg)?, params[i], expr.loc);
                                 }
                             }
                             FnParams::Variadic => {
@@ -457,7 +451,7 @@ impl<'a> TypeChecker<'a> {
                                     let arg_type = self.typecheck_expr(env, arg)?;
                                     if arg_type == "f64" {
                                         return error!(
-                                            &paren.loc,
+                                            &expr.loc,
                                             "f64 arguments not supported in variadic calls; cast to opaque to preserve bit pattern"
                                         );
                                     }
@@ -478,16 +472,16 @@ impl<'a> TypeChecker<'a> {
                             let return_type = param_types.remove(0);
 
                             for (arg, param_type) in args.into_iter().zip(param_types) {
-                                expect_type!(self.typecheck_expr(env, arg)?, param_type, paren.loc);
+                                expect_type!(self.typecheck_expr(env, arg)?, param_type, expr.loc);
                             }
                             Ok(return_type.into())
                         } else {
-                            return error!(&paren.loc, format!("expected funcptr, got {}", var_type));
+                            return error!(&expr.loc, format!("expected funcptr, got {}", var_type));
                         }
                     }
                 } else {
                     // its an expression that evalutes to function address
-                    expect_type!(self.typecheck_expr(env, callee)?, "ptr", paren.loc);
+                    expect_type!(self.typecheck_expr(env, callee)?, "ptr", expr.loc);
 
                     for arg in args {
                         self.typecheck_expr(env, arg)?;
@@ -503,19 +497,14 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::Index {
                 indexed,
-                bracket,
                 is_offset,
                 index,
             } => {
-                expect_types!(
-                    self.typecheck_expr(env, indexed)?,
-                    ["ptr", "str", "Buffer"],
-                    bracket.loc
-                );
-                expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], bracket.loc);
+                expect_types!(self.typecheck_expr(env, indexed)?, ["ptr", "str", "Buffer"], expr.loc);
+                expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
-            ExprKind::AddrOf { op, expr } => match &expr.kind {
+            ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
                     if let Some(f) = self.symbol_table.functions.get(&name.lexeme) {
                         let params_str = match &f.params {
@@ -534,7 +523,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
                 _ => {
-                    error!(&op.loc, "can only take address of variables and functions")
+                    error!(&expr.loc, "can only take address of variables and functions")
                 }
             },
             ExprKind::New {
@@ -631,17 +620,17 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            ExprKind::Try { keyword, expr } => {
+            ExprKind::Try { expr } => {
                 let expr_type = self.typecheck_expr(env, expr)?;
                 let Some((base_type, inner_type)) = expr_type.split_once('<') else {
-                    return error!(keyword.loc, "only a Result can be try-ed");
+                    return error!(expr.loc, "only a Result can be try-ed");
                 };
                 if base_type != "Result" {
-                    return error!(keyword.loc, "only a Result can be try-ed");
+                    return error!(expr.loc, "only a Result can be try-ed");
                 }
                 if expr_type.split('<').next().unwrap() != self.current_function_return_type.split('<').next().unwrap()
                 {
-                    return error!(keyword.loc, "try can be used only in a function returning a Result");
+                    return error!(expr.loc, "try can be used only in a function returning a Result");
                 }
                 Ok(inner_type.strip_suffix(">").unwrap().into())
             }
