@@ -119,6 +119,28 @@ func i64.to_hex_str[n: i64] : str
     n->to_hex_str_buf(out)
     return out
 
+func i64.pow[b: i64, e: i64] : i64
+    if e < 0
+        io.panic("i64.pow: negative exponent")
+    out := 1
+    while e > 0
+        if e & 1
+            out = out * b
+        b = b * b
+        e = e >> 1
+    return out
+
+func i64.octal_to_decimal[octal: i64] : i64
+    decimal := 0
+    base := 1
+
+    while octal > 0
+        digit := octal % 10
+        decimal += digit * base
+        base = base * 8
+        octal = octal / 10
+    return decimal
+
 func f64.to_ffi_f32[f: f64] : f64
     return _builtin_f64_to_f32(f) as f64
 
@@ -164,13 +186,19 @@ func f64.to_str_buf[x: f64, buf: str] : i64
 
     ns := -shift
 
-    if ns <= 52
-        int_part := sig >> ns
-        int_part->to_str_buf(buf@[p] as str)
-        while buf[p]
-            p += 1
-    else
-        buf[p] = '0'
+    if ns > 52
+        d := ns - 52
+        if d > 53
+            sig = 0
+        else
+            sig = sig >> d
+        ns = 52
+
+    sig = sig + (1 << ns) / 2000000
+
+    int_part := sig >> ns
+    int_part->to_str_buf(buf@[p] as str)
+    while buf[p]
         p += 1
 
     buf[p] = '.'
@@ -194,6 +222,88 @@ func f64.to_str_buf[x: f64, buf: str] : i64
     buf[p] = 0
     return p
 
+func f64.sqrt[n: f64] : f64
+    if n < 0
+        io.panic("f64.sqrt: negative n")
+    if n == 0 || n == 1
+        return n
+
+    guess := n
+    if n < 1.0
+        guess = 1.0
+
+    next_guess := (guess + n / guess) / 2.0
+
+    while next_guess < guess
+        guess = next_guess
+        next_guess = (guess + n / guess) / 2.0
+
+    return guess
+
+func f64.sin[x: f64] : f64
+    pi := math.pi()
+    x -= 2.0 * pi * (x / (2.0 * pi))->round()
+    if x > pi / 2.0
+        x = pi - x
+    else if x < -pi / 2.0
+        x = -pi - x
+    x2 := x * x
+    return x * (1.0 + x2 * (-1.0/6.0 + x2 * (1.0/120.0 + x2 * (-1.0/5040.0 + x2 * (1.0/362880.0 + x2 * (-1.0/39916800.0))))))
+
+func f64.cos[x: f64] : f64
+    return (x + math.pi() / 2.0)->sin()
+
+func f64.tan[x: f64] : f64
+    return x->sin() / x->cos()
+
+func f64.atan[x: f64] : f64
+    neg := x < 0.0
+    if neg
+        x = -x
+    inv := x > 1.0
+    if inv
+        x = 1.0 / x
+    x = x / (1.0 + (1.0 + x * x)->sqrt())
+    x = x / (1.0 + (1.0 + x * x)->sqrt())
+    x2 := x * x
+    s := x * (1.0 + x2 * (-1.0/3.0 + x2 * (1.0/5.0 + x2 * (-1.0/7.0 + x2 * (1.0/9.0 + x2 * (-1.0/11.0 + x2 * (1.0/13.0)))))))
+    s = s * 4.0
+    if inv
+        s = math.pi() / 2.0 - s
+    if neg
+        s = -s
+    return s
+
+func f64.atan2[y: f64, x: f64] : f64
+    pi := math.pi()
+    if x > 0.0
+        return (y / x)->atan()
+    if x < 0.0
+        if y >= 0.0
+            return (y / x)->atan() + pi
+        return (y / x)->atan() - pi
+    if y > 0.0
+        return pi / 2.0
+    if y < 0.0
+        return -pi / 2.0
+    return 0.0
+
+func f64.floor[x: f64] : f64
+    n := x as i64 as f64
+    if x < n
+        return n - 1.0
+    else
+        return n
+
+func f64.round[x: f64] : f64
+    t := x as i64 as f64
+    d := x - t
+    if d >= 0.5
+        return t + 1.0
+    if d <= -0.5
+        return t - 1.0
+    return t
+
 func math.gcd[a: i64, b: i64] : i64
     a = a->abs()
     b = b->abs()
@@ -213,27 +323,8 @@ func math.max[a: i64, b: i64] : i64
         return a
     return b
 
-func math.pow[b: i64, e: i64] : i64
-    if e < 0
-        io.panic("math.pow: negative exponent")
-    out := 1
-    while e > 0
-        if e & 1
-            out = out * b
-        b = b * b
-        e = e >> 1
-    return out
-
 func math.lcm[a: i64, b: i64] : i64
     return (a / math.gcd(a, b)) * b
 
-func math.octal_to_decimal[octal: i64] : i64
-    decimal := 0
-    base := 1
-
-    while octal > 0
-        digit := octal % 10
-        decimal += digit * base
-        base = base * 8
-        octal = octal / 10
-    return decimal
+func math.pi[] : f64
+    return 3.14159265358979323846

@@ -124,7 +124,7 @@ func io.write_text_file[path: str, content: str] : Result<i64>
     return io.write_file(path, content as ptr, content->len())
 
 func io.write_file[path: str, content: ptr, len: i64] : Result<i64>
-    fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, math.octal_to_decimal(644))
+    fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, 644->octal_to_decimal())
     defer io.close(fd)
 
     n := _builtin_syscall(SYS_write, fd, content, len)

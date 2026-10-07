@@ -125,6 +125,25 @@ func Array.contains_str[arr: Array<str>, s: str] : bool
             return true
     return false
 
+func Array.map<I, O>[f: funcptr<O, I>, xs: Array<I>] : Array<O>
+    out := [] as Array<O>
+    out->preallocate_and_zero(xs->len)
+    for i in 0..xs->len
+        out->set(i, f(xs->nth(i)))
+    return out
+
+func Array.reduce<I, A>[f: funcptr<A, I, A>, xs: Array<I>, acc: A] : A
+    for i in 0..xs->len
+        acc = f(xs->nth(i), acc)
+    return acc
+
+func Array.filter<T>[f: funcptr<bool, T>, xs: Array<T>] : Array<T>
+    out := [] as Array<T>
+    for i in 0..xs->len
+        if f(xs->nth(i))
+            out->push(xs->nth(i))
+    return out
+
 const HashMap._TABLE_SIZE = 100
 
 struct HashMap<T>
@@ -136,10 +155,10 @@ struct HashMap._Node
     next: HashMap._Node
 
 func HashMap.new<T>[] : HashMap<T>
-    map := new* HashMap<T>
-    map->table = [] as Array<HashMap._Node>
-    map->table->preallocate_and_zero(HashMap._TABLE_SIZE)
-    return map
+    hm := new* HashMap<T>
+    hm->table = [] as Array<HashMap._Node>
+    hm->table->preallocate_and_zero(HashMap._TABLE_SIZE)
+    return hm
 
 func HashMap._djb2[key: str] : i64
     hash := 5381
@@ -148,9 +167,9 @@ func HashMap._djb2[key: str] : i64
     hash = (hash & 0x7fffffffffffffff) // prevent negative
     return hash % HashMap._TABLE_SIZE
 
-func HashMap.insert<T>[map: HashMap<T>, key: str, value: T] : void
+func HashMap.insert<T>[hm: HashMap<T>, key: str, value: T] : void
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := hm->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -161,12 +180,12 @@ func HashMap.insert<T>[map: HashMap<T>, key: str, value: T] : void
     new_node := new* HashMap._Node
     new_node->key = key->make_copy()
     new_node->value = value as opaque
-    new_node->next = map->table->nth(index)
-    map->table->set(index, new_node)
+    new_node->next = hm->table->nth(index)
+    hm->table->set(index, new_node)
 
-func HashMap.get<T>[map: HashMap<T>, key: str] : T, bool
+func HashMap.get<T>[hm: HashMap<T>, key: str] : T, bool
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := hm->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
@@ -175,9 +194,9 @@ func HashMap.get<T>[map: HashMap<T>, key: str] : T, bool
 
     return 0 as T, false
 
-func HashMap.delete<T>[map: HashMap<T>, key: str] : void
+func HashMap.delete<T>[hm: HashMap<T>, key: str] : void
     index := HashMap._djb2(key)
-    current := map->table->nth(index)
+    current := hm->table->nth(index)
     prev := 0 as HashMap._Node
 
     while current as ptr
@@ -185,7 +204,7 @@ func HashMap.delete<T>[map: HashMap<T>, key: str] : void
             if prev as ptr
                 prev->next = current->next
             else
-                map->table->set(index, current->next)
+                hm->table->set(index, current->next)
 
             current->key->free()
             (current as ptr)->free()
@@ -194,34 +213,43 @@ func HashMap.delete<T>[map: HashMap<T>, key: str] : void
         prev = current
         current = current->next
 
-func HashMap.keys<T>[map: HashMap<T>] : Array<str>
+func HashMap.count<T>[hm: HashMap<T>] : i64
+    n := 0
+    for i in 0..hm->table->len
+        node := hm->table->nth(i)
+        while node as ptr
+            n += 1
+            node = node->next
+    return n
+
+func HashMap.keys<T>[hm: HashMap<T>] : Array<str>
     out := [] as Array<str>
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth(i)
+        current := hm->table->nth(i)
         while current as ptr
             out->push(current->key)
             current = current->next
     return out
 
-func HashMap.free_without_keys<T>[map: HashMap<T>] : void
+func HashMap.free_without_keys<T>[hm: HashMap<T>] : void
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth(i)
+        current := hm->table->nth(i)
         while current as ptr
             tmp := current
             current = (current->next)
             (tmp as ptr)->free()
 
-    map->table->free()
-    (map as ptr)->free()
+    hm->table->free()
+    (hm as ptr)->free()
 
-func HashMap.free_with_keys<T>[map: HashMap<T>] : void
+func HashMap.free_with_keys<T>[hm: HashMap<T>] : void
     for i in 0..HashMap._TABLE_SIZE
-        current := map->table->nth(i)
+        current := hm->table->nth(i)
         while current as ptr
             tmp := current
             current = current->next
             tmp->key->free()
             (tmp as ptr)->free()
 
-    map->table->free()
-    (map as ptr)->free()
+    hm->table->free()
+    (hm as ptr)->free()
