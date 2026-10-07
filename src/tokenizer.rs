@@ -293,7 +293,7 @@ impl<'a> Tokenizer<'a> {
                     if self.peek() == '\\' {
                         self.advance();
                         if self.eof() {
-                            return error!(self.loc, format!("unterminated string, started at {}", self.start_loc));
+                            return error!(self.start_loc, "unterminated string");
                         }
                     } else if self.peek() == '"' {
                         break;
@@ -305,7 +305,7 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 if self.eof() {
-                    return error!(self.loc, format!("unterminated string, started at {}", self.start_loc));
+                    return error!(self.start_loc, "unterminated string");
                 }
 
                 self.advance();

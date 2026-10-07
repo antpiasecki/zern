@@ -61,7 +61,7 @@ impl SymbolTable {
                 ("_builtin_f32_to_f64".into(), FnType::new(vec!["f64"], "f64")),
                 (
                     "_builtin_spawn_thread".into(),
-                    FnType::new(vec!["funcptr", "opaque", "ptr", "ptr", "i64"], "i64"),
+                    FnType::new(vec!["ptr", "opaque", "ptr", "ptr", "i64"], "i64"),
                 ),
                 ("_builtin_lock".into(), FnType::new(vec!["ptr"], "void")),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),

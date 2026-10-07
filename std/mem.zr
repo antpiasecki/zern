@@ -75,7 +75,7 @@ func mem.alloc[len: i64] : ptr
     // otherwise request a new block
     blk := mem._request_space(len)
 
-    if mem._heap_head as ptr != 0
+    if mem._heap_head as ptr == 0
         mem._heap_head = blk
 
     blk->_split(len)

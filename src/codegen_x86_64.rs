@@ -581,18 +581,25 @@ _start:
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
-                self.emit_all_defers(env)?;
                 match exprs.len() {
                     2 => {
                         self.compile_expr(env, &exprs[1])?;
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, &exprs[0])?;
+                        emit!(&mut self.output, "    push rax");
+                        self.emit_all_defers(env)?;
+                        emit!(&mut self.output, "    pop rax");
                         emit!(&mut self.output, "    pop rdx");
                     }
                     1 => {
                         self.compile_expr(env, &exprs[0])?;
+                        emit!(&mut self.output, "    push rax");
+                        self.emit_all_defers(env)?;
+                        emit!(&mut self.output, "    pop rax");
                     }
-                    0 => {}
+                    0 => {
+                        self.emit_all_defers(env)?;
+                    }
                     _ => unreachable!(), // guaranteed by typechecker
                 }
                 if env.are_we_returning_f64 {

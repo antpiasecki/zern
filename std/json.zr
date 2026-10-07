@@ -65,7 +65,7 @@ func json.Value.dump[v: json.Value] : str
 func json.Value.free[v: json.Value] : void
     if v->type == json.OBJECT
         map := v->value as HashMap<json.Value>
-        defer map->free_with_keys()
+        defer map->free()
         keys := map->keys()
         for i in 0..keys->len
             value, _ := map->get(keys->nth(i))

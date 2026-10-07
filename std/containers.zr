@@ -40,16 +40,16 @@ struct Array<T>
     len: i64
     capacity: i64
 
-// codegen needs Array<opaque>
-func _ugly_array_hack[] : void
-    new Array<opaque>
-
 func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
     if len > 0
         xs->data = mem.alloc(len * 8)
         mem.zero(xs->data, len * 8)
         xs->len = len
         xs->capacity = len
+
+    // ignore this horrible hack, codegen needs Array<opaque> for array literals
+    if false
+        new Array<opaque>
 
 func Array.nth<T>[xs: Array<T>, n: i64] : T
     if n < 0 || n >= xs->len
@@ -168,6 +168,8 @@ func HashMap._djb2[key: str] : i64
     return hash % HashMap._TABLE_SIZE
 
 func HashMap.insert<T>[hm: HashMap<T>, key: str, value: T] : void
+    if hm->contains(key)
+        io.panic("HashMap.insert: tried to insert a duplicate key")
     index := HashMap._djb2(key)
     current := hm->table->nth(index)
 
@@ -193,6 +195,17 @@ func HashMap.get<T>[hm: HashMap<T>, key: str] : T, bool
         current = current->next
 
     return 0 as T, false
+
+func HashMap.contains<T>[hm: HashMap<T>, key: str] : bool
+    index := HashMap._djb2(key)
+    current := hm->table->nth(index)
+
+    while current as ptr
+        if current->key->equal(key)
+            return true
+        current = current->next
+
+    return false
 
 func HashMap.delete<T>[hm: HashMap<T>, key: str] : void
     index := HashMap._djb2(key)
@@ -231,18 +244,7 @@ func HashMap.keys<T>[hm: HashMap<T>] : Array<str>
             current = current->next
     return out
 
-func HashMap.free_without_keys<T>[hm: HashMap<T>] : void
-    for i in 0..HashMap._TABLE_SIZE
-        current := hm->table->nth(i)
-        while current as ptr
-            tmp := current
-            current = (current->next)
-            (tmp as ptr)->free()
-
-    hm->table->free()
-    (hm as ptr)->free()
-
-func HashMap.free_with_keys<T>[hm: HashMap<T>] : void
+func HashMap.free<T>[hm: HashMap<T>] : void
     for i in 0..HashMap._TABLE_SIZE
         current := hm->table->nth(i)
         while current as ptr

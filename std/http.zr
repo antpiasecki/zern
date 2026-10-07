@@ -124,9 +124,11 @@ func http.do_request[method: str, url: str, headers: HashMap<str>, body: Buffer]
     defer b->free()
 
     c := try net.connect(parsed_url->host, parsed_url->port)
+    defer net.close(c)
     net.send(c, b@[0], b->len)
 
     buffer := Buffer.alloc(100000)
+    defer buffer->free()
     total := 0
     while true
         n := net.read(c, buffer@[total], buffer->len - total)
@@ -148,7 +150,7 @@ func http.do_request[method: str, url: str, headers: HashMap<str>, body: Buffer]
 
 func http.get[url: str] : Result<Buffer>
     headers := HashMap.new::<str>()
-    defer headers->free_without_keys()
+    defer headers->free()
     body := Buffer.alloc(0)
     defer body->free()
     return http.do_request("GET", url, headers, body)
@@ -156,7 +158,7 @@ func http.get[url: str] : Result<Buffer>
 func http.post[url: str, content_type: str, body: Buffer] : Result<Buffer>
     headers := HashMap.new::<str>()
     headers->insert("Content-Type", content_type)
-    defer headers->free_without_keys()
+    defer headers->free()
     return http.do_request("POST", url, headers, body)
 
 struct http.Req
@@ -192,14 +194,15 @@ func http._handle_conn[c: i64, addr: ptr, handler: funcptr<void, http.Req, http.
 
     resp := new http.Resp
     resp->headers = HashMap.new::<str>()
-    defer resp->headers->free_with_keys()
+    defer resp->headers->free()
     defer
         if resp->body as ptr
             resp->body->free()
     handler(req, resp)
 
-    b := http.build_response(resp->status, http.status_code_to_text(resp->status), resp->headers, resp->body)
-    net.send(c, b@[0], b->len)
+    resp_buf := http.build_response(resp->status, http.status_code_to_text(resp->status), resp->headers, resp->body)
+    defer resp_buf->free()
+    net.send(c, resp_buf@[0], resp_buf->len)
 
 func http.status_code_to_text[code: i64] : str
   if code == 100 return "Continue"

@@ -2,6 +2,31 @@ include "http.zr"
 
 var empty_map: HashMap<str>
 
+func main[argc: i64, argv: ptr] : i64
+    empty_map = HashMap.new::<str>()
+
+    port := 8000
+    if argc > 1
+        port = os.arg(argv, 1)->parse_i64()
+
+    server_sock := net.listen("0.0.0.0", port)->expect("failed to listen")
+
+    io.printf("Listening on :%d...\n", port)
+
+    addr := _stackalloc(16)
+    while true
+        conn := net.accept(server_sock, addr)
+        if conn < 0
+            io.println("ERROR: failed to accept connection")
+            continue
+
+        conn_data := new* ConnData
+        conn_data->sock = conn
+        conn_data->addr = mem.alloc(30) as str
+        conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr@[2]))
+
+        os.spawn_thread::<ConnData>(^handle_connection, conn_data)
+
 struct ConnData
     sock: i64
     addr: str
@@ -87,28 +112,3 @@ func send_error[s: i64, status_code: i64, status: str] : void
     resp := http.build_response(status_code, status, empty_map, body)
     defer resp->free()
     net.send(s, resp@[0], resp->len)
-
-func main[argc: i64, argv: ptr] : i64
-    empty_map = HashMap.new::<str>()
-
-    port := 8000
-    if argc > 1
-        port = os.arg(argv, 1)->parse_i64()
-
-    server_sock := net.listen("0.0.0.0", port)->expect("failed to listen")
-
-    io.printf("Listening on :%d...\n", port)
-
-    addr := _stackalloc(16)
-    while true
-        conn := net.accept(server_sock, addr)
-        if conn < 0
-            io.println("ERROR: failed to accept connection")
-            continue
-
-        conn_data := new* ConnData
-        conn_data->sock = conn
-        conn_data->addr = mem.alloc(30) as str
-        conn_data->addr->format_into(30, "%d.%d.%d.%d:%d", addr[4], addr[5], addr[6], addr[7], mem.read16be(addr@[2]))
-
-        os.spawn_thread(^handle_connection as funcptr, conn_data as opaque)
