@@ -5,9 +5,9 @@ A very cool language
 ## Features
 
 - Clean indentation-based syntax
-- Targets x86-64 Linux and Windows
+- Targets x86-64 Linux and Windows\*
 - No libc required!
-- Produces tiny static executables (11KB for `hello.zr`)
+  - Produces tiny static executables (11KB for `hello.zr`)
 - Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), generics, variadics, custom allocator, dynamic arrays, hashmaps, DNS resolver, etc.
 
 ## Syntax
@@ -30,6 +30,8 @@ func main[] : i64
         else
             io.println("Too high!")
 ```
+
+For more see `examples/`.
 
 ## Quickstart
 

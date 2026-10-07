@@ -44,8 +44,7 @@ struct os.Timespec
     tv_nsec: i64
 
 func os.sleep[ms: i64] : void
-    if ms < 0
-        io.panic("os.sleep: negative argument")
+    if ms < 0 io.panic("os.sleep: negative argument")
     req := new os.Timespec
     req->tv_sec = ms / 1000
     req->tv_nsec = (ms % 1000) * 1000000
@@ -61,8 +60,7 @@ func os.urandom_buf[buf: ptr, n: i64] : void
     pos := 0
     while pos < n
         ret := _builtin_syscall(SYS_getrandom, buf@[pos], n - pos, 0)
-        if ret <= 0
-            io.panic("os.urandom_buf: syscall failed")
+        if ret <= 0 io.panic("os.urandom_buf: syscall failed")
         pos += ret
 
 func os.urandom[n: i64]: ptr
@@ -133,8 +131,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
         status := 0
         rusage := _stackalloc(192)
         wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, rusage)
-        if wp < 0
-            return res
+        if wp < 0 return res
         status = status & 0xffffffff
 
         res->success = true
@@ -154,8 +151,7 @@ func os.get_file_size[path: str] : Result<i64>
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
-    if rc != 0
-        return err::<i64>("failed to fstat")
+    if rc != 0 return err::<i64>("failed to fstat")
 
     return ok::<i64>(mem.read64(st@[48]))
 
@@ -163,8 +159,7 @@ func os.is_a_directory[path: str] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
-    if rc != 0
-        return false
+    if rc != 0 return false
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
 

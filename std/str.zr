@@ -264,6 +264,24 @@ func str.parse_i64[s: str] : i64
         i += 1
     return num * sign
 
+func str.parse_hex_i64[s: str] : i64
+    len := s->len()
+    i := 0
+
+    sign := 1
+    if i < len && s[i] == '-'
+        sign = -1
+        i += 1
+
+    num := 0
+    while i < len
+        d := s[i]
+        if !d->is_hex_digit()
+            break
+        num = num * 16 + str._hex_digit_to_int(d)
+        i += 1
+    return num * sign
+
 func str.parse_f64[s: str] : f64
     i := 0
     while s[i]->is_whitespace()

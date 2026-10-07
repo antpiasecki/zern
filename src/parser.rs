@@ -519,12 +519,21 @@ impl Parser {
     fn if_statement(&mut self) -> Result<Stmt, ZernError> {
         let keyword = self.previous().clone();
         let condition = self.expression()?;
-        let then_branch = self.block()?;
+        let then_branch = if self.peek().loc.line == keyword.loc.line {
+            self.statement()?
+        } else {
+            self.block()?
+        };
         let else_branch = if self.match_token(&[TokenType::KeywordElse]) {
+            let else_keyword = self.previous().clone();
             if self.match_token(&[TokenType::KeywordIf]) {
                 Box::new(self.if_statement()?)
             } else {
-                Box::new(self.block()?)
+                if self.peek().loc.line == else_keyword.loc.line {
+                    Box::new(self.statement()?)
+                } else {
+                    Box::new(self.block()?)
+                }
             }
         } else {
             Box::new(Stmt::Block(vec![]))

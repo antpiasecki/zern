@@ -1,0 +1,268 @@
+include "net.zr"
+
+func http.build_request[method: str, path: str, headers: HashMap<str>, body: Buffer] : Buffer
+    sb := new str.Builder
+
+    first_line := _stackalloc(256) as str
+    first_line->format_into(256, "GET %s HTTP/1.1\r\n", path)
+    sb->append(first_line)
+
+    header_keys := headers->keys()
+    defer header_keys->free()
+    for i in 0..header_keys->len
+        key := header_keys->nth(i)
+        value, _ := headers->get(key)
+
+        header_line := _stackalloc(512) as str
+        header_line->format_into(512, "%s: %s\r\n", key, value)
+        sb->append(header_line)
+
+    sb->append("\r\n")
+    if body->len != 0
+        sb->append_n(body@[0], body->len)
+
+    return sb->build_buffer_and_free_inner()
+
+func http.build_response[status_code: i64, status: str, headers: HashMap<str>, body: Buffer] : Buffer
+    sb := new str.Builder
+
+    status_line := _stackalloc(256) as str
+    status_line->format_into(256, "HTTP/1.1 %d %s\r\n", status_code, status)
+    sb->append(status_line)
+
+    content_length_line := _stackalloc(256) as str
+    if body as ptr
+        content_length_line->format_into(256, "Content-Length: %d\r\n", body->len)
+    else
+        content_length_line->format_into(256, "Content-Length: 0\r\n")
+    sb->append(content_length_line)
+
+    header_keys := headers->keys()
+    defer header_keys->free()
+    for i in 0..header_keys->len
+        key := header_keys->nth(i)
+        value, _ := headers->get(key)
+
+        header_line := _stackalloc(512) as str
+        header_line->format_into(512, "%s: %s\r\n", key, value)
+        sb->append(header_line)
+
+    sb->append("\r\n")
+    if body as ptr && body->len != 0
+        sb->append_n(body@[0], body->len)
+
+    return sb->build_buffer_and_free_inner()
+
+// TODO: handle malformed data
+func http.decode_chunked_encoding_bs[s: ptr] : Buffer
+    sb := new str.Builder
+
+    i := 0
+    while true
+        length := (s@[i] as str)->parse_hex_i64()
+        while s[i] != '\r' || s[i+1] != '\n'
+            i += 1
+        i += 2
+        if length == 0
+            break
+        sb->append_n(s@[i], length)
+        i += length + 2
+
+    return sb->build_buffer_and_free_inner()
+
+struct http.Url
+    schema: str
+    host: str
+    port: i64
+    path: str
+
+func http.Url.free[u: http.Url] : void
+    u->schema->free()
+    u->host->free()
+    u->path->free()
+    (u as ptr)->free()
+
+func http.parse_url[url: str] : http.Url
+    out := new* http.Url
+    colon_pos := url->find("://")
+
+    out->schema = url->substr_n(0, colon_pos)
+
+    path_pos := (url@[colon_pos+3] as str)->find("/")
+    if path_pos != -1
+        out->path = url->substr_n(colon_pos+3+path_pos, url->len()-(colon_pos+3+path_pos))
+        out->host = url->substr_n(colon_pos+3, path_pos)
+    else
+        out->path = "/"->make_copy()
+        out->host = url->substr_n(colon_pos+3, url->len()-(colon_pos+3))
+
+    out->port = 80
+    port_pos := out->host->find(":")
+    if port_pos != -1
+        host_without_port := out->host->substr_n(0, port_pos)
+        port_str := out->host->substr_n(port_pos+1, out->host->len()-(port_pos+1))
+        defer port_str->free()
+        out->port = port_str->parse_i64()
+        out->host->free()
+        out->host = host_without_port
+
+    return out
+
+func http.do_request[method: str, url: str, headers: HashMap<str>, body: Buffer] : Result<Buffer>
+    parsed_url := http.parse_url(url)
+    defer parsed_url->free()
+
+    if !parsed_url->schema->equal("http")
+        return err::<Buffer>("only http schema is supported")
+
+    headers->insert("Host", parsed_url->host)
+    headers->insert("Accept-Encoding", "identity")
+    headers->insert("Connection", "close")
+    headers->insert("User-Agent", "http.zr/1.0")
+
+    b := http.build_request(method, parsed_url->path, headers, body)
+    defer b->free()
+
+    c := try net.connect(parsed_url->host, parsed_url->port)
+    net.send(c, b@[0], b->len)
+
+    buffer := Buffer.alloc(100000)
+    total := 0
+    while true
+        n := net.read(c, buffer@[total], buffer->len - total)
+        if n <= 0
+            break
+        total += n
+        if total == buffer->len
+            buffer = buffer->realloc(buffer->len * 2)
+    buffer[total] = 0
+
+    pos := (buffer@[0] as str)->find("\r\n\r\n") + 4
+
+    if (buffer@[0] as str)->find("Transfer-Encoding: chunked") != -1
+        return ok::<Buffer>(http.decode_chunked_encoding_bs(buffer@[pos]))
+    else
+        out := Buffer.alloc(total)
+        mem.copy_n(buffer@[pos], out@[0], total - pos)
+        return ok::<Buffer>(out)
+
+func http.get[url: str] : Result<Buffer>
+    headers := HashMap.new::<str>()
+    defer headers->free_without_keys()
+    body := Buffer.alloc(0)
+    defer body->free()
+    return http.do_request("GET", url, headers, body)
+
+func http.post[url: str, content_type: str, body: Buffer] : Result<Buffer>
+    headers := HashMap.new::<str>()
+    headers->insert("Content-Type", content_type)
+    defer headers->free_without_keys()
+    return http.do_request("POST", url, headers, body)
+
+struct http.Req
+    remote_addr: str
+    method: str
+    path: str
+    headers: HashMap<str>
+
+struct http.Resp
+    status: i64
+    headers: HashMap<str>
+    body: Buffer
+
+func http.start_single_threaded_server[host: str, port: i64, handler: funcptr<void, http.Req, http.Resp>] : void
+    s := net.listen(host, port)->expect("failed to listen")
+
+    addr := _stackalloc(16)
+    while true
+        conn := net.accept(s, addr)
+        if conn < 0
+            io.println("ERROR: failed to accept connection")
+            continue
+
+        http._handle_conn(conn, addr, handler)
+
+func http._handle_conn[c: i64, addr: ptr, handler: funcptr<void, http.Req, http.Resp>] : void
+    defer net.close(c)
+    req := new http.Req
+    req->remote_addr = mem.alloc(30) as str
+    req->remote_addr->format_into(30, "%d.%d.%d.%d", addr[4], addr[5], addr[6], addr[7])
+    defer req->remote_addr->free()
+    // TODO: parse
+
+    resp := new http.Resp
+    resp->headers = HashMap.new::<str>()
+    defer resp->headers->free_with_keys()
+    defer
+        if resp->body as ptr
+            resp->body->free()
+    handler(req, resp)
+
+    b := http.build_response(resp->status, http.status_code_to_text(resp->status), resp->headers, resp->body)
+    net.send(c, b@[0], b->len)
+
+func http.status_code_to_text[code: i64] : str
+  if code == 100 return "Continue"
+  if code == 101 return "Switching Protocols"
+  if code == 102 return "Processing"
+  if code == 103 return "Early Hints"
+  if code == 200 return "OK"
+  if code == 201 return "Created"
+  if code == 202 return "Accepted"
+  if code == 203 return "Non-Authoritative Information"
+  if code == 204 return "No Content"
+  if code == 205 return "Reset Content"
+  if code == 206 return "Partial Content"
+  if code == 207 return "Multi-Status"
+  if code == 208 return "Already Reported"
+  if code == 226 return "IM Used"
+  if code == 300 return "Multiple Choices"
+  if code == 301 return "Moved Permanently"
+  if code == 302 return "Found"
+  if code == 303 return "See Other"
+  if code == 304 return "Not Modified"
+  if code == 305 return "Use Proxy"
+  if code == 306 return "Switch Proxy"
+  if code == 307 return "Temporary Redirect"
+  if code == 308 return "Permanent Redirect"
+  if code == 400 return "Bad Request"
+  if code == 401 return "Unauthorized"
+  if code == 402 return "Payment Required"
+  if code == 403 return "Forbidden"
+  if code == 404 return "Not Found"
+  if code == 405 return "Method Not Allowed"
+  if code == 406 return "Not Acceptable"
+  if code == 407 return "Proxy Authentication Required"
+  if code == 408 return "Request Timeout"
+  if code == 409 return "Conflict"
+  if code == 410 return "Gone"
+  if code == 411 return "Length Required"
+  if code == 412 return "Precondition Failed"
+  if code == 413 return "Content Too Large"
+  if code == 414 return "URI Too Long"
+  if code == 415 return "Unsupported Media Type"
+  if code == 416 return "Range Not Satisfiable"
+  if code == 417 return "Expectation Failed"
+  if code == 418 return "I'm a teapot"
+  if code == 421 return "Misdirected Request"
+  if code == 422 return "Unprocessable Content"
+  if code == 423 return "Locked"
+  if code == 424 return "Failed Dependency"
+  if code == 425 return "Too Early"
+  if code == 426 return "Upgrade Required"
+  if code == 428 return "Precondition Required"
+  if code == 429 return "Too Many Requests"
+  if code == 431 return "Request Header Fields Too Large"
+  if code == 451 return "Unavailable For Legal Reasons"
+  if code == 500 return "Internal Server Error"
+  if code == 501 return "Not Implemented"
+  if code == 502 return "Bad Gateway"
+  if code == 503 return "Service Unavailable"
+  if code == 504 return "Gateway Timeout"
+  if code == 505 return "HTTP Version Not Supported"
+  if code == 506 return "Variant Also Negotiates"
+  if code == 507 return "Insufficient Storage"
+  if code == 508 return "Loop Detected"
+  if code == 510 return "Not Extended"
+  if code == 511 return "Network Authentication Required"
+  return ""

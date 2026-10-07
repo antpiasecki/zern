@@ -56,6 +56,7 @@ impl SymbolTable {
             functions: HashMap::from([
                 ("_builtin_read64".into(), FnType::new(vec!["ptr"], "i64")),
                 ("_builtin_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
+                ("_builtin_int3".into(), FnType::new(vec![], "void")),
                 ("_builtin_f64_to_f32".into(), FnType::new(vec!["f64"], "opaque")),
                 ("_builtin_f32_to_f64".into(), FnType::new(vec!["f64"], "f64")),
                 (

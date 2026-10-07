@@ -184,7 +184,13 @@ func net.resolve[domain: str] : Result<i64>
 
     // TODO: do actual parsing
 
-    pos := 12 // skip header (12 bytes)
+    flags := mem.read16be(data@[2])
+    rcode := flags & 0xf
+    ancount := mem.read16be(data@[6])
+    if rcode != 0 || ancount == 0
+        return err::<i64>("dns failed")
+
+    pos := 12 // skip header (12 bytes
 
     while data[pos] != 0
         pos += data[pos] + 1 // skip question

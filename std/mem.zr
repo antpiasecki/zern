@@ -207,12 +207,14 @@ func mem.zero[x: ptr, len: i64] : void
 func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
     if n < 0
         io.panic("mem.copy_n: negative length")
-    if n == 0
-        return
     if !src
         io.panic("mem.copy_n: null src pointer")
     if !dst
         io.panic("mem.copy_n: null dst pointer")
+
+    if n == 0
+        return
+
     if dst as i64 > src as i64 && dst as i64 < src@[n] as i64
         i := n
         while i - 8 >= 0
@@ -282,6 +284,11 @@ struct Buffer
 func Buffer.alloc[n: i64] : Buffer
     out := mem.alloc(8 + n) as Buffer
     out->len = n
+    return out
+
+func Buffer.from_str[s: str] : Buffer
+    out := Buffer.alloc(s->len())
+    mem.copy_n(s@[0], out@[0], out->len)
     return out
 
 func Buffer.alloc_zeroed[n: i64] : Buffer

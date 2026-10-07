@@ -1,72 +1,12 @@
-include "io.zr"
-include "net.zr"
+include "http.zr"
 
 func main[argc: i64, argv: ptr] : i64
     if argc < 2
-        io.println("ERROR: url is missing")
+        io.println("Usage: curl <url>")
         return 1
 
     url := os.arg(argv, 1)
+    resp := http.get(url)->expect("request failed")
+    defer resp->free()
 
-    if url->len() <= 7
-        io.println("ERROR: invalid url (Did you forget \"http://\"?)")
-        return 1
-
-    if !url->substr_n(0, 7)->equal("http://")
-        io.println("ERROR: only http scheme is supported")
-        return 1
-
-    url_len := url->len()
-    host_start := 7
-    i := host_start
-    while i < url_len
-        if url[i] == '/'
-            break
-        i += 1
-
-    host := url->substr_n(host_start, i - host_start)
-    path := "/"
-    if i < url_len
-        path = url->substr_n(i, url_len - i)
-
-    s, ok := net.connect(host, 80)
-    if !ok
-        io.panic("failed to connect")
-
-    // seems reasonable
-    req := _stackalloc(4096) as str
-    req_len := req->format_into(4096, "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n", path, host)
-    net.send(s, req as ptr, req_len)
-
-    header_buf := mem.alloc(8192) as str
-    defer header_buf->free()
-    header_len := 0
-    found := false
-    end_index := -1
-
-    while !found && header_len < 8192
-        n := net.read(s, header_buf@[header_len], 8192 - header_len)
-        if n <= 0
-            break
-        current_len := header_len + n
-        i = 0
-        while i <= current_len - 4
-            if header_buf[i] == '\r' && header_buf[i + 1] == '\n' && header_buf[i + 2] == '\r' && header_buf[i + 3] == '\n'
-                found = true
-                end_index = i + 4
-                break
-            i += 1
-        header_len = current_len
-
-    if end_index < header_len
-        io.print_n(header_buf@[end_index], header_len as i64 - end_index)
-
-    buffer := mem.alloc(4096)
-    defer buffer->free()
-    while true
-        n := net.read(s, buffer, 4096)
-        if n <= 0
-            break
-        io.print_n(buffer, n)
-
-    net.close(s)
+    io.print_n(resp@[0], resp->len)

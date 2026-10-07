@@ -17,22 +17,19 @@ func main[] : i64
     mem.write16(req@[16], IFFNOPI | IFFTUN)
 
     ret := _builtin_syscall(SYS_ioctl, fd, TUNSETIFF, req)
-    if ret < 0
-        io.panic("ioctl(TUNSETIFF) failed")
+    if ret < 0 io.panic("ioctl(TUNSETIFF) failed")
 
     end := str.find_n(req as str, 16, "\0", 1)
     created_iface_name := (req as str)->substr_n(0, end)
 
     ret = _builtin_syscall(SYS_ioctl, fd, TUNSETPERSIST, 0)
-    if ret < 0
-        io.panic("ioctl(TUNSETPERSIST) failed")
+    if ret < 0 io.panic("ioctl(TUNSETPERSIST) failed")
 
     res := os.run_shell_command("ip addr add 10.0.50.1/24 dev "->concat(created_iface_name))
-    if !res->ok()
-        io.panic("failed to add iface")
+    if !res->ok() io.panic("failed to add iface")
+
     res = os.run_shell_command("ip link set dev "->concat(created_iface_name)->concat(" up"))
-    if !res->ok()
-        io.panic("failed to link iface")
+    if !res->ok() io.panic("failed to link iface")
 
     io.printf("%s is up.\n", created_iface_name)
 

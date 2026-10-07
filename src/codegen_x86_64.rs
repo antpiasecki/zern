@@ -150,6 +150,11 @@ impl<'a> CodegenX86_64<'a> {
             &mut self.output,
             ".intel_syntax noprefix
 
+.section .text._builtin_int3
+_builtin_int3:
+    int3
+    ret
+
 .section .text._builtin_f64_to_f32
 _builtin_f64_to_f32:
     cvtsd2ss xmm0, xmm0

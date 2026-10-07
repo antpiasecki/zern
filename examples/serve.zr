@@ -1,4 +1,6 @@
-include "net.zr"
+include "http.zr"
+
+var empty_map: HashMap<str>
 
 struct ConnData
     sock: i64
@@ -29,13 +31,11 @@ func handle_connection[conn: ConnData] : void
     path := parts->nth(1)
 
     if !method->equal("GET")
-        resp := "HTTP/1.1 405 Method Not Allowed\r\nConnection: close\r\n\r\n405 Method Not Allowed"
-        net.send(conn->sock, resp as ptr, resp->len())
+        send_error(conn->sock, 405, "Method Not Allowed")
         return
 
     if path->contains("..") || path->find("/") != 0
-        resp := "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n400 Bad Request"
-        net.send(conn->sock, resp as ptr, resp->len())
+        send_error(conn->sock, 400, "Bad Request")
         return
 
     file_path := "."->concat(path)
@@ -46,9 +46,7 @@ func handle_connection[conn: ConnData] : void
         b->append("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<ul>\n")
         files, err := os.list_directory(file_path)->unpack()
         if err as bool
-            resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
-            net.send(conn->sock, resp as ptr, resp->len())
-            b->data->free()
+            send_error(conn->sock, 404, "Not Found")
             return
         defer files->free_with_ptr_items()
 
@@ -65,14 +63,12 @@ func handle_connection[conn: ConnData] : void
 
     file_size, err := os.get_file_size(file_path)->unpack()
     if err as bool
-        resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
-        net.send(conn->sock, resp as ptr, resp->len())
+        send_error(conn->sock, 404, "Not Found")
         return
 
     fd, err := io.open_for_reading(file_path)->unpack()
     if err as bool
-        resp := "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n404 Not Found"
-        net.send(conn->sock, resp as ptr, resp->len())
+        send_error(conn->sock, 404, "Not Found")
         return
     defer io.close(fd)
 
@@ -85,9 +81,17 @@ func handle_connection[conn: ConnData] : void
         if sent <= 0
             break
 
-func main[argc: i64, argv: ptr] : i64
-    port := 8000
+func send_error[s: i64, status_code: i64, status: str] : void
+    body := Buffer.from_str(status)
+    defer body->free()
+    resp := http.build_response(status_code, status, empty_map, body)
+    defer resp->free()
+    net.send(s, resp@[0], resp->len)
 
+func main[argc: i64, argv: ptr] : i64
+    empty_map = HashMap.new::<str>()
+
+    port := 8000
     if argc > 1
         port = os.arg(argv, 1)->parse_i64()
 

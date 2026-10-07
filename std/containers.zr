@@ -203,6 +203,17 @@ func HashMap.keys<T>[map: HashMap<T>] : Array<str>
             current = current->next
     return out
 
+func HashMap.free_without_keys<T>[map: HashMap<T>] : void
+    for i in 0..HashMap._TABLE_SIZE
+        current := map->table->nth(i)
+        while current as ptr
+            tmp := current
+            current = (current->next)
+            (tmp as ptr)->free()
+
+    map->table->free()
+    (map as ptr)->free()
+
 func HashMap.free_with_keys<T>[map: HashMap<T>] : void
     for i in 0..HashMap._TABLE_SIZE
         current := map->table->nth(i)

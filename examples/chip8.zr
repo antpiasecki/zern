@@ -68,87 +68,48 @@ func CHIP8.disassemble[c: CHIP8, ins_count: i64] : void
 
         op := (ins >> 12) & 0x0f
         if op == 0x0
-            if nnn == 0x0e0
-                io.println("CLS")
-            else if nnn == 0x0ee
-                io.println("RET")
-            else
-                io.printf("SYS %d\n", nnn)
-        else if op == 0x1
-            io.printf("JP 0x%x\n", nnn)
-        else if op == 0x2
-            io.printf("CALL %d\n", nnn)
-        else if op == 0x3
-            io.printf("SE V%x, %d\n", x, kk)
-        else if op == 0x4
-            io.printf("SNE V%x, %d\n", x, kk)
-        else if op == 0x5
-            io.printf("SE V%x, V%x\n", x, y)
-        else if op == 0x6
-            io.printf("LD V%x, %d\n", x, kk)
-        else if op == 0x7
-            io.printf("ADD V%x, %d\n", x, kk)
+            if nnn == 0x0e0 io.println("CLS")
+            else if nnn == 0x0ee io.println("RET")
+            else io.printf("SYS %d\n", nnn)
+        else if op == 0x1 io.printf("JP 0x%x\n", nnn)
+        else if op == 0x2 io.printf("CALL %d\n", nnn)
+        else if op == 0x3 io.printf("SE V%x, %d\n", x, kk)
+        else if op == 0x4 io.printf("SNE V%x, %d\n", x, kk)
+        else if op == 0x5 io.printf("SE V%x, V%x\n", x, y)
+        else if op == 0x6 io.printf("LD V%x, %d\n", x, kk)
+        else if op == 0x7 io.printf("ADD V%x, %d\n", x, kk)
         else if op == 0x8
-            if n == 0x0
-                io.printf("LD V%x, V%x\n", x, y)
-            else if n == 0x1
-                io.printf("OR V%x, V%x\n", x, y)
-            else if n == 0x2
-                io.printf("AND V%x, V%x\n", x, y)
-            else if n == 0x3
-                io.printf("XOR V%x, V%x\n", x, y)
-            else if n == 0x4
-                io.printf("ADD V%x, V%x\n", x, y)
-            else if n == 0x5
-                io.printf("SUB V%x, V%x\n", x, y)
-            else if n == 0x6
-                io.printf("SHR V%x\n", x)
-            else if n == 0x7
-                io.printf("SUBN V%x, V%x\n", x, y)
-            else if n == 0xE
-                io.printf("SHL V%x\n", x)
-            else
-                io.printf("??? (%x)\n", ins)
-        else if op == 0x9
-            io.printf("SNE V%x, V%x\n", x, y)
-        else if op == 0xa
-            io.printf("LD I, 0x%x\n", nnn)
-        else if op == 0xb
-            io.printf("JP V0, %d\n", nnn)
-        else if op == 0xc
-            io.printf("RND V%x, %d\n", x, kk)
-        else if op == 0xd
-            io.printf("DRW V%x, V%x, %d\n", x, y, n)
+            if n == 0x0 io.printf("LD V%x, V%x\n", x, y)
+            else if n == 0x1 io.printf("OR V%x, V%x\n", x, y)
+            else if n == 0x2 io.printf("AND V%x, V%x\n", x, y)
+            else if n == 0x3 io.printf("XOR V%x, V%x\n", x, y)
+            else if n == 0x4 io.printf("ADD V%x, V%x\n", x, y)
+            else if n == 0x5 io.printf("SUB V%x, V%x\n", x, y)
+            else if n == 0x6 io.printf("SHR V%x\n", x)
+            else if n == 0x7 io.printf("SUBN V%x, V%x\n", x, y)
+            else if n == 0xE io.printf("SHL V%x\n", x)
+            else io.printf("??? (%x)\n", ins)
+        else if op == 0x9 io.printf("SNE V%x, V%x\n", x, y)
+        else if op == 0xa io.printf("LD I, 0x%x\n", nnn)
+        else if op == 0xb io.printf("JP V0, %d\n", nnn)
+        else if op == 0xc io.printf("RND V%x, %d\n", x, kk)
+        else if op == 0xd io.printf("DRW V%x, V%x, %d\n", x, y, n)
         else if op == 0xe
-            if kk == 0x9e
-                io.printf("SKP V%x\n", x)
-            else if kk == 0xa1
-                io.printf("SKNP V%x\n", x)
-            else
-                io.printf("??? (%x)\n", ins)
+            if kk == 0x9e io.printf("SKP V%x\n", x)
+            else if kk == 0xa1 io.printf("SKNP V%x\n", x)
+            else io.printf("??? (%x)\n", ins)
         else if op == 0xf
-            if kk == 0x07
-                io.printf("LD V%x, DT\n", x)
-            else if kk == 0x0A
-                io.printf("LD V%x, K\n", x)
-            else if kk == 0x15
-                io.printf("LD DT, V%x\n", x)
-            else if kk == 0x18
-                io.printf("LD ST, V%x\n", x)
-            else if kk == 0x1E
-                io.printf("ADD I, V%x\n", x)
-            else if kk == 0x29
-                io.printf("LD F, V%x\n", x)
-            else if kk == 0x33
-                io.printf("LD B, V%x\n", x)
-            else if kk == 0x55
-                io.printf("LD [I], V%x\n", x)
-            else if kk == 0x65
-                io.printf("LD V%x, [I]\n", x)
-            else
-                io.printf("??? (%x)\n", ins)
-        else
-            io.printf("??? (%x)\n", ins)
+            if kk == 0x07 io.printf("LD V%x, DT\n", x)
+            else if kk == 0x0A io.printf("LD V%x, K\n", x)
+            else if kk == 0x15 io.printf("LD DT, V%x\n", x)
+            else if kk == 0x18 io.printf("LD ST, V%x\n", x)
+            else if kk == 0x1E io.printf("ADD I, V%x\n", x)
+            else if kk == 0x29 io.printf("LD F, V%x\n", x)
+            else if kk == 0x33 io.printf("LD B, V%x\n", x)
+            else if kk == 0x55 io.printf("LD [I], V%x\n", x)
+            else if kk == 0x65 io.printf("LD V%x, [I]\n", x)
+            else io.printf("??? (%x)\n", ins)
+        else io.printf("??? (%x)\n", ins)
 
 func CHIP8.step[c: CHIP8] : void
     high := c->memory[c->pc] as i64
