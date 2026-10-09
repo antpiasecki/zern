@@ -59,7 +59,7 @@ func Array.nth<T>[xs: Array<T>, n: i64] : T
 func Array.set<T>[xs: Array<T>, n: i64, x: T] : void
     if n < 0 || n >= xs->len
         io.panic("Array.set: out of bounds")
-    mem.write64(xs->data@[n * 8], x as i64)
+    _write64(xs->data@[n * 8], x as i64)
 
 func Array.push<T>[xs: Array<T>, x: T] : void
     if xs->len == xs->capacity
@@ -69,7 +69,7 @@ func Array.push<T>[xs: Array<T>, x: T] : void
         xs->data = xs->data->realloc(new_capacity * 8)
         xs->capacity = new_capacity
 
-    mem.write64(xs->data@[xs->len * 8], x as i64)
+    _write64(xs->data@[xs->len * 8], x as i64)
     xs->len += 1
 
 func Array.slice<T>[xs: Array<T>, start: i64, length: i64] : Array<T>

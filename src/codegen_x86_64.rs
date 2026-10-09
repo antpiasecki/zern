@@ -168,33 +168,10 @@ _builtin_f32_to_f64:
 "
         );
 
-        if self.args.target_windows {
+        if !self.args.target_windows {
             emit!(
                 &mut self.output,
-                ".section .text._builtin_read64
-_builtin_read64:
-    mov rax, QWORD PTR [rcx]
-    ret
-
-.section .text._builtin_write64
-_builtin_write64:
-    mov [rcx], rdx
-    ret
-"
-            );
-        } else {
-            emit!(
-                &mut self.output,
-                ".section .text._builtin_read64
-_builtin_read64:
-    mov rax, QWORD PTR [rdi]
-    ret
-
-.section .text._builtin_write64
-_builtin_write64:
-    mov [rdi], rsi
-    ret
-
+                "
 .section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -938,6 +915,25 @@ _start:
                 type_args,
             } => {
                 if let ExprKind::Variable(callee_name) = &callee.kind
+                    && callee_name.lexeme == "_read64"
+                {
+                    self.compile_expr(env, &args[0])?;
+                    emit!(&mut self.output, "    mov rax, [rax]");
+                    return Ok(());
+                }
+
+                if let ExprKind::Variable(callee_name) = &callee.kind
+                    && callee_name.lexeme == "_write64"
+                {
+                    self.compile_expr(env, &args[0])?;
+                    emit!(&mut self.output, "    push rax");
+                    self.compile_expr(env, &args[1])?;
+                    emit!(&mut self.output, "    pop rcx");
+                    emit!(&mut self.output, "    mov [rcx], rax");
+                    return Ok(());
+                }
+
+                if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_var_arg"
                 {
                     return self.emit_var_arg(env, &args[0]);
@@ -1008,8 +1004,9 @@ _start:
                 }
                 emit!(&mut self.output, "    push rax");
                 emit!(&mut self.output, "    mov rdi, rax");
-                emit!(&mut self.output, "    mov rsi, 24");
-                emit!(&mut self.output, "    call mem.zero");
+                emit!(&mut self.output, "    mov rcx, 24");
+                emit!(&mut self.output, "    xor eax, eax");
+                emit!(&mut self.output, "    rep stosb");
                 emit!(&mut self.output, "    pop rax");
                 emit!(&mut self.output, "    push rax");
 
@@ -1091,8 +1088,9 @@ _start:
                 emit!(&mut self.output, "    push rax");
                 emit!(&mut self.output, "    sub rsp, 8");
                 emit!(&mut self.output, "    mov rdi, rax");
-                emit!(&mut self.output, "    mov rsi, {}", memory_size);
-                emit!(&mut self.output, "    call mem.zero");
+                emit!(&mut self.output, "    mov rcx, {}", memory_size);
+                emit!(&mut self.output, "    xor eax, eax");
+                emit!(&mut self.output, "    rep stosb");
                 emit!(&mut self.output, "    add rsp, 8");
                 emit!(&mut self.output, "    pop rax");
             }

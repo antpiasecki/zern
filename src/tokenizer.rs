@@ -98,24 +98,9 @@ pub struct Loc {
     pub length: usize,
 }
 
-impl Loc {
-    pub fn unknown_loc() -> Self {
-        Self {
-            filename: "<unknown>".into(),
-            line: 0,
-            column: 0,
-            length: 1,
-        }
-    }
-}
-
 impl fmt::Display for Loc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if &*self.filename == "<unknown>" {
-            write!(f, "compiler")
-        } else {
-            write!(f, "{}:{}:{}", self.filename, self.line, self.column)
-        }
+        write!(f, "{}:{}:{}", self.filename, self.line, self.column)
     }
 }
 
@@ -159,7 +144,12 @@ impl<'a> Tokenizer<'a> {
                 column: 1,
                 length: 1,
             },
-            start_loc: Loc::unknown_loc(),
+            start_loc: Loc {
+                filename: Rc::from(String::new()),
+                line: 0,
+                column: 0,
+                length: 0,
+            },
             included_paths,
         }
     }
@@ -551,6 +541,20 @@ impl<'a> Tokenizer<'a> {
                 Some('\\') => result.push('\\'),
                 Some('\'') => result.push('\''),
                 Some('"') => result.push('"'),
+                Some('x') => {
+                    let mut value: u32 = 0;
+                    for _ in 0..2 {
+                        match chars.next() {
+                            Some(h) if h.is_ascii_hexdigit() => {
+                                value = value * 16 + h.to_digit(16).unwrap();
+                            }
+                            _ => {
+                                return error!(self.loc.clone(), "expected 2 hex digits after '\\x'");
+                            }
+                        }
+                    }
+                    result.push(char::from_u32(value).unwrap());
+                }
                 Some(c) => {
                     return error!(self.loc.clone(), format!("unknown escape sequence: \\{}", c));
                 }

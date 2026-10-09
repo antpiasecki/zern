@@ -5,6 +5,8 @@ const mem.Block.LEN = 32
 
 var mem._heap_head: mem.Block
 var mem._heap_tail: mem.Block
+var mem._heap_rover: mem.Block
+var mem._bins: ptr
 var mem._lock: i64
 
 struct mem.Block
@@ -35,6 +37,8 @@ func mem.Block._split[blk: mem.Block, needed: i64] : void
 func mem._request_space[len: i64] : mem.Block
     needed := len + mem.Block.LEN
     alloc_len := (needed + 4095) & -4096
+    if alloc_len < 1048576
+        alloc_len = 1048576
 
     blk := _builtin_syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
     if (blk as ptr as i64) == MAP_FAILED
@@ -45,7 +49,7 @@ func mem._request_space[len: i64] : mem.Block
     blk->next = 0 as mem.Block
     blk->prev = 0 as mem.Block
 
-    tail := mem._heap_tail as mem.Block
+    tail := mem._heap_tail
     if tail as ptr
         tail->next = blk
         blk->prev = tail
@@ -63,12 +67,39 @@ func mem.alloc[len: i64] : ptr
     defer
         mem._lock = 0
 
+    if mem._bins == 0
+        raw := mem._request_space(65 * 8)
+        raw->_split(65 * 8)
+        raw->free = false
+        if mem._heap_head as ptr == 0
+            mem._heap_head = raw
+        mem._bins = (raw as ptr)@[mem.Block.LEN]
+        mem.zero(mem._bins, 65 * 8)
+
+    // separate lists for small allocations
+    if len <= 1024
+        c := len / 16
+        slot := mem._bins@[c*8]
+        head := mem.read64(slot) as ptr
+        if head != 0
+            _write64(slot, mem.read64(head))
+            return head
+
     // try to cut off a piece of an already available block
-    cur := mem._heap_head as mem.Block
-    while cur as ptr
+    cur := mem._heap_rover
+    if cur as ptr == 0
+        cur = mem._heap_head
+    wrapped := false
+    while true
+        if cur as ptr == 0
+            if wrapped break
+            wrapped = true
+            cur = mem._heap_head
+            continue
         if cur->free && cur->len >= len
             cur->_split(len)
             cur->free = false
+            mem._heap_rover = cur->next
             return (cur as ptr)@[mem.Block.LEN]
         cur = cur->next
 
@@ -79,6 +110,7 @@ func mem.alloc[len: i64] : ptr
         mem._heap_head = blk
 
     blk->_split(len)
+    mem._heap_rover = blk->next
 
     return (blk as ptr)@[mem.Block.LEN]
 
@@ -88,7 +120,8 @@ func mem.trim[] : void
     defer
         mem._lock = 0
 
-    cur := mem._heap_tail as mem.Block
+    mem._heap_rover = 0 as mem.Block
+    cur := mem._heap_tail
     while cur as ptr && cur->free
         block_total := cur->len + mem.Block.LEN
         if (cur as i64 & 4095) != 0 || (block_total & 4095) != 0
@@ -118,6 +151,12 @@ func ptr.free[x: ptr] : void
     if blk->free
         io.panic("ptr.free: double free detected")
 
+    if blk->len <= 1024
+        slot := mem._bins@[(blk->len / 16) * 8]
+        _write64(x, mem.read64(slot))
+        _write64(slot, x as i64)
+        return
+
     blk->free = true
 
     // coalesce forwards
@@ -127,6 +166,8 @@ func ptr.free[x: ptr] : void
         if expected_next as ptr == next as ptr
             blk->len += mem.Block.LEN + next->len
             blk->next = next->next
+            if mem._heap_rover as ptr == next as ptr
+                mem._heap_rover = blk
             if next->next as ptr
                 next->next->prev = blk
             if mem._heap_tail as ptr == next as ptr
@@ -139,6 +180,8 @@ func ptr.free[x: ptr] : void
         if expected_blk as ptr == blk as ptr
             prev->len += mem.Block.LEN + blk->len
             prev->next = blk->next
+            if mem._heap_rover as ptr == next as ptr
+                mem._heap_rover = prev
             if blk->next as ptr
                 blk->next->prev = prev
             if mem._heap_tail as ptr == blk as ptr
@@ -175,6 +218,8 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
         if combined >= new_len
             blk->len = combined
             blk->next = next->next
+            if mem._heap_rover as ptr == next as ptr
+                mem._heap_rover = blk
             if next->next as ptr
                 next->next->prev = blk
             if mem._heap_tail as ptr == next as ptr
@@ -198,7 +243,7 @@ func ptr.zero_and_free[x: ptr, len: i64] : void
 func mem.zero[x: ptr, len: i64] : void
     i := 0
     while i + 8 <= len
-        mem.write64(x@[i], 0)
+        _write64(x@[i], 0)
         i += 8
     while i < len
         x[i] = 0 as u8
@@ -219,14 +264,14 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         i := n
         while i - 8 >= 0
             i -= 8
-            mem.write64(dst@[i], mem.read64(src@[i]))
+            _write64(dst@[i], mem.read64(src@[i]))
         while i > 0
             i -= 1
             dst[i] = src[i]
     else
         i := 0
         while i + 8 <= n
-            mem.write64(dst@[i], mem.read64(src@[i]))
+            _write64(dst@[i], mem.read64(src@[i]))
             i += 8
         while i < n
             dst[i] = src[i]
@@ -245,7 +290,7 @@ func mem.read32be[x: ptr] : i64
     return (x[0] as i64 << 24) | (x[1] << 16) | (x[2] << 8) | x[3]
 
 func mem.read64[x: ptr] : i64
-    return _builtin_read64(x)
+    return _read64(x)
 
 func mem.read64be[x: ptr] : i64
     return (mem.read32be(x) << 32) | mem.read32be(x@[4])
@@ -271,7 +316,7 @@ func mem.write32be[x: ptr, d: i64] : void
     x[3] = d & 0xff
 
 func mem.write64[x: ptr, d: i64] : void
-    _builtin_write64(x, d)
+    _write64(x, d)
 
 func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)

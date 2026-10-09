@@ -54,8 +54,6 @@ impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
             functions: HashMap::from([
-                ("_builtin_read64".into(), FnType::new(vec!["ptr"], "i64")),
-                ("_builtin_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
                 ("_builtin_int3".into(), FnType::new(vec![], "void")),
                 ("_builtin_f64_to_f32".into(), FnType::new(vec!["f64"], "opaque")),
                 ("_builtin_f32_to_f64".into(), FnType::new(vec!["f64"], "f64")),
@@ -65,6 +63,8 @@ impl SymbolTable {
                 ),
                 ("_builtin_lock".into(), FnType::new(vec!["ptr"], "void")),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
+                ("_read64".into(), FnType::new(vec!["ptr"], "i64")),
+                ("_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
                 ("_var_arg".into(), FnType::new(vec!["i64"], "opaque")),
                 ("_stackalloc".into(), FnType::new(vec!["i64"], "ptr")),
             ]),

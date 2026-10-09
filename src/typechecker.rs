@@ -4,7 +4,7 @@ use crate::{
     monomorphizer,
     parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
     symbol_table::{FnParams, SymbolTable, return_types_tokens_to_type},
-    tokenizer::{Loc, TokenType, ZernError, error},
+    tokenizer::{TokenType, ZernError, error},
 };
 
 macro_rules! expect_type {
@@ -339,7 +339,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub fn typecheck_expr(&mut self, env: &mut Env, expr: &Expr) -> Result<String, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &expr.loc);
 
         let expr_type = match &expr.kind {
             ExprKind::Binary { left, op, right } => {

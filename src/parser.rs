@@ -14,10 +14,10 @@ impl<F: FnMut()> Drop for ScopeCall<F> {
 }
 
 macro_rules! recursion_guard {
-    ($self:ident) => {
+    ($self:ident, $loc:expr) => {
         $self.depth += 1;
         if $self.depth > 200 {
-            return error!(Loc::unknown_loc(), "maximum expression depth reached");
+            return error!($loc, "maximum expression depth reached");
         }
         let _self_ptr = $self as *mut Self;
         let _scope_call = ScopeCall {
@@ -576,12 +576,12 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         self.or_and()
     }
 
     fn or_and(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.equality()?;
 
         while self.match_token(&[TokenType::LogicalOr, TokenType::LogicalAnd]) {
@@ -601,7 +601,7 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.comparison()?;
 
         while self.match_token(&[TokenType::DoubleEqual, TokenType::NotEqual]) {
@@ -621,7 +621,7 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.term()?;
 
         while self.match_token(&[
@@ -646,7 +646,7 @@ impl Parser {
     }
 
     fn term(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.factor()?;
 
         while self.match_token(&[
@@ -672,7 +672,7 @@ impl Parser {
     }
 
     fn factor(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.cast()?;
 
         while matches!(
@@ -703,7 +703,7 @@ impl Parser {
     }
 
     fn cast(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.unary()?;
 
         while self.match_token(&[TokenType::KeywordAs]) {
@@ -721,7 +721,7 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
 
         if self.match_token(&[TokenType::Xor]) {
             let right = self.unary()?;
@@ -751,7 +751,7 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expr, ZernError> {
-        recursion_guard!(self);
+        recursion_guard!(self, &self.previous().loc);
         let mut expr = self.primary()?;
 
         loop {
