@@ -110,6 +110,10 @@ impl SymbolTable {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
 
+                if name.lexeme.starts_with('_') {
+                    return error!(name.loc, "user function names cannot start with '_'");
+                }
+
                 if type_vars.is_empty() {
                     let return_type = return_types_tokens_to_type(return_types);
                     let attributes = attributes.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>();
@@ -179,7 +183,7 @@ impl SymbolTable {
                 if self.is_name_defined(&var_name.lexeme) {
                     return error!(var_name.loc, format!("tried to redefine '{}'", var_name.lexeme));
                 }
-                let label = format!("global_{:03}", self.globals.len());
+                let label = format!("_global_{:03}", self.globals.len());
                 self.globals
                     .insert(var_name.lexeme.clone(), (label, var_type.lexeme.clone()));
             }

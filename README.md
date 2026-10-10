@@ -38,7 +38,7 @@ For more see `examples/`.
 ```sh
 git clone https://git.ton1.dev/toni/zern
 cd zern
-# make sure /usr/local/bin is in your PATH or set PREFIX
-./install.sh
+# make sure /usr/local/bin is in your PATH or set custom PREFIX
+sudo -E ./install.sh
 zern
 ```

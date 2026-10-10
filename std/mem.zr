@@ -80,9 +80,9 @@ func mem.alloc[len: i64] : ptr
     if len <= 1024
         c := len / 16
         slot := mem._bins@[c*8]
-        head := mem.read64(slot) as ptr
+        head := _read64(slot) as ptr
         if head != 0
-            _write64(slot, mem.read64(head))
+            _write64(slot, _read64(head))
             return head
 
     // try to cut off a piece of an already available block
@@ -153,7 +153,7 @@ func ptr.free[x: ptr] : void
 
     if blk->len <= 1024
         slot := mem._bins@[(blk->len / 16) * 8]
-        _write64(x, mem.read64(slot))
+        _write64(x, _read64(slot))
         _write64(slot, x as i64)
         return
 
@@ -264,14 +264,14 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         i := n
         while i - 8 >= 0
             i -= 8
-            _write64(dst@[i], mem.read64(src@[i]))
+            _write64(dst@[i], _read64(src@[i]))
         while i > 0
             i -= 1
             dst[i] = src[i]
     else
         i := 0
         while i + 8 <= n
-            _write64(dst@[i], mem.read64(src@[i]))
+            _write64(dst@[i], _read64(src@[i]))
             i += 8
         while i < n
             dst[i] = src[i]

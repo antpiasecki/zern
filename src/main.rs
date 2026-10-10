@@ -191,13 +191,13 @@ impl Args {
         }
 
         if out.path.is_empty() {
-            eprintln!("ERROR: You must provide a path");
+            eprintln!("ERROR: you must provide a path");
             print_usage();
             exit(1);
         }
 
         if !out.link_with_cc && out.target_windows {
-            eprintln!("ERROR: Using the -w flag without -c is not implemented yet. Try again with -c.");
+            eprintln!("ERROR: using the -w flag without the -c flag not supported");
             exit(1);
         }
 

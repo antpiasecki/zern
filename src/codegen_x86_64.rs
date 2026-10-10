@@ -260,21 +260,12 @@ _start:
                 );
                 emit!(&mut self.bss, "    _builtin_environ: .zero 8");
             }
-            (true, false) => {
+            (true, _) => {
                 emit!(
                     &mut self.output,
                     "
 .extern environ
 .set _builtin_environ, environ
-"
-                );
-            }
-            (true, true) => {
-                emit!(
-                    &mut self.output,
-                    "
-.extern _environ
-.set _builtin_environ, _environ
 "
                 );
             }
@@ -549,7 +540,7 @@ _start:
                 }
 
                 if !self.args.target_windows {
-                    emit!(&mut self.output, ".size {0}, . - {0}", mangled);
+                    emit!(&mut self.output, ".size \"{0}\", . - \"{0}\"", mangled);
                 }
 
                 // patch the stack size after we know how much we actually need
@@ -664,7 +655,7 @@ _start:
                 Some(id) => *id,
                 None => {
                     let id = self.file_ids.len();
-                    emit!(&mut self.output, ".file {} \"{}\"", id, expr.loc.filename);
+                    emit!(&mut self.output, ".file {} \"{}\"", id, escape_str(&*expr.loc.filename));
                     self.file_ids.insert((*expr.loc.filename).into(), id);
                     id
                 }
@@ -833,7 +824,18 @@ _start:
             ExprKind::Grouping(expr) => self.compile_expr(env, expr)?,
             ExprKind::Literal(token) => match token.token_type {
                 TokenType::IntLiteral => {
-                    emit!(&mut self.output, "    mov rax, {}", token.lexeme);
+                    let value = if token.lexeme.starts_with("0x") {
+                        match u64::from_str_radix(&token.lexeme[2..], 16) {
+                            Ok(v) => v,
+                            Err(_) => return error!(token.loc, "failed to parse hex integer literal"),
+                        }
+                    } else {
+                        match token.lexeme.parse() {
+                            Ok(v) => v,
+                            Err(_) => return error!(token.loc, "failed to parse integer literal"),
+                        }
+                    } as i64;
+                    emit!(&mut self.output, "    mov rax, {}", value);
                 }
                 TokenType::FloatLiteral => {
                     let value: f64 = token.lexeme.parse().unwrap();
@@ -849,16 +851,10 @@ _start:
                 TokenType::StringLiteral => {
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
-                    let label = format!("str_{:03}", self.rodata_counter);
-
-                    let charcodes = value
-                        .chars()
-                        .map(|x| (x as u8).to_string())
-                        .chain(std::iter::once("0".into()))
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    emit!(&mut self.rodata, "    {}: .byte {}", label, charcodes);
+                    let label = format!("_str_{:03}", self.rodata_counter);
                     self.rodata_counter += 1;
+
+                    emit!(&mut self.rodata, "    {}: .asciz \"{}\"", label, escape_str(value));
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                 }
@@ -976,7 +972,7 @@ _start:
                     };
                     if self.symbol_table.functions.contains_key(&callee_name) {
                         // its a function (defined/builtin/extern)
-                        emit!(&mut self.output, "    call {}", mangle(&callee_name));
+                        emit!(&mut self.output, "    call \"{}\"", mangle(&callee_name));
                     } else {
                         // its a variable containing function address
                         self.compile_expr(env, callee)?;
@@ -1053,10 +1049,10 @@ _start:
             ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
                     if self.symbol_table.functions.contains_key(&name.lexeme) {
-                        emit!(&mut self.output, "    lea rax, [rip + {}]", name.lexeme);
+                        emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", name.lexeme);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                         let (label, _) = &self.symbol_table.globals[&name.lexeme];
-                        emit!(&mut self.output, "    lea rax, [rip + {}]", label);
+                        emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", label);
                     } else if let Some(var) = env.get_var(&name.lexeme) {
                         emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", var.stack_offset);
                     } else {
@@ -1382,4 +1378,19 @@ fn hash(s: &str) -> String {
         h = h.wrapping_mul(0x100000001b3);
     }
     format!("{:x}", h)
+}
+
+fn escape_str(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else {
+            let mut buf = [0u8; 4];
+            for b in c.encode_utf8(&mut buf).bytes() {
+                out.push_str(&format!("\\{:03o}", b));
+            }
+        }
+    }
+    out
 }
