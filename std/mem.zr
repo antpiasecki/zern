@@ -1,27 +1,67 @@
 include "linux_syscalls.zr"
 include "num.zr"
 
-const mem.Block.LEN = 32
+struct mem.Allocator
+    alloc_func: funcptr<ptr, mem.Allocator, i64>
+    free_func: funcptr<void, mem.Allocator, ptr>
+    realloc_func: funcptr<ptr, mem.Allocator, ptr, i64>
 
-var mem._heap_head: mem.Block
-var mem._heap_tail: mem.Block
-var mem._heap_rover: mem.Block
-var mem._bins: ptr
+var mem.allocator: mem.Allocator
 var mem._lock: i64
 
-struct mem.Block
+func mem.alloc[len: i64] : ptr
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
+    mem._ensure_allocator()
+    return (mem.allocator->alloc_func)(mem.allocator, len)
+
+func ptr.free[x: ptr] : void
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
+    mem._ensure_allocator()
+    (mem.allocator->free_func)(mem.allocator, x)
+
+func ptr.realloc[x: ptr, new_len: i64] : ptr
+    _builtin_lock(^mem._lock)
+    defer
+        mem._lock = 0
+    mem._ensure_allocator()
+    return (mem.allocator->realloc_func)(mem.allocator, x, new_len)
+
+func mem._ensure_allocator[] : void
+    if mem.allocator as ptr == 0
+        a := _builtin_syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Allocator
+        a->alloc_func = ^mem.FreeListAllocator.alloc
+        a->free_func = ^mem.FreeListAllocator.free
+        a->realloc_func = ^mem.FreeListAllocator.realloc
+        mem.allocator = a
+
+struct mem.FreeListAllocator
+    alloc_func: funcptr<ptr, mem.Allocator, i64>
+    free_func: funcptr<void, mem.Allocator, ptr>
+    realloc_func: funcptr<ptr, mem.Allocator, ptr, i64>
+    head: mem.FreeListBlock
+    tail: mem.FreeListBlock
+    rover: mem.FreeListBlock
+    bins: ptr
+
+struct mem.FreeListBlock
     len: i64
     free: bool
-    next: mem.Block
-    prev: mem.Block
+    next: mem.FreeListBlock
+    prev: mem.FreeListBlock
+
+const mem.FreeListBlock.LEN = 32
 
 func mem.align[x: i64] : i64
     return (x + 7) & -8
 
-func mem.Block._split[blk: mem.Block, needed: i64] : void
-    if blk->len >= needed + mem.Block.LEN + 8
-        new_blk := (blk as ptr)@[mem.Block.LEN + needed] as mem.Block
-        new_blk->len = blk->len - needed - mem.Block.LEN
+func mem.FreeListBlock._split[blk: mem.FreeListBlock, fla: mem.FreeListAllocator, needed: i64] : void
+    if blk->len >= needed + mem.FreeListBlock.LEN + 8
+        new_blk := (blk as ptr)@[mem.FreeListBlock.LEN + needed] as mem.FreeListBlock
+        new_blk->len = blk->len - needed - mem.FreeListBlock.LEN
         new_blk->free = true
         new_blk->next = blk->next
         new_blk->prev = blk
@@ -29,130 +69,128 @@ func mem.Block._split[blk: mem.Block, needed: i64] : void
         if blk->next as ptr
             blk->next->prev = new_blk
         else
-            mem._heap_tail = new_blk
+            fla->tail = new_blk
 
         blk->len = needed
         blk->next = new_blk
 
-func mem._request_space[len: i64] : mem.Block
-    needed := len + mem.Block.LEN
+func mem.FreeListAllocator._request_space[fla: mem.FreeListAllocator, len: i64] : mem.FreeListBlock
+    needed := len + mem.FreeListBlock.LEN
     alloc_len := (needed + 4095) & -4096
     if alloc_len < 1048576
         alloc_len = 1048576
 
-    blk := _builtin_syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Block
+    blk := _builtin_syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.FreeListBlock
     if (blk as ptr as i64) == MAP_FAILED
         io.panic("mem._request_space: failed to mmap")
 
-    blk->len = alloc_len - mem.Block.LEN
+    blk->len = alloc_len - mem.FreeListBlock.LEN
     blk->free = false
-    blk->next = 0 as mem.Block
-    blk->prev = 0 as mem.Block
+    blk->next = 0 as mem.FreeListBlock
+    blk->prev = 0 as mem.FreeListBlock
 
-    tail := mem._heap_tail
+    tail := fla->tail
     if tail as ptr
         tail->next = blk
         blk->prev = tail
 
-    mem._heap_tail = blk
+    fla->tail = blk
     return blk
 
-func mem.alloc[len: i64] : ptr
+func mem.FreeListAllocator.alloc[a: mem.Allocator, len: i64] : ptr
+    fla := a as mem.FreeListAllocator
+
     if len <= 0
         io.panic("mem.alloc: called with nonpositive len")
 
     len = mem.align(len)
+    if len < 16
+        len = 16
 
-    _builtin_lock(^mem._lock)
-    defer
-        mem._lock = 0
-
-    if mem._bins == 0
-        raw := mem._request_space(65 * 8)
-        raw->_split(65 * 8)
+    if fla->bins == 0
+        raw := fla->_request_space(65 * 8)
+        raw->_split(fla, 65 * 8)
         raw->free = false
-        if mem._heap_head as ptr == 0
-            mem._heap_head = raw
-        mem._bins = (raw as ptr)@[mem.Block.LEN]
-        mem.zero(mem._bins, 65 * 8)
+        if fla->head as ptr == 0
+            fla->head = raw
+        fla->bins = (raw as ptr)@[mem.FreeListBlock.LEN]
+        mem.zero(fla->bins, 65 * 8)
 
     // separate lists for small allocations
     if len <= 1024
-        c := len / 16
-        slot := mem._bins@[c*8]
+        c := (len + 15) / 16
+        slot := fla->bins@[c*8]
         head := _read64(slot) as ptr
         if head != 0
             _write64(slot, _read64(head))
             return head
 
     // try to cut off a piece of an already available block
-    cur := mem._heap_rover
+    cur := fla->rover
     if cur as ptr == 0
-        cur = mem._heap_head
+        cur = fla->head
     wrapped := false
     while true
         if cur as ptr == 0
             if wrapped break
             wrapped = true
-            cur = mem._heap_head
+            cur = fla->head
             continue
         if cur->free && cur->len >= len
-            cur->_split(len)
+            cur->_split(fla, len)
             cur->free = false
-            mem._heap_rover = cur->next
-            return (cur as ptr)@[mem.Block.LEN]
+            fla->rover = cur->next
+            return (cur as ptr)@[mem.FreeListBlock.LEN]
         cur = cur->next
 
     // otherwise request a new block
-    blk := mem._request_space(len)
+    blk := fla->_request_space(len)
 
-    if mem._heap_head as ptr == 0
-        mem._heap_head = blk
+    if fla->head as ptr == 0
+        fla->head = blk
 
-    blk->_split(len)
-    mem._heap_rover = blk->next
+    blk->_split(fla, len)
+    fla->rover = blk->next
 
-    return (blk as ptr)@[mem.Block.LEN]
+    return (blk as ptr)@[mem.FreeListBlock.LEN]
 
 // releases freed and page aligned blocks back to OS
-func mem.trim[] : void
+func mem.FreeListAllocator.trim[fla: mem.FreeListAllocator] : void
     _builtin_lock(^mem._lock)
     defer
         mem._lock = 0
 
-    mem._heap_rover = 0 as mem.Block
-    cur := mem._heap_tail
+    fla->rover = 0 as mem.FreeListBlock
+    cur := fla->tail
     while cur as ptr && cur->free
-        block_total := cur->len + mem.Block.LEN
+        block_total := cur->len + mem.FreeListBlock.LEN
         if (cur as i64 & 4095) != 0 || (block_total & 4095) != 0
             break
 
         prev := cur->prev
         if prev as ptr
-            prev->next = 0 as mem.Block
+            prev->next = 0 as mem.FreeListBlock
         else
-            mem._heap_head = 0 as mem.Block
+            fla->head = 0 as mem.FreeListBlock
 
-        mem._heap_tail = prev
+        fla->tail = prev
         _builtin_syscall(SYS_munmap, cur, block_total)
 
         cur = prev
 
-// doesnt actually release memory, see mem.trim
-func ptr.free[x: ptr] : void
+// doesnt actually release memory, see trim()
+func mem.FreeListAllocator.free[a: mem.Allocator, x: ptr] : void
+    fla := a as mem.FreeListAllocator
+
     if x == 0
         return
 
-    _builtin_lock(^mem._lock)
-    defer
-        mem._lock = 0
-
-    blk := x@[-mem.Block.LEN] as mem.Block
+    blk := x@[-mem.FreeListBlock.LEN] as mem.FreeListBlock
     if blk->free
         io.panic("ptr.free: double free detected")
 
     if blk->len <= 1024
-        slot := mem._bins@[(blk->len / 16) * 8]
+        slot := fla->bins@[(blk->len / 16) * 8]
         _write64(x, _read64(slot))
         _write64(slot, x as i64)
         return
@@ -162,78 +200,74 @@ func ptr.free[x: ptr] : void
     // coalesce forwards
     next := blk->next
     if next as ptr && next->free
-        expected_next := (blk as ptr)@[mem.Block.LEN + blk->len] as mem.Block
+        expected_next := (blk as ptr)@[mem.FreeListBlock.LEN + blk->len] as mem.FreeListBlock
         if expected_next as ptr == next as ptr
-            blk->len += mem.Block.LEN + next->len
+            blk->len += mem.FreeListBlock.LEN + next->len
             blk->next = next->next
-            if mem._heap_rover as ptr == next as ptr
-                mem._heap_rover = blk
+            if fla->rover as ptr == next as ptr
+                fla->rover = blk
             if next->next as ptr
                 next->next->prev = blk
-            if mem._heap_tail as ptr == next as ptr
-                mem._heap_tail = blk
+            if fla->tail as ptr == next as ptr
+                fla->tail = blk
 
     // coalesce backwards
     prev := blk->prev
     if prev as ptr && prev->free
-        expected_blk := (prev as ptr)@[mem.Block.LEN + prev->len] as mem.Block
+        expected_blk := (prev as ptr)@[mem.FreeListBlock.LEN + prev->len] as mem.FreeListBlock
         if expected_blk as ptr == blk as ptr
-            prev->len += mem.Block.LEN + blk->len
+            prev->len += mem.FreeListBlock.LEN + blk->len
             prev->next = blk->next
-            if mem._heap_rover as ptr == next as ptr
-                mem._heap_rover = prev
+            if fla->rover as ptr == blk as ptr
+                fla->rover = prev
             if blk->next as ptr
                 blk->next->prev = prev
-            if mem._heap_tail as ptr == blk as ptr
-                mem._heap_tail = prev
+            if fla->tail as ptr == blk as ptr
+                fla->tail = prev
             blk = prev
 
-func ptr.realloc[x: ptr, new_len: i64] : ptr
+func mem.FreeListAllocator.realloc[a: mem.Allocator, x: ptr, new_len: i64] : ptr
+    fla := a as mem.FreeListAllocator
+
     if !x
-        return mem.alloc(new_len)
+        return mem.FreeListAllocator.alloc(a, new_len)
 
     if new_len < 0
         io.panic("mem.realloc: negative new_len")
 
     if new_len == 0
-        x->free()
+        mem.FreeListAllocator.free(a, x)
         return 0 as ptr
-
-    _builtin_lock(^mem._lock)
 
     new_len = mem.align(new_len)
 
-    blk := x@[-mem.Block.LEN] as mem.Block
+    blk := x@[-mem.FreeListBlock.LEN] as mem.FreeListBlock
     if blk->len >= new_len
-        blk->_split(new_len)
-        mem._lock = 0
+        blk->_split(fla, new_len)
         return x
 
     next := blk->next
-    expected_next := (blk as ptr)@[mem.Block.LEN + blk->len] as mem.Block
+    expected_next := (blk as ptr)@[mem.FreeListBlock.LEN + blk->len] as mem.FreeListBlock
 
     // try to resize in place
     if next as ptr && next->free && expected_next as ptr == next as ptr
-        combined := blk->len + mem.Block.LEN + next->len
+        combined := blk->len + mem.FreeListBlock.LEN + next->len
         if combined >= new_len
             blk->len = combined
             blk->next = next->next
-            if mem._heap_rover as ptr == next as ptr
-                mem._heap_rover = blk
+            if fla->rover as ptr == next as ptr
+                fla->rover = blk
             if next->next as ptr
                 next->next->prev = blk
-            if mem._heap_tail as ptr == next as ptr
-                mem._heap_tail = blk
-            blk->_split(new_len)
-            mem._lock = 0
+            if fla->tail as ptr == next as ptr
+                fla->tail = blk
+            blk->_split(fla, new_len)
             return x
 
-    mem._lock = 0
-
     // otherwise allocate a new buffer and copy
-    new_ptr := mem.alloc(new_len)
+    new_ptr := mem.FreeListAllocator.alloc(a, new_len)
     mem.copy_n(x, new_ptr, math.min(blk->len, new_len))
-    x->free()
+    mem.FreeListAllocator.free(a, x)
     return new_ptr
 
 func ptr.zero_and_free[x: ptr, len: i64] : void
@@ -248,6 +282,12 @@ func mem.zero[x: ptr, len: i64] : void
     while i < len
         x[i] = 0 as u8
         i += 1
+
+func ptr.find[x: ptr, needle: u8, max_offset: i64] : i64
+    for i in 0..max_offset
+        if x[i] == needle
+            return i
+    return -1
 
 func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
     if n < 0

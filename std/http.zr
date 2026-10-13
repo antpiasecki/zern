@@ -190,14 +190,39 @@ func http._handle_conn[c: i64, addr: ptr, handler: funcptr<void, http.Req, http.
     req->remote_addr = mem.alloc(30) as str
     req->remote_addr->format_into(30, "%d.%d.%d.%d", addr[4], addr[5], addr[6], addr[7])
     defer req->remote_addr->free()
-    // TODO: parse
+
+    raw_req := mem.alloc(IP_MAXPACKET)
+    defer raw_req->free()
+    n := net.read(c, raw_req, IP_MAXPACKET)
+    if n < 18 // smallest valid HTTP/1.0 request
+        return // TODO: 400 Bad Request
+
+    end_of_first_line := raw_req->find(' ', n)
+    if end_of_first_line == -1
+        return // TODO: 400 Bad Request
+    raw_req[end_of_first_line] = 0
+
+    end_of_path := raw_req@[end_of_first_line+1]->find(' ', n - (end_of_first_line + 1))
+    if end_of_path == -1
+        return // TODO: 400 Bad Request
+    if end_of_path > 2048
+        return // TODO: 414 URI Too Long
+    raw_req[end_of_first_line + 1 + end_of_path] = 0
+
+    req->method = raw_req@[0] as str
+    req->path = raw_req@[end_of_first_line+1] as str
+
+    // TODO: actually parse query
+    query_pos := req->path->find("?")
+    if query_pos != -1
+        req->path[query_pos] = 0
+
+    // TODO: headers: HashMap<str>
 
     resp := new http.Resp
     resp->headers = HashMap.new::<str>()
     defer resp->headers->free()
-    defer
-        if resp->body as ptr
-            resp->body->free()
+    defer resp->body->free()
     handler(req, resp)
 
     resp_buf := http.build_response(resp->status, http.status_code_to_text(resp->status), resp->headers, resp->body)

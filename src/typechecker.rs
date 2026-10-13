@@ -476,12 +476,18 @@ impl<'a> TypeChecker<'a> {
                     }
                 } else {
                     // its an expression that evalutes to function address
-                    expect_type!(self.typecheck_expr(env, callee)?, "ptr", expr.loc);
+                    let var_type = self.typecheck_expr(env, callee)?;
+                    if var_type.starts_with("funcptr<") {
+                        let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
+                        let return_type = param_types.remove(0);
 
-                    for arg in args {
-                        self.typecheck_expr(env, arg)?;
+                        for (arg, param_type) in args.into_iter().zip(param_types) {
+                            expect_type!(self.typecheck_expr(env, arg)?, param_type, expr.loc);
+                        }
+                        Ok(return_type.into())
+                    } else {
+                        return error!(&expr.loc, format!("expected funcptr, got {}", var_type));
                     }
-                    Ok("opaque".into())
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
@@ -510,7 +516,7 @@ impl<'a> TypeChecker<'a> {
                                     String::new()
                                 }
                             }
-                            FnParams::Variadic => String::new(), // TODO
+                            FnParams::Variadic => todo!(),
                         };
                         Ok(format!("funcptr<{}{}>", f.return_type, params_str))
                     } else {
