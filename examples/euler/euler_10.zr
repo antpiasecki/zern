@@ -3,7 +3,8 @@ include "io.zr"
 func main[] : i64
     sum := 0
 
+    sieve := math.sieve_primes(2000000)
     for i in 0..2000000
-        if i->is_prime()
+        if sieve[i]
             sum += i
     io.println_i64(sum)

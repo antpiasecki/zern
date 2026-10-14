@@ -3,13 +3,22 @@ include "io.zr"
 func divisors_sum[n: i64] : i64
     k := n
     sum := 1
+    i := 2
 
-    for i in 2..=k
-        p := 1
-        while k % i == 0
-            p = p * i
-            k = k / i
-        sum = sum * (p * i - 1) / (i - 1)
+    while i * i <= k
+        if k % i == 0
+            term := 1
+            p := 1
+            while k % i == 0
+                p = p * i
+                term = term + p
+                k = k / i
+            sum = sum * term
+        i += 1
+
+    if k > 1
+        sum = sum * (k + 1)
+
     return sum - n
 
 func main[] : i64

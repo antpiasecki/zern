@@ -121,7 +121,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
             stdout := new str.Builder
             chunk := _stackalloc(4096)
             while true
-                n := _builtin_syscall(SYS_read, mem.read32(pipe@[0]), chunk, 4096)
+                n := io.read(mem.read32(pipe@[0]), chunk, 4096)
                 if n <= 0
                     break
                 stdout->append_n(chunk, n)
@@ -162,6 +162,9 @@ func os.is_a_directory[path: str] : bool
     if rc != 0 return false
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
+
+func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
+    return _builtin_syscall(SYS_ioctl, fd, op, argp)
 
 func os.list_directory[path: str] : Result<Array<str>>
     fd := try io.open_for_reading(path)

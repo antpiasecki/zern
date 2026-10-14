@@ -131,7 +131,7 @@ func http.do_request[method: str, url: str, headers: HashMap<str>, body: Buffer]
     defer buffer->free()
     total := 0
     while true
-        n := net.read(c, buffer@[total], buffer->len - total)
+        n := io.read(c, buffer@[total], buffer->len - total)
         if n <= 0
             break
         total += n
@@ -193,7 +193,7 @@ func http._handle_conn[c: i64, addr: ptr, handler: funcptr<void, http.Req, http.
 
     raw_req := mem.alloc(IP_MAXPACKET)
     defer raw_req->free()
-    n := net.read(c, raw_req, IP_MAXPACKET)
+    n := io.read(c, raw_req, IP_MAXPACKET)
     if n < 18 // smallest valid HTTP/1.0 request
         return // TODO: 400 Bad Request
 

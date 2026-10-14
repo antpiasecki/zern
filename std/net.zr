@@ -55,9 +55,6 @@ func net.accept[s: i64, addr: ptr] : i64
 func net.send[s: i64, data: ptr, len: i64] : void
     _builtin_syscall(SYS_sendto, s, data, len, 0, 0, 0)
 
-func net.read[s: i64, buffer: ptr, len: i64] : i64
-    return _builtin_syscall(SYS_read, s, buffer, len)
-
 func net.close[s: i64] : void
     io.close(s)
 

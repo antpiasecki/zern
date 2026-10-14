@@ -1,0 +1,25 @@
+include "containers.zr"
+
+func main[] : i64
+    used := [] as Array<bool>
+    used->preallocate_and_zero(10)
+
+    k := 999999
+    result := 0
+
+    for pos in 0..10
+        f := (9 - pos)->factorial()
+        idx := k / f
+        k = k % f
+
+        d := 0
+        while true
+            if !used->nth(d)
+                if idx == 0
+                    break
+                idx -= 1
+            d += 1
+
+        used->set(d, true)
+        result = result * 10 + d
+    io.println_i64(result)

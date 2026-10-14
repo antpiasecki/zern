@@ -46,7 +46,7 @@ func io.printf[..] : void
         i += 1
 
 func io.print_n[x: ptr, len: i64] : void
-    _builtin_syscall(SYS_write, STDOUT_FILENO, x, len)
+    io.write(STDOUT_FILENO, x, len)
 
 func io.print[x: str] : void
     io.print_n(x as ptr, x->len())
@@ -89,16 +89,18 @@ func io.println_f64[x: f64] : void
     x->to_str_buf(s)
     io.println(s)
 
-func io.read_char[] : u8
-    c := 0 as u8
-    _builtin_syscall(SYS_read, STDIN_FILENO, ^c, 1)
-    return c
+func io.read[fd: i64, buf: ptr, count: i64] : i64
+    return _builtin_syscall(SYS_read, fd, buf, count)
+
+func io.write[fd: i64, buf: ptr, count: i64] : i64
+    return _builtin_syscall(SYS_write, fd, buf, count)
 
 func io.read_line[] : str
     b := new str.Builder
     while true
-        c := io.read_char()
-        if c == '\n'
+        c := 0 as u8
+        n := io.read(STDIN_FILENO, ^c, 1)
+        if n < 1 || c == '\n'
             break
         b->append_char(c)
     return b->build_str_and_free_inner()
@@ -110,7 +112,7 @@ func io.read_file[path: str] : Result<Buffer>
     buf := Buffer.alloc(len)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := _builtin_syscall(SYS_read, fd, buf@[0], len)
+    n := io.read(fd, buf@[0], len)
     io.close(fd)
 
     // TODO?
@@ -127,7 +129,7 @@ func io.write_file[path: str, content: ptr, len: i64] : Result<i64>
     fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, 644->octal_to_decimal())
     defer io.close(fd)
 
-    n := _builtin_syscall(SYS_write, fd, content, len)
+    n := io.write(fd, content, len)
     if n != len
         return err::<i64>("n != len in io.write_file")
     return ok::<i64>(n)
@@ -140,9 +142,6 @@ func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : Result<i64>
     if fd < 0
         return err::<i64>("failed to open")
     return ok::<i64>(fd)
-
-func io.send_file[out_fd: i64, in_fd: i64, offset: ptr, count: i64] : i64
-    return _builtin_syscall(SYS_sendfile, out_fd, in_fd, offset, count)
 
 func io.close[fd: i64] : void
     _builtin_syscall(SYS_close, fd)

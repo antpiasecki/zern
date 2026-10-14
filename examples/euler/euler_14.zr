@@ -5,20 +5,21 @@ func collatz_num[n: i64] : i64
         return n / 2
     return n * 3 + 1
 
-func collatz_seq[n: i64]: i64
-    i := 1
-    while n != 1
-        n = collatz_num(n)
-        i += 1
-    return i
-
 func main[] : i64
-    max := 0
-    max_index := 0
+    cache := [] as Array<i64>
+    cache->preallocate_and_zero(1000000)
+    cache->set(1, 1)
+    best_len := 0
+    best_start := 0
 
-    for i in 1..1000000
-        seq := collatz_seq(i)
-        if seq > max
-            max = seq
-            max_index = i
-    io.println_i64(max_index)
+    for i in 2..1000000
+        n := i
+        steps := 0
+        while n >= i
+            n = collatz_num(n)
+            steps += 1
+        cache->set(i, steps + cache->nth(n))
+        if cache->nth(i) > best_len
+            best_len = cache->nth(i)
+            best_start = i
+    io.println_i64(best_start)

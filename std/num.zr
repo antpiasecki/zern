@@ -15,6 +15,12 @@ func i64.sign[n: i64] : i64
     else
         return 0
 
+func i64.factorial[n: i64] : i64
+    out := 1
+    for i in 2..=n
+        out = out * i
+    return out
+
 func i64.isqrt[n: i64] : i64
     if n < 0
         io.panic("i64.isqrt: negative n")
@@ -240,6 +246,31 @@ func f64.sqrt[n: f64] : f64
 
     return guess
 
+func f64.ln[x: f64] : f64
+    m := x
+    e := 0.0
+    while m >= 2.0
+        m = m / 2.0
+        e += 1.0
+    while m < 1.0
+        m = m * 2.0
+        e -= 1.0
+
+    s := (m - 1.0) / (m + 1.0)
+    s2 := s * s
+    term := s
+    sum := 0.0
+    k := 1.0
+    for i in 0..30
+        sum += term / k
+        term = term * s2
+        k += 2.0
+
+    return e * 0.6931471805599453 + 2.0 * sum
+
+func f64.log10[x: f64] : f64
+    return x->ln() * 0.4342944819032518
+
 func f64.sin[x: f64] : f64
     pi := math.pi()
     x -= 2.0 * pi * (x / (2.0 * pi))->round()
@@ -295,6 +326,13 @@ func f64.floor[x: f64] : f64
     else
         return n
 
+func f64.ceil[x: f64] : f64
+    n := x as i64 as f64
+    if x > n
+        return n + 1.0
+    else
+        return n
+
 func f64.round[x: f64] : f64
     t := x as i64 as f64
     d := x - t
@@ -328,3 +366,22 @@ func math.lcm[a: i64, b: i64] : i64
 
 func math.pi[] : f64
     return 3.14159265358979323846
+
+func math.sieve_primes[below: i64] : ptr
+    sieve := mem.alloc(below)
+    for i in 0..below
+        sieve[i] = 1
+
+    sieve[0] = 0
+    sieve[1] = 0
+
+    i := 2
+    while i * i < below
+        if sieve[i] == 1
+            j := i * i
+            while j < below
+                sieve[j] = 0
+                j += i
+        i += 1
+
+    return sieve

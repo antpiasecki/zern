@@ -1,0 +1,33 @@
+include "containers.zr"
+
+const LIMIT = 28123
+
+func main[] : i64
+    abundant := [] as Array<bool>
+    abundant->preallocate_and_zero(LIMIT + 1)
+
+    for i in 1..abundant->len
+        abundant->set(i, is_abundant(i))
+
+    sum := 0
+    for i in 1..=LIMIT
+        if !is_sum_of_two_abundants(abundant, i)
+            sum += i
+
+    io.println_i64(sum)
+
+func is_sum_of_two_abundants[abundant: Array<bool>, n: i64] : bool
+    for i in 0..=n/2
+        if abundant->nth(i) && abundant->nth(n - i)
+            return true
+    return false
+
+func is_abundant[n: i64] : bool
+    sum := 1
+    end := n->isqrt()
+    for i in 2..=end
+        if n % i == 0
+            sum += i + n / i
+    if end * end == n
+        sum -= end
+    return sum > n

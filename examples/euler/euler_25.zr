@@ -1,0 +1,6 @@
+include "io.zr"
+
+func main[] : i64
+    phi := (1.0 + (5.0)->sqrt()) / 2.0
+    n := ((999.0 + (5.0)->log10() / 2.0) / phi->log10())->ceil()
+    io.println_i64(n as i64)
