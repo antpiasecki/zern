@@ -1,4 +1,4 @@
-// needs to be compiled with -d -C "-lsqlite3"
+// needs to be compiled with -m dyn -L "-lsqlite3"
 include "io.zr"
 
 func sqlite3_open[filename: str, ppDb: ptr] : i64 @[extern]

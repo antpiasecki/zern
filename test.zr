@@ -70,9 +70,9 @@ func main[] : i64
     tr->build_blacklist = [] as Array<str>
     tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "http_server.zr", "tun_tun_tun_sahur.zr"] as Array<str>
     tr->custom_build_flags = HashMap.new::<str>()
-    tr->custom_build_flags->insert("raylib.zr", "-d -C \"-lraylib\"")
-    tr->custom_build_flags->insert("chip8.zr", "-d -C \"-lraylib\"")
-    tr->custom_build_flags->insert("sqlite_todo.zr", "-d -C \"-lsqlite3\"")
+    tr->custom_build_flags->insert("raylib.zr", "-m dyn -L \"-lraylib\"")
+    tr->custom_build_flags->insert("chip8.zr", "-m dyn -L \"-lraylib\"")
+    tr->custom_build_flags->insert("sqlite_todo.zr", "-m dyn -L \"-lsqlite3\"")
     tr->custom_run_args = HashMap.new::<str>()
     tr->custom_run_args->insert("curl.zr", "http://example.com")
 

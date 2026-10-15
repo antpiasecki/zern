@@ -13,6 +13,15 @@ use std::{
 
 use tokenizer::ZernError;
 
+fn main() {
+    let args = Args::parse(std::env::args());
+
+    if let Err(err) = compile_file(args) {
+        print_error(err);
+        exit(1);
+    }
+}
+
 fn compile_file(args: Args) -> Result<(), ZernError> {
     let source = match fs::read_to_string(&args.path) {
         Ok(x) => x,
@@ -41,7 +50,7 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
 
     symbol_table
         .constants
-        .insert("_WINDOWS".into(), args.target_windows as i64);
+        .insert("_WINDOWS".into(), (args.mode == CompileMode::MinGW) as i64);
 
     let mut typechecker = typechecker::TypeChecker::new(&symbol_table);
     for stmt in &statements {
@@ -54,39 +63,35 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
     }
 
-    if !args.emit_only {
+    if !args.skip_build {
         let out = args.out.clone().unwrap_or_else(|| "out".into());
 
         fs::write(format!("{out}.s"), codegen.get_output()).unwrap();
 
         let debug_flag = if args.emit_debug { "-g" } else { "" };
 
-        if args.target_windows {
-            run_command(format!("x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s"));
-        } else {
-            run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s"));
+        match args.mode {
+            CompileMode::MinGW => run_command(format!("x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s")),
+            _ => run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s")),
         }
 
-        if args.target_windows {
-            run_command(format!(
-                "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto -Wl,--gc-sections {}",
+        match args.mode {
+            CompileMode::StaticLD => run_command(format!(
+                "ld -static -o {out} {out}.o --gc-sections -e _start {}",
                 args.link_flags
-            ));
-        } else if args.link_with_cc {
-            run_command(format!(
+            )),
+            CompileMode::DynamicLD => run_command(format!(
+                "ld --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o {out} {out}.o --gc-sections -e _start {}",
+                args.link_flags
+            )),
+            CompileMode::CC => run_command(format!(
                 "cc -no-pie -o {out} {out}.o -flto -Wl,--gc-sections {}",
                 args.link_flags
-            ));
-        } else {
-            run_command(format!(
-                "ld {} -o {out} {out}.o --gc-sections -e _start {}",
-                if !args.link_dynamic {
-                    "-static"
-                } else {
-                    "--dynamic-linker /lib64/ld-linux-x86-64.so.2"
-                },
+            )),
+            CompileMode::MinGW => run_command(format!(
+                "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto -Wl,--gc-sections {}",
                 args.link_flags
-            ));
+            )),
         }
 
         if args.run_exe {
@@ -97,125 +102,6 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     }
 
     Ok(())
-}
-
-fn run_command(cmd: String) {
-    #[cfg(not(windows))]
-    let result = Command::new("sh").args(["-c", &cmd]).status();
-    #[cfg(windows)]
-    let result = Command::new("cmd").args(["/c", &cmd]).status();
-
-    match result {
-        Ok(status) if status.success() => {}
-        Ok(status) => exit(status.code().unwrap_or(1)),
-        Err(e) => {
-            eprintln!("failed to run command '{cmd}': {e}");
-            exit(1);
-        }
-    }
-}
-
-struct Args {
-    path: String,
-    out: Option<String>,
-    emit_only: bool,
-    emit_debug: bool,
-    run_exe: bool,
-    link_dynamic: bool,
-    link_with_cc: bool,
-    target_windows: bool,
-    link_flags: String,
-}
-
-impl Args {
-    fn parse(mut args: std::env::Args) -> Args {
-        _ = args.next(); // skip the program name
-
-        let mut out = Args {
-            path: String::new(),
-            out: None,
-            emit_only: false,
-            emit_debug: false,
-            run_exe: false,
-            link_dynamic: false,
-            link_with_cc: false,
-            target_windows: false,
-            link_flags: String::new(),
-        };
-
-        while let Some(arg) = args.next() {
-            if arg == "-o" {
-                match args.next() {
-                    Some(s) => out.out = Some(s),
-                    None => {
-                        eprintln!("ERROR: -o option requires a path");
-                        print_usage();
-                        exit(1);
-                    }
-                }
-            } else if arg == "--emit-only" {
-                out.emit_only = true;
-            } else if arg == "-r" {
-                out.run_exe = true;
-            } else if arg == "-c" {
-                out.link_with_cc = true;
-            } else if arg == "-g" {
-                out.emit_debug = true;
-            } else if arg == "-w" {
-                out.target_windows = true;
-            } else if arg == "-d" {
-                out.link_dynamic = true;
-            } else if arg == "-C" {
-                match args.next() {
-                    Some(s) => out.link_flags = s,
-                    None => {
-                        eprintln!("ERROR: -C option requires a value");
-                        print_usage();
-                        exit(1);
-                    }
-                }
-            } else if arg == "-h" || arg == "--help" {
-                print_usage();
-                exit(0);
-            } else if arg.starts_with('-') {
-                eprintln!("ERROR: unrecognized option: {arg}");
-                print_usage();
-                exit(1);
-            } else if out.path.is_empty() {
-                out.path = arg
-            } else {
-                eprintln!("ERROR: unrecognized argument: {arg}");
-                print_usage();
-                exit(1);
-            }
-        }
-
-        if out.path.is_empty() {
-            eprintln!("ERROR: you must provide a path");
-            print_usage();
-            exit(1);
-        }
-
-        if !out.link_with_cc && out.target_windows {
-            eprintln!("ERROR: using the -w flag without the -c flag not supported");
-            exit(1);
-        }
-
-        out
-    }
-}
-
-fn print_usage() {
-    println!("Usage: zern [-o path] [-r] [-g] [-w] [-d] [-c] [-C flags] [--emit-only] path");
-    println!();
-    println!("  -o <path>   - specifies the output path");
-    println!("  -r          - runs the output executable after compilation");
-    println!("  -w          - build a Windows executable using MinGW");
-    println!("  -g          - emit debug information into the binary");
-    println!("  -d          - link dynamically");
-    println!("  -c          - link dynamically using the C compiler");
-    println!("  -C <flags>  - specify flags to pass to the linker (or C compiler if -c is provided)");
-    println!("  --emit-only - only emit the assembly");
 }
 
 fn print_error(e: ZernError) {
@@ -247,11 +133,126 @@ fn print_error(e: ZernError) {
     }
 }
 
-fn main() {
-    let args = Args::parse(std::env::args());
+fn run_command(cmd: String) {
+    #[cfg(not(windows))]
+    let result = Command::new("sh").args(["-c", &cmd]).status();
+    #[cfg(windows)]
+    let result = Command::new("cmd").args(["/c", &cmd]).status();
 
-    if let Err(err) = compile_file(args) {
-        print_error(err);
-        exit(1);
+    match result {
+        Ok(status) if status.success() => {}
+        Ok(status) => exit(status.code().unwrap_or(1)),
+        Err(e) => {
+            eprintln!("failed to run command '{cmd}': {e}");
+            exit(1);
+        }
     }
+}
+
+#[derive(PartialEq)]
+enum CompileMode {
+    StaticLD,
+    DynamicLD,
+    CC,
+    MinGW,
+}
+
+struct Args {
+    path: String,
+    out: Option<String>,
+    emit_debug: bool,
+    run_exe: bool,
+    skip_build: bool,
+    mode: CompileMode,
+    link_flags: String,
+}
+
+impl Args {
+    fn parse(mut args: std::env::Args) -> Args {
+        _ = args.next(); // skip the program name
+
+        let mut out = Args {
+            path: String::new(),
+            out: None,
+            emit_debug: false,
+            run_exe: false,
+            skip_build: false,
+            mode: CompileMode::StaticLD,
+            link_flags: String::new(),
+        };
+
+        while let Some(arg) = args.next() {
+            if arg == "-o" {
+                match args.next() {
+                    Some(s) => out.out = Some(s),
+                    None => usage_error("-o option requires a value"),
+                }
+            } else if arg == "-r" {
+                out.run_exe = true;
+            } else if arg == "-g" {
+                out.emit_debug = true;
+            } else if arg == "-S" {
+                out.skip_build = true;
+            } else if arg == "-m" {
+                match args.next().as_deref() {
+                    Some(s) => match s {
+                        "static" => out.mode = CompileMode::StaticLD,
+                        "dyn" => out.mode = CompileMode::DynamicLD,
+                        "cc" => out.mode = CompileMode::CC,
+                        "mingw" => out.mode = CompileMode::MinGW,
+                        _ => usage_error("unrecognized mode"),
+                    },
+                    _ => usage_error("-m option requires a value"),
+                }
+            } else if arg == "-L" {
+                if !out.link_flags.is_empty() {
+                    usage_error("-L option can be used only once");
+                }
+                match args.next() {
+                    Some(s) => out.link_flags = s,
+                    None => usage_error("-L option requires a value"),
+                }
+            } else if arg == "-h" || arg == "--help" {
+                print_usage();
+                exit(0);
+            } else if arg.starts_with('-') {
+                usage_error(&format!("unrecognized argument: {arg}"));
+            } else if out.path.is_empty() {
+                out.path = arg
+            } else {
+                usage_error(&format!("unrecognized argument: {arg}"));
+            }
+        }
+
+        if out.path.is_empty() {
+            usage_error("you must provide a path");
+        }
+
+        if out.skip_build && (out.run_exe || !out.link_flags.is_empty()) {
+            usage_error("-S doesn't make sense with -r or -L");
+        }
+
+        out
+    }
+}
+
+fn usage_error(msg: &str) -> ! {
+    eprintln!("\x1b[91mERROR\x1b[0m: {msg}");
+    print_usage();
+    exit(1);
+}
+
+fn print_usage() {
+    eprintln!(
+        r#"
+Usage: zern [-o <path>] [-r] [-g] [-S] [-m <static|dyn|cc|mingw>] [-L <flags>] <path>
+
+  -o <path>                - specifies the output path
+  -r                       - runs the output executable after compilation
+  -g                       - emit debug information into the binary
+  -S                       - skip the build, only emit .s
+  -m <static|dyn|cc|mingw> - specify the build mode
+  -L <flags>               - specify flags to pass to your linker of choice
+"#
+    );
 }

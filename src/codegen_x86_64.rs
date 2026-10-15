@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write};
 
 use crate::{
-    Args, monomorphizer,
+    Args, CompileMode, monomorphizer,
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
@@ -137,15 +137,6 @@ impl<'a> CodegenX86_64<'a> {
     }
 
     pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
-        if !self.args.target_windows {
-            emit!(
-                &mut self.output,
-                ".section .note.GNU-stack
-    .byte 0
-"
-            );
-        }
-
         emit!(
             &mut self.output,
             ".intel_syntax noprefix
@@ -168,10 +159,13 @@ _builtin_f32_to_f64:
 "
         );
 
-        if !self.args.target_windows {
+        if self.args.mode != CompileMode::MinGW {
             emit!(
                 &mut self.output,
                 "
+.section .note.GNU-stack
+    .byte 0
+
 .section .text._builtin_syscall
 _builtin_syscall:
     mov rax, rdi
@@ -233,8 +227,8 @@ _builtin_lock:
             );
         }
 
-        match (self.args.link_with_cc, self.args.target_windows) {
-            (false, false) => {
+        match self.args.mode {
+            CompileMode::StaticLD | CompileMode::DynamicLD => {
                 emit!(
                     &mut self.output,
                     "
@@ -260,7 +254,7 @@ _start:
                 );
                 emit!(&mut self.bss, "    _builtin_environ: .zero 8");
             }
-            (true, _) => {
+            CompileMode::CC | CompileMode::MinGW => {
                 emit!(
                     &mut self.output,
                     "
@@ -269,9 +263,7 @@ _start:
 "
                 );
             }
-            (false, true) => unreachable!(),
         }
-
         Ok(())
     }
 
@@ -451,7 +443,7 @@ _start:
                 if name == "main" || self.symbol_table.functions[name].attributes.contains(&"export".into()) {
                     emit!(&mut self.output, ".globl {}", mangled);
                 }
-                if !self.args.target_windows {
+                if self.args.mode != CompileMode::MinGW {
                     emit!(&mut self.output, ".type {}, @function", mangled);
                 }
                 emit!(&mut self.output, ".section .text.{}", mangled);
@@ -465,9 +457,9 @@ _start:
 
                 match params {
                     Params::Normal(params) => {
-                        let max_int_reg = if self.args.target_windows { 4 } else { 6 };
-                        let max_fp_reg = if self.args.target_windows { 4 } else { 8 };
-                        let stack_base = if self.args.target_windows { 48 } else { 16 };
+                        let max_int_reg = if self.args.mode == CompileMode::MinGW { 4 } else { 6 };
+                        let max_fp_reg = if self.args.mode == CompileMode::MinGW { 4 } else { 8 };
+                        let stack_base = if self.args.mode == CompileMode::MinGW { 48 } else { 16 };
                         let mut int_reg = 0;
                         let mut fp_reg = 0;
                         let mut stack_count = 0;
@@ -509,7 +501,7 @@ _start:
                         }
                     }
                     Params::Variadic => {
-                        if self.args.target_windows {
+                        if self.args.mode == CompileMode::MinGW {
                             emit!(&mut self.output, "    sub rsp, 32");
                             emit!(&mut self.output, "    mov [rbp - 16], rcx");
                             emit!(&mut self.output, "    mov [rbp - 24], rdx");
@@ -539,7 +531,7 @@ _start:
                     self.emit_ret();
                 }
 
-                if !self.args.target_windows {
+                if self.args.mode != CompileMode::MinGW {
                     emit!(&mut self.output, ".size \"{0}\", . - \"{0}\"", mangled);
                 }
 
@@ -946,7 +938,7 @@ _start:
                     return Ok(());
                 }
 
-                if self.args.target_windows {
+                if self.args.mode == CompileMode::MinGW {
                     if args.len() % 2 == 1 {
                         emit!(&mut self.output, "    sub rsp, 8");
                     }
@@ -990,14 +982,7 @@ _start:
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
-                if self.args.target_windows {
-                    emit!(&mut self.output, "    mov rcx, 24");
-                    emit!(&mut self.output, "    .extern malloc");
-                    emit!(&mut self.output, "    call malloc");
-                } else {
-                    emit!(&mut self.output, "    mov rdi, 24");
-                    emit!(&mut self.output, "    call mem.alloc");
-                }
+                self.emit_heap_alloc(24);
                 emit!(&mut self.output, "    push rax");
                 emit!(&mut self.output, "    mov rdi, rax");
                 emit!(&mut self.output, "    mov rcx, 24");
@@ -1068,14 +1053,7 @@ _start:
                 let memory_size = struct_fields.len() * 8;
 
                 if *use_heap {
-                    if self.args.target_windows {
-                        emit!(&mut self.output, "    mov rcx, {}", memory_size);
-                        emit!(&mut self.output, "    .extern malloc");
-                        emit!(&mut self.output, "    call malloc");
-                    } else {
-                        emit!(&mut self.output, "    mov rdi, {}", memory_size);
-                        emit!(&mut self.output, "    call mem.alloc");
-                    }
+                    self.emit_heap_alloc(memory_size);
                 } else {
                     let aligned_size = (memory_size + 15) & !15;
                     emit!(&mut self.output, "    sub rsp, {}", aligned_size);
@@ -1149,7 +1127,7 @@ _start:
                     monomorphizer::type_name(&func_name, &inferred_args)
                 };
 
-                if self.args.target_windows {
+                if self.args.mode == CompileMode::MinGW {
                     if (1 + args.len()) % 2 == 1 {
                         emit!(&mut self.output, "    sub rsp, 8");
                     }
@@ -1181,7 +1159,7 @@ _start:
                 }
             }
             ExprKind::Try { expr } => {
-                if self.args.target_windows {
+                if self.args.mode == CompileMode::MinGW {
                     todo!("windows can't use std Result anyway");
                 }
                 let ok_label = self.label();
@@ -1212,7 +1190,7 @@ _start:
         let mut fp_idx = 0;
         let mut int_idx = 0;
 
-        if self.args.target_windows {
+        if self.args.mode == CompileMode::MinGW {
             let to_register = arg_count.min(4);
 
             emit!(&mut self.output, "    sub rsp, 32");
@@ -1273,7 +1251,7 @@ _start:
     }
 
     fn emit_call_cleanup(&mut self, arg_count: usize, num_stack: usize) {
-        if self.args.target_windows {
+        if self.args.mode == CompileMode::MinGW {
             let pad = if arg_count % 2 == 1 { 8 } else { 0 };
             emit!(&mut self.output, "    add rsp, {}", 8 * arg_count + pad);
             return;
@@ -1321,8 +1299,8 @@ _start:
 
         let stack_label = self.label();
         let done_label = self.label();
-        let register_count = if self.args.target_windows { 4 } else { 6 };
-        let stack_base = if self.args.target_windows { 48 } else { 16 };
+        let register_count = if self.args.mode == CompileMode::MinGW { 4 } else { 6 };
+        let stack_base = if self.args.mode == CompileMode::MinGW { 48 } else { 16 };
 
         emit!(&mut self.output, "    cmp r10, {}", register_count);
         emit!(&mut self.output, "    jge {}", stack_label);
@@ -1355,8 +1333,21 @@ _start:
         emit!(&mut self.output, "    ret");
     }
 
+    fn emit_heap_alloc(&mut self, size: usize) {
+        let reg = self.registers()[0];
+        let win = self.args.mode == CompileMode::MinGW;
+        emit!(&mut self.output, "    mov {}, {}", reg, size);
+        if win {
+            emit!(&mut self.output, "    sub rsp, 32");
+        }
+        emit!(&mut self.output, "    call mem.alloc");
+        if win {
+            emit!(&mut self.output, "    add rsp, 32");
+        }
+    }
+
     fn registers(&self) -> &'static [&'static str] {
-        if self.args.target_windows {
+        if self.args.mode == CompileMode::MinGW {
             &["rcx", "rdx", "r8", "r9"]
         } else {
             &["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
