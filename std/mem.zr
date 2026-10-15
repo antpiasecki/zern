@@ -232,12 +232,8 @@ func mem.FreeListAllocator.realloc[a: mem.Allocator, x: ptr, new_len: i64] : ptr
     if !x
         return mem.FreeListAllocator.alloc(a, new_len)
 
-    if new_len < 0
-        io.panic("mem.realloc: negative new_len")
-
-    if new_len == 0
-        mem.FreeListAllocator.free(a, x)
-        return 0 as ptr
+    if new_len <= 0
+        io.panic("ptr.realloc: called with nonpositive len")
 
     new_len = mem.align(new_len)
 
@@ -362,7 +358,7 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x@[4], d)
 
-// sneaky length-prefixed ptr
+// sneaky length-prefixed buffer
 struct Buffer
     len: i64
 

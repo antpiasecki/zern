@@ -118,7 +118,7 @@ func io.read_file[path: str] : Result<Buffer>
     // TODO?
     if n != len
         buf->free()
-        return err::<Buffer>("n != len in io.read_file")
+        return err::<Buffer>("io.read_file: n != len")
 
     return ok::<Buffer>(buf)
 
@@ -131,7 +131,7 @@ func io.write_file[path: str, content: ptr, len: i64] : Result<i64>
 
     n := io.write(fd, content, len)
     if n != len
-        return err::<i64>("n != len in io.write_file")
+        return err::<i64>("io.write_file: n != len")
     return ok::<i64>(n)
 
 func io.open_for_reading[path: str] : Result<i64>
@@ -140,7 +140,7 @@ func io.open_for_reading[path: str] : Result<i64>
 func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : Result<i64>
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, flags, mode)
     if fd < 0
-        return err::<i64>("failed to open")
+        return err::<i64>("io.open_with_flags_and_mode: failed to open")
     return ok::<i64>(fd)
 
 func io.close[fd: i64] : void

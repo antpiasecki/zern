@@ -1383,7 +1383,7 @@ fn hash(s: &str) -> String {
 fn escape_str(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
-        if c.is_ascii_alphanumeric() {
+        if c.is_ascii_alphanumeric() || " !/%:.<>=_-(){}".contains(c) {
             out.push(c);
         } else {
             let mut buf = [0u8; 4];

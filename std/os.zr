@@ -151,7 +151,7 @@ func os.get_file_size[path: str] : Result<i64>
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
-    if rc != 0 return err::<i64>("failed to fstat")
+    if rc != 0 return err::<i64>("os.get_file_size: fstat failed")
 
     return ok::<i64>(mem.read64(st@[48]))
 
@@ -176,7 +176,7 @@ func os.list_directory[path: str] : Result<Array<str>>
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
-            return err::<Array<str>>("failed to getdents")
+            return err::<Array<str>>("os.list_directory: getdents() failed")
         else if n == 0
             break
 

@@ -12,23 +12,23 @@ func net.listen[host: str, port: i64] : Result<i64>
 
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
-        return err::<i64>("failed to create tcp socket")
+        return err::<i64>("net.listen: socket() failed")
 
     val := 1
     if _builtin_syscall(SYS_setsockopt, s, SOL_SOCKET, SO_REUSEADDR, ^val, 8) < 0
         io.close(s)
-        return err::<i64>("failed to setsockopt")
+        return err::<i64>("net.listen: setsockopt() failed")
 
     sa := _stackalloc(16)
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_bind, s, sa, 16) < 0
         io.close(s)
-        return err::<i64>("failed to bind")
+        return err::<i64>("net.listen: bind() failed")
 
     if _builtin_syscall(SYS_listen, s, SOMAXCONN) < 0
         io.close(s)
-        return err::<i64>("failed to listen")
+        return err::<i64>("net.listen: listen() failed")
 
     return ok::<i64>(s)
 
@@ -37,14 +37,14 @@ func net.connect[host: str, port: i64] : Result<i64>
 
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
-        return err::<i64>("failed to create tcp socket")
+        return err::<i64>("net.connect: socket() failed")
 
     sa := _stackalloc(16)
     net._build_sa(sa, packed_host, port)
 
     if _builtin_syscall(SYS_connect, s, sa, 16) < 0
         io.close(s)
-        return err::<i64>("failed to connect")
+        return err::<i64>("net.connect: connect() failed")
 
     return ok::<i64>(s)
 
@@ -102,7 +102,7 @@ func net.create_udp_client[host: str, port: i64] : Result<net.UDPSocket>
     s->fd = _builtin_syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
         (s as ptr)->free()
-        return err::<net.UDPSocket>("failed to create udp socket")
+        return err::<net.UDPSocket>("net.create_udp_client: socket() failed")
 
     s->addr = mem.alloc(16)
     net._build_sa(s->addr, packed_host, port)
@@ -113,7 +113,7 @@ func net.create_udp_server[host: str, port: i64] : Result<net.UDPSocket>
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
         s->close_and_free()
-        return err::<net.UDPSocket>("failed to bind")
+        return err::<net.UDPSocket>("net.create_udp_server: bind() failed")
 
     return ok::<net.UDPSocket>(s)
 
