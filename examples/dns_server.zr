@@ -72,7 +72,7 @@ func handle_req[s: net.UDPSocket, records: HashMap<Buffer>, req: Buffer, sa: ptr
     nxdomain := false
     rdata := 0 as ptr
     rdata_len := 0
-    record, ok := records->get(name_lower)
+    record, ok := records->get_ok(name_lower)
     if question_class == DNS_CLASS_IN && ok
         if question_type == DNS_TYPE_A && record->len == 4
             rdata = record@[0]

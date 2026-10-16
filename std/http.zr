@@ -1,4 +1,5 @@
 include "net.zr"
+include "json.zr"
 
 func http.build_request[method: str, path: str, headers: HashMap<str>, body: Buffer] : Buffer
     sb := new str.Builder
@@ -7,48 +8,15 @@ func http.build_request[method: str, path: str, headers: HashMap<str>, body: Buf
     first_line->format_into(256, "GET %s HTTP/1.1\r\n", path)
     sb->append(first_line)
 
-    header_keys := headers->keys()
-    defer header_keys->free()
-    for i in 0..header_keys->len
-        key := header_keys->nth(i)
-        value, _ := headers->get(key)
-
+    header_pairs := headers->pairs()
+    defer header_pairs->free_with_ptr_items()
+    for i in 0..header_pairs->len
         header_line := _stackalloc(512) as str
-        header_line->format_into(512, "%s: %s\r\n", key, value)
+        header_line->format_into(512, "%s: %s\r\n", header_pairs->nth(i)->a, header_pairs->nth(i)->b)
         sb->append(header_line)
 
     sb->append("\r\n")
     if body->len != 0
-        sb->append_n(body@[0], body->len)
-
-    return sb->build_buffer_and_free_inner()
-
-func http.build_response[status_code: i64, status: str, headers: HashMap<str>, body: Buffer] : Buffer
-    sb := new str.Builder
-
-    status_line := _stackalloc(256) as str
-    status_line->format_into(256, "HTTP/1.1 %d %s\r\n", status_code, status)
-    sb->append(status_line)
-
-    content_length_line := _stackalloc(256) as str
-    if body as ptr
-        content_length_line->format_into(256, "Content-Length: %d\r\n", body->len)
-    else
-        content_length_line->format_into(256, "Content-Length: 0\r\n")
-    sb->append(content_length_line)
-
-    header_keys := headers->keys()
-    defer header_keys->free()
-    for i in 0..header_keys->len
-        key := header_keys->nth(i)
-        value, _ := headers->get(key)
-
-        header_line := _stackalloc(512) as str
-        header_line->format_into(512, "%s: %s\r\n", key, value)
-        sb->append(header_line)
-
-    sb->append("\r\n")
-    if body as ptr && body->len != 0
         sb->append_n(body@[0], body->len)
 
     return sb->build_buffer_and_free_inner()
@@ -172,62 +140,138 @@ struct http.Resp
     headers: HashMap<str>
     body: Buffer
 
-func http.start_single_threaded_server[host: str, port: i64, handler: funcptr<void, http.Req, http.Resp>] : void
+func http.Resp.string[w: http.Resp, status: i64, body: str] : void
+    w->status = status
+    w->body = Buffer.from_str(body)
+
+func http.Resp.json[w: http.Resp, status: i64, value: json.Value] : void
+    w->status = status
+    body := value->dump()
+    defer body->free()
+    w->headers->insert("Content-Type", "application/json")
+    w->body = Buffer.from_str(body)
+
+func http.Resp.error[w: http.Resp, status: i64] : void
+    w->status = status
+    body := _stackalloc(2048) as str
+    body->format_into(2048, "%d %s\n", status, http.status_code_to_text(status))
+    w->body = Buffer.from_str(body)
+
+func http.Resp.send[w: http.Resp, c: i64] : void
+    b := w->build()
+    defer b->free()
+    net.send(c, b@[0], b->len)
+
+func http.Resp.build[w: http.Resp] : Buffer
+    sb := new str.Builder
+
+    status_line := _stackalloc(256) as str
+    status_line->format_into(256, "HTTP/1.1 %d %s\r\n", w->status, http.status_code_to_text(w->status))
+    sb->append(status_line)
+
+    content_length_line := _stackalloc(256) as str
+    if w->body as ptr
+        content_length_line->format_into(256, "Content-Length: %d\r\n", w->body->len)
+    else
+        content_length_line->format_into(256, "Content-Length: 0\r\n")
+    sb->append(content_length_line)
+
+    if w->headers as ptr != 0
+        header_pairs := w->headers->pairs()
+        defer header_pairs->free_with_ptr_items()
+        for i in 0..header_pairs->len
+            header_line := _stackalloc(512) as str
+            header_line->format_into(512, "%s: %s\r\n", header_pairs->nth(i)->a, header_pairs->nth(i)->b)
+            sb->append(header_line)
+
+    sb->append("\r\n")
+    if w->body as ptr && w->body->len != 0
+        sb->append_n(w->body@[0], w->body->len)
+
+    return sb->build_buffer_and_free_inner()
+
+struct http._ConnData
+    c: i64
+    addr: ptr
+    handler: funcptr<void, http.Req, http.Resp>
+
+func http.start_server[host: str, port: i64, handler: funcptr<void, http.Req, http.Resp>] : void
     s := net.listen(host, port)->expect("failed to listen")
 
-    addr := _stackalloc(16)
     while true
-        conn := net.accept(s, addr)
-        if conn < 0
+        cd := new* http._ConnData
+        cd->addr = mem.alloc(16)
+        cd->c = net.accept(s, cd->addr)
+        if cd->c < 0
+            cd->addr->free()
+            (cd as ptr)->free()
             io.println("ERROR: failed to accept connection")
             continue
 
-        http._handle_conn(conn, addr, handler)
+        cd->handler = handler
+        os.spawn_thread::<http._ConnData>(^http._handle_conn, cd)
 
-func http._handle_conn[c: i64, addr: ptr, handler: funcptr<void, http.Req, http.Resp>] : void
-    defer net.close(c)
+func http._handle_conn[cd: http._ConnData] : void
+    defer (cd as ptr)->free()
+    defer cd->addr->free()
+    defer net.close(cd->c)
+
     req := new http.Req
     req->remote_addr = mem.alloc(30) as str
-    req->remote_addr->format_into(30, "%d.%d.%d.%d", addr[4], addr[5], addr[6], addr[7])
+    req->remote_addr->format_into(30, "%d.%d.%d.%d", cd->addr[4], cd->addr[5], cd->addr[6], cd->addr[7])
     defer req->remote_addr->free()
+
+    resp := new http.Resp
+    resp->status = 200
+    resp->headers = HashMap.new::<str>()
+    resp->body = 0 as Buffer
+    defer resp->headers->free()
+    defer resp->body->free()
 
     raw_req := mem.alloc(IP_MAXPACKET)
     defer raw_req->free()
-    n := io.read(c, raw_req, IP_MAXPACKET)
+    n := io.read(cd->c, raw_req, IP_MAXPACKET)
     if n < 18 // smallest valid HTTP/1.0 request
-        return // TODO: 400 Bad Request
+        resp->error(400)
+        resp->send(cd->c)
+        return
 
     end_of_first_line := raw_req->find(' ', n)
     if end_of_first_line == -1
-        return // TODO: 400 Bad Request
+        resp->error(400)
+        resp->send(cd->c)
+        return
     raw_req[end_of_first_line] = 0
 
     end_of_path := raw_req@[end_of_first_line+1]->find(' ', n - (end_of_first_line + 1))
     if end_of_path == -1
-        return // TODO: 400 Bad Request
+        if n - (end_of_first_line + 1) > 2048
+            resp->error(414)
+        else
+            resp->error(400)
+        resp->send(cd->c)
+        return
     if end_of_path > 2048
-        return // TODO: 414 URI Too Long
+        resp->error(414)
+        resp->send(cd->c)
+        return
     raw_req[end_of_first_line + 1 + end_of_path] = 0
 
     req->method = raw_req@[0] as str
     req->path = raw_req@[end_of_first_line+1] as str
 
-    // TODO: actually parse query
+    // TODO: actually parse query in parse_url
     query_pos := req->path->find("?")
     if query_pos != -1
         req->path[query_pos] = 0
 
-    // TODO: headers: HashMap<str>
+    // TODO: parse headers: HashMap<str>
 
-    resp := new http.Resp
-    resp->headers = HashMap.new::<str>()
-    defer resp->headers->free()
-    defer resp->body->free()
     handler(req, resp)
 
-    resp_buf := http.build_response(resp->status, http.status_code_to_text(resp->status), resp->headers, resp->body)
+    resp_buf := resp->build()
     defer resp_buf->free()
-    net.send(c, resp_buf@[0], resp_buf->len)
+    net.send(cd->c, resp_buf@[0], resp_buf->len)
 
 func http.status_code_to_text[code: i64] : str
   if code == 100 return "Continue"

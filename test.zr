@@ -45,7 +45,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Building %s...\n", x)
 
     build_cmd := "./target/release/zern "->concat(x)
-    custom_build_flags, ok := tr->custom_build_flags->get(name)
+    custom_build_flags, ok := tr->custom_build_flags->get_ok(name)
     if ok
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
@@ -65,7 +65,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    custom_run_args, ok := tr->custom_run_args->get(name)
+    custom_run_args, ok := tr->custom_run_args->get_ok(name)
     if ok
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 

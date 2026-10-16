@@ -144,6 +144,10 @@ func Array.filter<T>[f: funcptr<bool, T>, xs: Array<T>] : Array<T>
             out->push(xs->nth(i))
     return out
 
+struct Pair<A, B>
+    a: A
+    b: B
+
 const HashMap._TABLE_SIZE = 100
 
 struct HashMap<T>
@@ -185,7 +189,13 @@ func HashMap.insert<T>[hm: HashMap<T>, key: str, value: T] : void
     new_node->next = hm->table->nth(index)
     hm->table->set(index, new_node)
 
-func HashMap.get<T>[hm: HashMap<T>, key: str] : T, bool
+func HashMap.get<T>[hm: HashMap<T>, key: str] : Result<T>
+    v, ok := hm->get_ok(key)
+    if !ok
+        return err::<T>("HashMap.get: key not found")
+    return ok::<T>(v)
+
+func HashMap.get_ok<T>[hm: HashMap<T>, key: str] : T, bool
     index := HashMap._djb2(key)
     current := hm->table->nth(index)
 
@@ -241,6 +251,18 @@ func HashMap.keys<T>[hm: HashMap<T>] : Array<str>
         current := hm->table->nth(i)
         while current as ptr
             out->push(current->key)
+            current = current->next
+    return out
+
+func HashMap.pairs<T>[hm: HashMap<T>] : Array<Pair<str, T>>
+    out := [] as Array<Pair<str, T>>
+    for i in 0..HashMap._TABLE_SIZE
+        current := hm->table->nth(i)
+        while current as ptr
+            p := new* Pair<str, T>
+            p->a = current->key
+            p->b = current->value as T
+            out->push(p)
             current = current->next
     return out
 

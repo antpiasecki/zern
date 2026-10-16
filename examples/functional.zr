@@ -1,7 +1,7 @@
 include "io.zr"
 
 func main[] : i64
-    numbers := [1, 2, 3, 4, 5, 6, 7] as Array<i64>
+    numbers := [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144] as Array<i64>
     out := Array.map::<i64, str>(^square_and_reverse, numbers)
     for i in 0..out->len
         io.println(out->nth(i))

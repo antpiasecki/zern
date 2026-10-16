@@ -1,0 +1,31 @@
+include "http.zr"
+
+var todos: HashMap<str>
+
+func main[] : i64
+    todos = HashMap.new::<str>()
+    todos->insert(os.uuid4(), "Buy milk")
+    todos->insert(os.uuid4(), "World domination")
+
+    io.println("Listening on :8888...")
+    http.start_server("0.0.0.0", 8888, ^handler)
+
+func handler[r: http.Req, w: http.Resp] : void
+    if !r->path->equal("/")
+        w->error(404)
+        return
+
+    if r->method->equal("GET")
+        out := json.new_object()
+        defer out->free()
+
+        pairs := todos->pairs()
+        defer pairs->free_with_ptr_items()
+        for i in 0..pairs->len
+            t := json.new_str(pairs->nth(i)->b->make_copy())
+            out->object()->insert(pairs->nth(i)->a, t)
+
+        w->json(200, out)
+    else
+        w->error(405)
+        return

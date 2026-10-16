@@ -73,6 +73,15 @@ func os.urandom_i64[] : i64
     os.urandom_buf(^n, 8)
     return n
 
+func os.uuid4[] : str
+    b := _stackalloc(16)
+    os.urandom_buf(b, 16)
+    b[6] = (b[6] & 0x0f) | 0x40
+    b[8] = (b[8] & 0x3f) | 0x80
+    out := mem.alloc(37) as str
+    out->format_into(37, "%x-%x-%x-%x-%x%x", mem.read32be(b@[0]), mem.read16be(b@[4]), mem.read16be(b@[6]), mem.read16be(b@[8]), mem.read16be(b@[10]), mem.read32be(b@[12]))
+    return out
+
 struct os.CmdResult
     success: bool
     exit_code: i64

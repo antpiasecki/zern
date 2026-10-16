@@ -17,18 +17,17 @@ func json.Value.dump[v: json.Value] : str
 
     if v->type == json.OBJECT
         map := v->value as HashMap<json.Value>
-        keys := map->keys()
-        defer keys->free()
+        pairs := map->pairs()
+        defer pairs->free_with_ptr_items()
         s->append_char('{')
-        for i in 0..keys->len
+        for i in 0..pairs->len
             if i > 0
                 s->append_char(',')
             s->append_char('"')
-            s->append(keys->nth(i))
+            s->append(pairs->nth(i)->a)
             s->append_char('"')
             s->append_char(':')
-            value, _ := map->get(keys->nth(i))
-            d := value->dump()
+            d := pairs->nth(i)->b->dump()
             s->append(d)
             d->free()
         s->append_char('}')
@@ -82,7 +81,7 @@ func json.Value.free[v: json.Value] : void
         defer map->free()
         keys := map->keys()
         for i in 0..keys->len
-            value, _ := map->get(keys->nth(i))
+            value := map->get(keys->nth(i))->expect("unreachable")
             value->free()
         keys->free()
     else if v->type == json.ARRAY
@@ -115,6 +114,22 @@ func json.Value.bool[x: json.Value] : bool
     if x->type != json.BOOL
         io.panic("json.Value: bool() on non-bool")
     return x->value as bool
+
+func json.new_object[] : json.Value
+    v := new* json.Value
+    v->type = json.OBJECT
+    v->value = HashMap.new::<json.Value>() as opaque
+    return v
+func json.new_array[] : json.Value
+    v := new* json.Value
+    v->type = json.ARRAY
+    v->value = [] as opaque
+    return v
+func json.new_str[s: str] : json.Value
+    v := new* json.Value
+    v->type = json.STRING
+    v->value = s as opaque
+    return v
 
 func json.parse[s: str] : Result<json.Value>
     p := new json.Parser
