@@ -1,24 +1,6 @@
 // needs to be compiled with -m dyn -L "-lraylib"
 include "io.zr"
 
-func InitWindow[width: i64, height: i64, title: str] : void @[extern]
-func SetTargetFPS[fps: i64] : void @[extern]
-func WindowShouldClose[] : bool @[extern]
-func BeginDrawing[] : void @[extern]
-func EndDrawing[] : void @[extern]
-func ClearBackground[color: i64] : void @[extern]
-func CloseWindow[] : void @[extern]
-func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
-func IsKeyDown[key: i64] : bool @[extern]
-
-const KEY_W = 87
-const KEY_S = 83
-const KEY_A = 65
-const KEY_D = 68
-
-const WHITE = 0xffffffff
-const RED = 0xff0000ff
-
 func main[] : i64
     x := 200
     y := 200
@@ -42,3 +24,21 @@ func main[] : i64
         EndDrawing()
 
     CloseWindow()
+
+func InitWindow[width: i64, height: i64, title: str] : void @[extern]
+func SetTargetFPS[fps: i64] : void @[extern]
+func WindowShouldClose[] : bool @[extern]
+func BeginDrawing[] : void @[extern]
+func EndDrawing[] : void @[extern]
+func ClearBackground[color: i64] : void @[extern]
+func CloseWindow[] : void @[extern]
+func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
+func IsKeyDown[key: i64] : bool @[extern]
+
+const KEY_W = 87
+const KEY_S = 83
+const KEY_A = 65
+const KEY_D = 68
+
+const WHITE = 0xffffffff
+const RED = 0xff0000ff

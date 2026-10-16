@@ -1,13 +1,12 @@
 include "json.zr"
 
 func main[] : i64
-    v := json.parse("{\"apples\": 3, \"names\": [\"Alice\", \"Bob\"]}")
+    v := json.parse("{\"apples\": 3, \"names\": [\"Alice\", \"Bob\"]}")->expect("failed to parse")
     defer v->free()
 
     io.println(v->dump())
 
-    map := v->get::<HashMap<json.Value>>()
-    names_val, ok := map->get("names")
-    names := names_val->get::<Array<json.Value>>()
+    names_val, ok := v->object()->get("names")
+    names := names_val->array()
     for i in 0..names->len
-        io.println(names->nth(i)->get::<str>())
+        io.println(names->nth(i)->str())

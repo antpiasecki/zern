@@ -1,4 +1,3 @@
-include "num.zr"
 include "mem.zr"
 
 func u8.is_whitespace[x: u8] : bool
@@ -398,6 +397,7 @@ func str.Builder.build_buffer_and_free_inner[b: str.Builder] : Buffer
 func str.Builder.free_buffer[b: str.Builder] : void
     if b->data != 0
         b->data->free()
+        b->data = 0 as ptr
     b->len = 0
     b->capacity = 0
 

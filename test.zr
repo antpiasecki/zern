@@ -1,5 +1,25 @@
 include "containers.zr"
 
+func main[] : i64
+    if os.file_exists("Cargo.toml")
+        status := os.run_shell_command("cargo build --release")
+        defer (status as ptr)->free()
+        if !status->ok()
+            os.exit(1)
+
+    tr := new TestRunner
+    tr->build_blacklist = [] as Array<str>
+    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "http_server.zr", "tun_tun_tun_sahur.zr"] as Array<str>
+    tr->custom_build_flags = HashMap.new::<str>()
+    tr->custom_build_flags->insert("raylib.zr", "-m dyn -L \"-lraylib\"")
+    tr->custom_build_flags->insert("chip8.zr", "-m dyn -L \"-lraylib\"")
+    tr->custom_build_flags->insert("sqlite_todo.zr", "-m dyn -L \"-lsqlite3\"")
+    tr->custom_run_args = HashMap.new::<str>()
+    tr->custom_run_args->insert("curl.zr", "http://example.com")
+
+    tr->run_directory("examples")
+    io.println("DONE")
+
 struct TestRunner
     build_blacklist: Array<str>
     run_blacklist: Array<str>
@@ -58,23 +78,3 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     run_end_time := os.time()
 
     io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
-
-func main[] : i64
-    if os.file_exists("Cargo.toml")
-        status := os.run_shell_command("cargo build --release")
-        defer (status as ptr)->free()
-        if !status->ok()
-            os.exit(1)
-
-    tr := new TestRunner
-    tr->build_blacklist = [] as Array<str>
-    tr->run_blacklist = ["raylib.zr", "sqlite_todo.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "http_server.zr", "tun_tun_tun_sahur.zr"] as Array<str>
-    tr->custom_build_flags = HashMap.new::<str>()
-    tr->custom_build_flags->insert("raylib.zr", "-m dyn -L \"-lraylib\"")
-    tr->custom_build_flags->insert("chip8.zr", "-m dyn -L \"-lraylib\"")
-    tr->custom_build_flags->insert("sqlite_todo.zr", "-m dyn -L \"-lsqlite3\"")
-    tr->custom_run_args = HashMap.new::<str>()
-    tr->custom_run_args->insert("curl.zr", "http://example.com")
-
-    tr->run_directory("examples")
-    io.println("DONE")

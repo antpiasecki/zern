@@ -1,5 +1,18 @@
-include "io.zr"
 include "containers.zr"
+
+func main[] : i64
+    SIZE := 60
+
+    state := [] as Array<bool>
+    defer state->free()
+    for i in 0..SIZE
+        state->push(false)
+    state->push(true)
+
+    print_state(state)
+    for i in 0..SIZE
+        rule110_step(state)
+        print_state(state)
 
 func rule110_step[state: Array<bool>] : void
     new_state := [] as Array<bool>
@@ -25,17 +38,3 @@ func print_state[state: Array<bool>]: void
         else
             io.print_char(' ')
     io.println("")
-
-func main[] : i64
-    SIZE := 60
-
-    state := [] as Array<bool>
-    defer state->free()
-    for i in 0..SIZE
-        state->push(false)
-    state->push(true)
-
-    print_state(state)
-    for i in 0..SIZE
-        rule110_step(state)
-        print_state(state)

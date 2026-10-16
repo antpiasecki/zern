@@ -1,15 +1,55 @@
 // needs to be compiled with -m dyn -L "-lraylib"
 include "io.zr"
-include "os.zr"
 
-func InitWindow[width: i64, height: i64, title: str] : void @[extern]
-func SetTargetFPS[fps: i64] : void @[extern]
-func WindowShouldClose[] : bool @[extern]
-func BeginDrawing[] : void @[extern]
-func ClearBackground[color: i64] : void @[extern]
-func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
-func EndDrawing[] : void @[extern]
-func IsKeyDown[key: i64] : bool @[extern]
+func main[argc: i64, argv: ptr] : i64
+    path := 0 as str
+    disassemble := false
+
+    for i in 1..argc
+        arg := os.arg(argv, i)
+        if arg->equal("-d")
+            disassemble = true
+        else
+            path = arg
+
+    if path as i64 == 0
+        io.println("Usage: chip8 -d <path>")
+        return 1
+
+    c := new CHIP8
+    c->init()
+
+    buffer := io.read_file(path)->expect("failed to read file")
+
+    for i in 0..buffer->len
+        c->memory[0x200 + i] = buffer[i]
+
+    if disassemble
+        c->disassemble(buffer->len / 2)
+        return 0
+
+    InitWindow(640, 320, "CHIP-8")
+    SetTargetFPS(60)
+
+    while !(WindowShouldClose() as bool)
+        if c->delay_timer > 0
+            c->delay_timer = c->delay_timer - 1
+        if c->sound_timer > 0
+            c->sound_timer = c->sound_timer - 1
+            // TODO: PlaySound()
+
+        for i in 0..25
+            c->step()
+
+        BeginDrawing()
+
+        ClearBackground(0xffffffff)
+        for y in 0..32
+            for x in 0..64
+                if c->display[x + y * 64] == 1
+                    DrawRectangle(x * 10, y * 10, 10, 10, 0xff000000)
+
+        EndDrawing()
 
 struct CHIP8
     memory: Buffer
@@ -231,52 +271,11 @@ func CHIP8.step[c: CHIP8] : void
             for i in 0..=x
                 c->reg[i] = c->memory[c->I + i]
 
-func main[argc: i64, argv: ptr] : i64
-    path := 0 as str
-    disassemble := false
-
-    for i in 1..argc
-        arg := os.arg(argv, i)
-        if arg->equal("-d")
-            disassemble = true
-        else
-            path = arg
-
-    if path as i64 == 0
-        io.println("Usage: chip8 -d <path>")
-        return 1
-
-    c := new CHIP8
-    c->init()
-
-    buffer := io.read_file(path)->expect("failed to read file")
-
-    for i in 0..buffer->len
-        c->memory[0x200 + i] = buffer[i]
-
-    if disassemble
-        c->disassemble(buffer->len / 2)
-        return 0
-
-    InitWindow(640, 320, "CHIP-8")
-    SetTargetFPS(60)
-
-    while !(WindowShouldClose() as bool)
-        if c->delay_timer > 0
-            c->delay_timer = c->delay_timer - 1
-        if c->sound_timer > 0
-            c->sound_timer = c->sound_timer - 1
-            // TODO: PlaySound()
-
-        for i in 0..25
-            c->step()
-
-        BeginDrawing()
-
-        ClearBackground(0xffffffff)
-        for y in 0..32
-            for x in 0..64
-                if c->display[x + y * 64] == 1
-                    DrawRectangle(x * 10, y * 10, 10, 10, 0xff000000)
-
-        EndDrawing()
+func InitWindow[width: i64, height: i64, title: str] : void @[extern]
+func SetTargetFPS[fps: i64] : void @[extern]
+func WindowShouldClose[] : bool @[extern]
+func BeginDrawing[] : void @[extern]
+func ClearBackground[color: i64] : void @[extern]
+func DrawRectangle[posX: i64, posY: i64, width: i64, height: i64, color: i64] : void @[extern]
+func EndDrawing[] : void @[extern]
+func IsKeyDown[key: i64] : bool @[extern]

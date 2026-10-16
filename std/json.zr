@@ -1,3 +1,4 @@
+// TODO: \uXXXX
 include "containers.zr"
 
 const json.OBJECT = 0
@@ -42,9 +43,22 @@ func json.Value.dump[v: json.Value] : str
             d->free()
         s->append_char(']')
     else if v->type == json.STRING
-        // TODO: escape sequences
+        vs := v->value as str
         s->append_char('"')
-        s->append(v->value as str)
+        for i in 0..vs->len()
+            c := vs[i]
+            if c == '"'
+                s->append("\\\"")
+            else if c == '\\'
+                s->append("\\\\")
+            else if c == '\n'
+                s->append("\\n")
+            else if c == '\t'
+                s->append("\\t")
+            else if c == '\r'
+                s->append("\\r")
+            else
+                s->append_char(c)
         s->append_char('"')
     else if v->type == json.NUMBER
         tmp := _stackalloc(64)
@@ -81,26 +95,53 @@ func json.Value.free[v: json.Value] : void
 
     (v as ptr)->free()
 
-func json.Value.get<T>[x: json.Value] : T
-    return x->value as T
+func json.Value.object[x: json.Value] : HashMap<json.Value>
+    if x->type != json.OBJECT
+        io.panic("json.Value: object() on non-object")
+    return x->value as HashMap<json.Value>
+func json.Value.array[x: json.Value] : Array<json.Value>
+    if x->type != json.ARRAY
+        io.panic("json.Value: array() on non-array")
+    return x->value as Array<json.Value>
+func json.Value.str[x: json.Value] : str
+    if x->type != json.STRING
+        io.panic("json.Value: str() on non-str")
+    return x->value as str
+func json.Value.number[x: json.Value] : f64
+    if x->type != json.NUMBER
+        io.panic("json.Value: number() on non-number")
+    return x->value as f64
+func json.Value.bool[x: json.Value] : bool
+    if x->type != json.BOOL
+        io.panic("json.Value: bool() on non-bool")
+    return x->value as bool
 
-func json.parse[s: str] : json.Value
+func json.parse[s: str] : Result<json.Value>
     p := new json.Parser
     p->s = s
     p->i = 0
-    return p->_parse_value()
+    v := try p->_parse_value()
+    p->_skip_whitespace()
+    if p->_peek() != 0
+        v->free()
+        return err::<json.Value>("json.parse: trailing garbage")
+    return ok::<json.Value>(v)
 
 struct json.Parser
     s: str
     i: i64
 
-func json.Parser._parse_value[p: json.Parser] : json.Value
+func json.Parser._parse_value[p: json.Parser] : Result<json.Value>
     out := new* json.Value
+    done := false
+    defer
+        if !done
+            out->free()
 
     p->_skip_whitespace()
 
     if p->_peek() == 0
-        io.panic("json.parse: unexpected EOF")
+        return err::<json.Value>("json.parse: unexpected EOF")
 
     if p->_peek() == '{'
         p->i += 1
@@ -112,15 +153,19 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
         if p->_peek() != '}'
             while true
                 p->_skip_whitespace()
-                key := p->_parse_string()
+                key := try p->_parse_string()
                 p->_skip_whitespace()
 
                 if p->_peek() != ':'
-                    io.panic("json.parse: expected ':'")
+                    key->free()
+                    return err::<json.Value>("json.parse: expected ':'")
                 p->i += 1
                 p->_skip_whitespace()
 
-                value := p->_parse_value()
+                value, e := p->_parse_value()->unpack()
+                if e as ptr != 0
+                    key->free()
+                    return err::<json.Value>(e)
                 (out->value as HashMap<json.Value>)->insert(key, value)
                 key->free()
 
@@ -132,7 +177,7 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
 
         p->_skip_whitespace()
         if p->_peek() != '}'
-            io.panic("json.parse: expected '}'")
+            return err::<json.Value>("json.parse: expected '}'")
         p->i += 1
     else if p->_peek() == '['
         p->i += 1
@@ -141,24 +186,24 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
         out->type = json.ARRAY
         out->value = [] as opaque
 
-        while p->_peek() != ']'
-            p->_skip_whitespace()
-
-            (out->value as Array<json.Value>)->push(p->_parse_value())
-            p->_skip_whitespace()
-
-            if p->_peek() == ','
-                p->i += 1
-            else
-                break
+        if p->_peek() != ']'
+            while true
+                p->_skip_whitespace()
+                (out->value as Array<json.Value>)->push(try p->_parse_value())
+                p->_skip_whitespace()
+                if p->_peek() == ','
+                    p->i += 1
+                else
+                    break
 
         p->_skip_whitespace()
         if p->_peek() != ']'
-            io.panic("json.parse: expected ']'")
+            return err::<json.Value>("json.parse: expected ']'")
         p->i += 1
     else if p->_peek() == '"'
+        s := try p->_parse_string()
         out->type = json.STRING
-        out->value = p->_parse_string() as opaque
+        out->value = s as opaque
     else if p->_peek()->is_digit() || p->_peek() == '-'
         start := p->i
 
@@ -190,25 +235,34 @@ func json.Parser._parse_value[p: json.Parser] : json.Value
         out->value = false as opaque
         p->i += 5
     else
-        io.panic("json.parse: unexpected character")
+        return err::<json.Value>("json.parse: unexpected character")
 
-    return out
+    done = true
+    return ok::<json.Value>(out)
 
-func json.Parser._parse_string[p: json.Parser] : str
+func json.Parser._parse_string[p: json.Parser] : Result<str>
     if p->_peek() != '"'
-        io.panic("json.parse: expected '\"'")
+        return err::<str>("json.parse: expected '\"'")
     p->i += 1
-
-    start := p->i
-    // TODO: escape sequences
+    sb := new str.Builder
+    defer sb->free_buffer()
     while p->_peek() != '"'
-        if p->_peek() == 0
-            io.panic("json.parse: unexpected EOF")
+        c := p->_peek()
+        if c == 0
+            return err::<str>("json.parse: unexpected EOF")
         p->i += 1
-
-    len := p->i - start
+        if c == '\\' && p->_peek() != 0
+            c = p->_peek()
+            p->i += 1
+            if c == 'n'
+                c = '\n'
+            else if c == 't'
+                c = '\t'
+            else if c == 'r'
+                c = '\r'
+        sb->append_char(c)
     p->i += 1
-    return p->s->substr_n(start, len)
+    return ok::<str>(sb->build_str_and_free_inner())
 
 func json.Parser._skip_whitespace[p: json.Parser] : void
     while p->_peek()->is_whitespace()

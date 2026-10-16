@@ -1,5 +1,5 @@
 include "linux_syscalls.zr"
-include "num.zr"
+include "math.zr"
 
 struct mem.Allocator
     alloc_func: funcptr<ptr, mem.Allocator, i64>
@@ -108,17 +108,17 @@ func mem.FreeListAllocator.alloc[a: mem.Allocator, len: i64] : ptr
         len = 16
 
     if fla->bins == 0
-        raw := fla->_request_space(65 * 8)
-        raw->_split(fla, 65 * 8)
+        raw := fla->_request_space(129 * 8)
+        raw->_split(fla, 129 * 8)
         raw->free = false
         if fla->head as ptr == 0
             fla->head = raw
         fla->bins = (raw as ptr)@[mem.FreeListBlock.LEN]
-        mem.zero(fla->bins, 65 * 8)
+        mem.zero(fla->bins, 129 * 8)
 
     // separate lists for small allocations
     if len <= 1024
-        c := (len + 15) / 16
+        c := (len + 7) / 8
         slot := fla->bins@[c*8]
         head := _read64(slot) as ptr
         if head != 0
@@ -190,7 +190,7 @@ func mem.FreeListAllocator.free[a: mem.Allocator, x: ptr] : void
         io.panic("ptr.free: double free detected")
 
     if blk->len <= 1024
-        slot := fla->bins@[(blk->len / 16) * 8]
+        slot := fla->bins@[(blk->len / 8) * 8]
         _write64(x, _read64(slot))
         _write64(slot, x as i64)
         return
