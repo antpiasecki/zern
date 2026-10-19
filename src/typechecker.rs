@@ -110,6 +110,13 @@ impl<'a> TypeChecker<'a> {
                     return error!(&name.loc, "cannot assign multi-return call to a single variable");
                 }
 
+                if actual_type == "opaque" {
+                    match &initializer.kind {
+                        ExprKind::Cast { .. } => {}
+                        _ => return error!(name.loc, "cannot infer type from opaque"),
+                    }
+                }
+
                 if env.get_var_type(&name.lexeme).is_some() || self.symbol_table.globals.contains_key(&name.lexeme) {
                     return error!(name.loc, format!("variable already defined: {}", &name.lexeme));
                 }

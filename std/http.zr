@@ -59,6 +59,10 @@ func http.parse_url[url: str] : http.Url
     path_pos := (url@[colon_pos+3] as str)->find("/")
     if path_pos != -1
         out->path = url->substr_n(colon_pos+3+path_pos, url->len()-(colon_pos+3+path_pos))
+        // TODO
+        query_pos := out->path->find("?")
+        if query_pos != -1
+            out->path[query_pos] = 0
         out->host = url->substr_n(colon_pos+3, path_pos)
     else
         out->path = "/"->make_copy()
@@ -134,6 +138,7 @@ struct http.Req
     method: str
     path: str
     headers: HashMap<str>
+    body: Buffer
 
 struct http.Resp
     status: i64
@@ -260,81 +265,86 @@ func http._handle_conn[cd: http._ConnData] : void
     req->method = raw_req@[0] as str
     req->path = raw_req@[end_of_first_line+1] as str
 
-    // TODO: actually parse query in parse_url
     query_pos := req->path->find("?")
     if query_pos != -1
         req->path[query_pos] = 0
 
-    // TODO: parse headers: HashMap<str>
+    // TODO: parse req->headers
 
-    handler(req, resp)
+    body_pos := (raw_req as str)->find_n(n, "\r\n\r\n", 4) + 4
+    req->body = Buffer.alloc(n - body_pos + 1)
+    if n - body_pos > 0
+        mem.copy_n(raw_req@[body_pos], req->body@[0], n - body_pos)
+        req->body[n - body_pos] = 0
+
+    (cd->handler)(req, resp)
 
     resp_buf := resp->build()
     defer resp_buf->free()
     net.send(cd->c, resp_buf@[0], resp_buf->len)
 
 func http.status_code_to_text[code: i64] : str
-  if code == 100 return "Continue"
-  if code == 101 return "Switching Protocols"
-  if code == 102 return "Processing"
-  if code == 103 return "Early Hints"
-  if code == 200 return "OK"
-  if code == 201 return "Created"
-  if code == 202 return "Accepted"
-  if code == 203 return "Non-Authoritative Information"
-  if code == 204 return "No Content"
-  if code == 205 return "Reset Content"
-  if code == 206 return "Partial Content"
-  if code == 207 return "Multi-Status"
-  if code == 208 return "Already Reported"
-  if code == 226 return "IM Used"
-  if code == 300 return "Multiple Choices"
-  if code == 301 return "Moved Permanently"
-  if code == 302 return "Found"
-  if code == 303 return "See Other"
-  if code == 304 return "Not Modified"
-  if code == 305 return "Use Proxy"
-  if code == 306 return "Switch Proxy"
-  if code == 307 return "Temporary Redirect"
-  if code == 308 return "Permanent Redirect"
-  if code == 400 return "Bad Request"
-  if code == 401 return "Unauthorized"
-  if code == 402 return "Payment Required"
-  if code == 403 return "Forbidden"
-  if code == 404 return "Not Found"
-  if code == 405 return "Method Not Allowed"
-  if code == 406 return "Not Acceptable"
-  if code == 407 return "Proxy Authentication Required"
-  if code == 408 return "Request Timeout"
-  if code == 409 return "Conflict"
-  if code == 410 return "Gone"
-  if code == 411 return "Length Required"
-  if code == 412 return "Precondition Failed"
-  if code == 413 return "Content Too Large"
-  if code == 414 return "URI Too Long"
-  if code == 415 return "Unsupported Media Type"
-  if code == 416 return "Range Not Satisfiable"
-  if code == 417 return "Expectation Failed"
-  if code == 418 return "I'm a teapot"
-  if code == 421 return "Misdirected Request"
-  if code == 422 return "Unprocessable Content"
-  if code == 423 return "Locked"
-  if code == 424 return "Failed Dependency"
-  if code == 425 return "Too Early"
-  if code == 426 return "Upgrade Required"
-  if code == 428 return "Precondition Required"
-  if code == 429 return "Too Many Requests"
-  if code == 431 return "Request Header Fields Too Large"
-  if code == 451 return "Unavailable For Legal Reasons"
-  if code == 500 return "Internal Server Error"
-  if code == 501 return "Not Implemented"
-  if code == 502 return "Bad Gateway"
-  if code == 503 return "Service Unavailable"
-  if code == 504 return "Gateway Timeout"
-  if code == 505 return "HTTP Version Not Supported"
-  if code == 506 return "Variant Also Negotiates"
-  if code == 507 return "Insufficient Storage"
-  if code == 508 return "Loop Detected"
-  if code == 510 return "Not Extended"
-  if code == 511 return "Network Authentication Required"
-  return ""
+    if code == 100 return "Continue"
+    if code == 101 return "Switching Protocols"
+    if code == 102 return "Processing"
+    if code == 103 return "Early Hints"
+    if code == 200 return "OK"
+    if code == 201 return "Created"
+    if code == 202 return "Accepted"
+    if code == 203 return "Non-Authoritative Information"
+    if code == 204 return "No Content"
+    if code == 205 return "Reset Content"
+    if code == 206 return "Partial Content"
+    if code == 207 return "Multi-Status"
+    if code == 208 return "Already Reported"
+    if code == 226 return "IM Used"
+    if code == 300 return "Multiple Choices"
+    if code == 301 return "Moved Permanently"
+    if code == 302 return "Found"
+    if code == 303 return "See Other"
+    if code == 304 return "Not Modified"
+    if code == 305 return "Use Proxy"
+    if code == 306 return "Switch Proxy"
+    if code == 307 return "Temporary Redirect"
+    if code == 308 return "Permanent Redirect"
+    if code == 400 return "Bad Request"
+    if code == 401 return "Unauthorized"
+    if code == 402 return "Payment Required"
+    if code == 403 return "Forbidden"
+    if code == 404 return "Not Found"
+    if code == 405 return "Method Not Allowed"
+    if code == 406 return "Not Acceptable"
+    if code == 407 return "Proxy Authentication Required"
+    if code == 408 return "Request Timeout"
+    if code == 409 return "Conflict"
+    if code == 410 return "Gone"
+    if code == 411 return "Length Required"
+    if code == 412 return "Precondition Failed"
+    if code == 413 return "Content Too Large"
+    if code == 414 return "URI Too Long"
+    if code == 415 return "Unsupported Media Type"
+    if code == 416 return "Range Not Satisfiable"
+    if code == 417 return "Expectation Failed"
+    if code == 418 return "I'm a teapot"
+    if code == 421 return "Misdirected Request"
+    if code == 422 return "Unprocessable Content"
+    if code == 423 return "Locked"
+    if code == 424 return "Failed Dependency"
+    if code == 425 return "Too Early"
+    if code == 426 return "Upgrade Required"
+    if code == 428 return "Precondition Required"
+    if code == 429 return "Too Many Requests"
+    if code == 431 return "Request Header Fields Too Large"
+    if code == 451 return "Unavailable For Legal Reasons"
+    if code == 500 return "Internal Server Error"
+    if code == 501 return "Not Implemented"
+    if code == 502 return "Bad Gateway"
+    if code == 503 return "Service Unavailable"
+    if code == 504 return "Gateway Timeout"
+    if code == 505 return "HTTP Version Not Supported"
+    if code == 506 return "Variant Also Negotiates"
+    if code == 507 return "Insufficient Storage"
+    if code == 508 return "Loop Detected"
+    if code == 510 return "Not Extended"
+    if code == 511 return "Network Authentication Required"
+    return ""

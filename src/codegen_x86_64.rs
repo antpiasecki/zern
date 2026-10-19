@@ -5,17 +5,12 @@ use crate::{
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, TokenType, ZernError, error},
-    typechecker::split_multiple_type,
 };
 
-struct Var {
-    pub stack_offset: usize,
-    #[allow(unused)]
-    pub var_type: String,
-}
+type VarOffset = usize;
 
 pub struct Scope {
-    vars: HashMap<String, Var>,
+    vars: HashMap<String, VarOffset>,
     defers: Vec<Stmt>,
 }
 
@@ -54,23 +49,17 @@ impl Env {
         self.scopes.pop();
     }
 
-    pub fn define_var(&mut self, name: String, var_type: String) -> usize {
+    pub fn define_var(&mut self, name: String) -> usize {
         let offset = self.next_offset;
         self.next_offset += 8;
-        self.scopes.last_mut().unwrap().vars.insert(
-            name,
-            Var {
-                stack_offset: offset,
-                var_type,
-            },
-        );
+        self.scopes.last_mut().unwrap().vars.insert(name, offset);
         offset
     }
 
-    fn get_var(&self, name: &str) -> Option<&Var> {
+    fn get_var(&self, name: &str) -> Option<VarOffset> {
         for scope in self.scopes.iter().rev() {
             if let Some(var) = scope.vars.get(name) {
-                return Some(var);
+                return Some(*var);
             }
         }
         None
@@ -93,7 +82,7 @@ pub struct CodegenX86_64<'a> {
     rodata: String,
     bss: String,
     label_counter: usize,
-    rodata_counter: usize,
+    string_literals: HashMap<String, String>,
     file_ids: HashMap<String, usize>,
     pub args: &'a Args,
     pub symbol_table: &'a SymbolTable,
@@ -111,7 +100,7 @@ impl<'a> CodegenX86_64<'a> {
             rodata: String::new(),
             bss: String::new(),
             label_counter: 1,
-            rodata_counter: 1,
+            string_literals: HashMap::new(),
             file_ids: HashMap::new(),
             args,
             symbol_table,
@@ -271,16 +260,8 @@ _start:
         match stmt {
             Stmt::Expression(expr) => self.compile_expr(env, expr)?,
             Stmt::Declare { name, initializer } => {
-                let var_type: String = match self.expr_types[&initializer.id].as_str() {
-                    "opaque" => match &initializer.kind {
-                        ExprKind::Cast { .. } => "opaque".into(),
-                        _ => return error!(name.loc, "cannot infer type from opaque"),
-                    },
-                    t => t.into(),
-                };
-
                 self.compile_expr(env, initializer)?;
-                let offset = env.define_var(name.lexeme.clone(), var_type);
+                let offset = env.define_var(name.lexeme.clone());
                 emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
             }
             Stmt::Assign { left, op, value } => {
@@ -288,8 +269,8 @@ _start:
 
                 match &left.kind {
                     ExprKind::Variable(name) => {
-                        if let Some(var) = env.get_var(&name.lexeme) {
-                            emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", var.stack_offset);
+                        if let Some(offset) = env.get_var(&name.lexeme) {
+                            emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
                         } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                             let (label, _) = &self.symbol_table.globals[&name.lexeme];
                             emit!(&mut self.output, "    mov [{}+rip], rax", label);
@@ -353,14 +334,8 @@ _start:
                     };
 
                     let offset = match env.get_var(&target.lexeme) {
-                        Some(var) => var.stack_offset,
-                        None => {
-                            let ty = &self.expr_types[&value.id];
-                            let Some(types) = split_multiple_type(ty) else {
-                                return error!(&op.loc, "invalid multiple return type");
-                            };
-                            env.define_var(target.lexeme.clone(), types[i].to_string())
-                        }
+                        Some(offset) => offset,
+                        None => env.define_var(target.lexeme.clone()),
                     };
                     emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], {}", offset, reg);
                 }
@@ -464,7 +439,7 @@ _start:
                         let mut fp_reg = 0;
                         let mut stack_count = 0;
                         for param in params {
-                            let offset = env.define_var(param.var_name.lexeme.clone(), param.var_type.lexeme.clone());
+                            let offset = env.define_var(param.var_name.lexeme.clone());
                             if param.var_type.lexeme == "f64" {
                                 if fp_reg < max_fp_reg {
                                     emit!(&mut self.output, "    movq QWORD PTR [rbp-{}], xmm{}", offset, fp_reg);
@@ -582,7 +557,7 @@ _start:
                 env.loop_continue_label = self.label();
 
                 env.push_scope();
-                let offset = env.define_var(var.lexeme.clone(), "i64".into());
+                let offset = env.define_var(var.lexeme.clone());
 
                 self.compile_expr(env, start)?;
                 emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], rax", offset);
@@ -663,11 +638,19 @@ _start:
 
         match &expr.kind {
             ExprKind::Binary { left, op, right } => {
-                self.compile_expr(env, left)?;
-                emit!(&mut self.output, "    push rax");
-                self.compile_expr(env, right)?;
-                emit!(&mut self.output, "    mov rbx, rax");
-                emit!(&mut self.output, "    pop rax");
+                // low hanging optimization
+                if let ExprKind::Literal(t) = &right.kind
+                    && t.token_type == TokenType::IntLiteral
+                {
+                    self.compile_expr(env, left)?;
+                    self.emit_int_literal(t, "rbx")?;
+                } else {
+                    self.compile_expr(env, left)?;
+                    emit!(&mut self.output, "    push rax");
+                    self.compile_expr(env, right)?;
+                    emit!(&mut self.output, "    mov rbx, rax");
+                    emit!(&mut self.output, "    pop rax");
+                }
 
                 match op.token_type {
                     TokenType::Plus => {
@@ -815,20 +798,7 @@ _start:
             }
             ExprKind::Grouping(expr) => self.compile_expr(env, expr)?,
             ExprKind::Literal(token) => match token.token_type {
-                TokenType::IntLiteral => {
-                    let value = if token.lexeme.starts_with("0x") {
-                        match u64::from_str_radix(&token.lexeme[2..], 16) {
-                            Ok(v) => v,
-                            Err(_) => return error!(token.loc, "failed to parse hex integer literal"),
-                        }
-                    } else {
-                        match token.lexeme.parse() {
-                            Ok(v) => v,
-                            Err(_) => return error!(token.loc, "failed to parse integer literal"),
-                        }
-                    } as i64;
-                    emit!(&mut self.output, "    mov rax, {}", value);
-                }
+                TokenType::IntLiteral => self.emit_int_literal(token, "rax")?,
                 TokenType::FloatLiteral => {
                     let value: f64 = token.lexeme.parse().unwrap();
                     emit!(&mut self.output, "    mov rax, {}", value.to_bits());
@@ -843,10 +813,14 @@ _start:
                 TokenType::StringLiteral => {
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
-                    let label = format!("_str_{:03}", self.rodata_counter);
-                    self.rodata_counter += 1;
-
-                    emit!(&mut self.rodata, "    {}: .asciz \"{}\"", label, escape_str(value));
+                    let label = if let Some(label) = &self.string_literals.get(value) {
+                        label.to_string()
+                    } else {
+                        let label = format!("_str_{:03}", self.string_literals.len());
+                        self.string_literals.insert(value.to_string(), label.clone());
+                        emit!(&mut self.rodata, "    {}: .asciz \"{}\"", label, escape_str(value));
+                        label
+                    };
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
                 }
@@ -887,8 +861,8 @@ _start:
                         self.symbol_table.constants[&name.lexeme]
                     );
                 } else {
-                    if let Some(var) = env.get_var(&name.lexeme) {
-                        emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", var.stack_offset);
+                    if let Some(offset) = env.get_var(&name.lexeme) {
+                        emit!(&mut self.output, "    mov rax, QWORD PTR [rbp-{}]", offset);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                         let (label, _) = &self.symbol_table.globals[&name.lexeme];
                         emit!(&mut self.output, "    mov rax, [{}+rip]", label,);
@@ -1038,8 +1012,8 @@ _start:
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                         let (label, _) = &self.symbol_table.globals[&name.lexeme];
                         emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", label);
-                    } else if let Some(var) = env.get_var(&name.lexeme) {
-                        emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", var.stack_offset);
+                    } else if let Some(offset) = env.get_var(&name.lexeme) {
+                        emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", offset);
                     } else {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }
@@ -1276,6 +1250,22 @@ _start:
                 self.compile_stmt(env, stmt)?;
             }
         }
+        Ok(())
+    }
+
+    fn emit_int_literal(&mut self, token: &Token, reg: &str) -> Result<(), ZernError> {
+        let value = if token.lexeme.starts_with("0x") {
+            match u64::from_str_radix(&token.lexeme[2..], 16) {
+                Ok(v) => v,
+                Err(_) => return error!(token.loc, "failed to parse hex integer literal"),
+            }
+        } else {
+            match token.lexeme.parse() {
+                Ok(v) => v,
+                Err(_) => return error!(token.loc, "failed to parse integer literal"),
+            }
+        } as i64;
+        emit!(&mut self.output, "    mov {}, {}", reg, value);
         Ok(())
     }
 

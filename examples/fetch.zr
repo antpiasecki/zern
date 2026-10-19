@@ -2,7 +2,7 @@ include "http.zr"
 
 func main[argc: i64, argv: ptr] : i64
     if argc < 2
-        io.println("Usage: curl <url>")
+        io.println("Usage: fetch <url>")
         return 1
 
     url := os.arg(argv, 1)

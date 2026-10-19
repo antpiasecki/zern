@@ -26,6 +26,18 @@ func handler[r: http.Req, w: http.Resp] : void
             out->object()->insert(pairs->nth(i)->a, t)
 
         w->json(200, out)
+    else if r->method->equal("POST")
+        v, e := json.parse(r->body@[0] as str)->unpack()
+        if e as ptr
+            w->string(400, "failed to parse body")
+            return
+        defer v->free()
+        content, e := v->object()->get("content")->unpack()
+        if e as ptr
+            w->string(400, "missing content field")
+            return
+        todos->insert(os.uuid4(), content->str()->make_copy())
+
+        w->string(200, "OK")
     else
         w->error(405)
-        return

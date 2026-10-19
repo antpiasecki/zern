@@ -8,7 +8,7 @@ const DNS_RECURSION_DESIRED = 256
 var net._dns_server: str
 
 func net.listen[host: str, port: i64] : Result<i64>
-    packed_host := try net.resolve(host)
+    packed_host := try net.parse_ipv4_str(host)
 
     s := _builtin_syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
     if s < 0
@@ -129,9 +129,8 @@ func net.UDPPacket.free[pkt: net.UDPPacket] : void
     pkt->source_addr->free()
     (pkt as ptr)->free()
 
-func net.resolve[domain: str] : Result<i64>
-    // if domain is already an ip, skip dns resolution
-    parts := domain->split(".")
+func net.parse_ipv4_str[ip: str] : Result<i64>
+    parts := ip->split(".")
     defer parts->free_with_ptr_items()
     if parts->len == 4
         valid := true
@@ -153,6 +152,13 @@ func net.resolve[domain: str] : Result<i64>
             d := parts->nth(3)->parse_i64()
             if a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255
                 return ok::<i64>(net.pack_addr(a, b, c, d))
+    return err::<i64>("net.parse_ipv4_str: failed")
+
+func net.resolve[domain: str] : Result<i64>
+    // if domain is already an ip, skip dns resolution
+    ip, e := net.parse_ipv4_str(domain)->unpack()
+    if e as ptr == 0
+        return ok::<i64>(ip)
 
     query := net.build_dns_query(domain, DNS_TYPE_A)
     defer query->free()
