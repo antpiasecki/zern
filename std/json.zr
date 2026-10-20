@@ -1,11 +1,11 @@
 // TODO: \uXXXX
 include "containers.zr"
 
-const json.OBJECT = 0
-const json.ARRAY  = 1
-const json.STRING = 2
-const json.NUMBER = 3
-const json.NULL   = 4
+const json.NULL   = 0
+const json.OBJECT = 1
+const json.ARRAY  = 2
+const json.STRING = 3
+const json.NUMBER = 4
 const json.BOOL   = 5
 
 struct json.Value

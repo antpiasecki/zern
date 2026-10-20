@@ -11,33 +11,59 @@ func main[] : i64
     http.start_server("0.0.0.0", 8888, ^handler)
 
 func handler[r: http.Req, w: http.Resp] : void
-    if !r->path->equal("/")
-        w->error(404)
-        return
+    if r->path->equal("/")
+        if r->method->equal("GET")
+            out := json.new_object()
+            defer out->free()
 
-    if r->method->equal("GET")
-        out := json.new_object()
-        defer out->free()
+            pairs := todos->pairs()
+            defer pairs->free_with_ptr_items()
+            for i in 0..pairs->len
+                t := json.new_str(pairs->nth(i)->b->make_copy())
+                out->object()->insert(pairs->nth(i)->a, t)
 
-        pairs := todos->pairs()
-        defer pairs->free_with_ptr_items()
-        for i in 0..pairs->len
-            t := json.new_str(pairs->nth(i)->b->make_copy())
-            out->object()->insert(pairs->nth(i)->a, t)
+            w->json(200, out)
+        else if r->method->equal("POST")
+            v, e := json.parse(r->body@[0] as str)->unpack()
+            if e as ptr
+                w->string(400, "failed to parse body")
+                return
+            defer v->free()
+            content, e := v->object()->get("content")->unpack()
+            if e as ptr
+                w->string(400, "missing content field")
+                return
 
-        w->json(200, out)
-    else if r->method->equal("POST")
-        v, e := json.parse(r->body@[0] as str)->unpack()
-        if e as ptr
-            w->string(400, "failed to parse body")
-            return
-        defer v->free()
-        content, e := v->object()->get("content")->unpack()
-        if e as ptr
-            w->string(400, "missing content field")
-            return
-        todos->insert(os.uuid4(), content->str()->make_copy())
-
-        w->string(200, "OK")
+            id := os.uuid4()
+            defer id->free()
+            todos->insert(id, content->str()->make_copy())
+            w->string(200, "OK")
+        else
+            w->error(405)
     else
-        w->error(405)
+        id := r->path@[1] as str
+        todo, ok := todos->get_ok(id)
+        if ok
+            if r->method->equal("GET")
+                w->string(200, todo)
+            else if r->method->equal("POST")
+                v, e := json.parse(r->body@[0] as str)->unpack()
+                if e as ptr
+                    w->string(400, "failed to parse body")
+                    return
+                defer v->free()
+                content, e := v->object()->get("content")->unpack()
+                if e as ptr
+                    w->string(400, "missing content field")
+                    return
+                todo->free()
+                todos->insert_with_overwrite(id, content->str()->make_copy())
+                w->string(200, "OK")
+            else if r->method->equal("DELETE")
+                todo->free()
+                todos->delete(id)
+                w->string(200, "OK")
+            else
+                w->error(405)
+        else
+            w->error(404)

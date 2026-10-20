@@ -174,6 +174,9 @@ func HashMap._djb2[key: str] : i64
 func HashMap.insert<T>[hm: HashMap<T>, key: str, value: T] : void
     if hm->contains(key)
         io.panic("HashMap.insert: tried to insert a duplicate key")
+    hm->insert_with_overwrite(key, value)
+
+func HashMap.insert_with_overwrite<T>[hm: HashMap<T>, key: str, value: T] : void
     index := HashMap._djb2(key)
     current := hm->table->nth(index)
 
@@ -267,6 +270,8 @@ func HashMap.pairs<T>[hm: HashMap<T>] : Array<Pair<str, T>>
     return out
 
 func HashMap.free<T>[hm: HashMap<T>] : void
+    if hm as ptr == 0
+        return
     for i in 0..HashMap._TABLE_SIZE
         current := hm->table->nth(i)
         while current as ptr

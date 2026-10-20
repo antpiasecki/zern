@@ -1,39 +1,31 @@
 include "containers.zr"
 
-func main[] : i64
-    SIZE := 60
+const SIZE = 60
 
-    state := [] as Array<bool>
-    defer state->free()
-    for i in 0..SIZE
-        state->push(false)
-    state->push(true)
+func main[] : i64
+    state := _stackalloc(SIZE)
+    mem.zero(state, SIZE)
+    state[SIZE-1] = 1
 
     print_state(state)
-    for i in 0..SIZE
+    for i in 0..SIZE-1
         rule110_step(state)
         print_state(state)
 
-func rule110_step[state: Array<bool>] : void
-    new_state := [] as Array<bool>
-    defer new_state->free()
-
-    for i in 0..state->len
-        left := false
-        if i - 1 >= 0
-            left = state->nth(i - 1)
-        center := state->nth(i)
+func rule110_step[state: ptr] : void
+    left := false
+    for i in 0..SIZE
+        center := state[i] as bool
         right := false
-        if i + 1 < state->len
-            right = state->nth(i + 1)
+        if i + 1 < SIZE
+            right = state[i+1] as bool
 
-        new_state->push(!((!left && !center && !right) || (left && !center && !right) || (left && center && right)))
+        state[i] = ((center || right) && !(left && center && right)) as u8
+        left = center
 
-    mem.copy_n(new_state->data, state->data, state->len * 8)
-
-func print_state[state: Array<bool>]: void
-    for i in 0..state->len
-        if state->nth(i)
+func print_state[state: ptr]: void
+    for i in 0..SIZE
+        if state[i]
             io.print_char('#')
         else
             io.print_char(' ')

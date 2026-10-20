@@ -147,7 +147,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
         res->max_rss = mem.read64(rusage@[32])
 
         if (status & 0x7f) == 0
-            res->exit_code = (status >> 8) & 0xff
+            res->exit_code = (status >> 8) as u8 as i64
         else
             res->exit_code = -(status & 0x7f)
 

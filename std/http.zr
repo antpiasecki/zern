@@ -222,9 +222,11 @@ func http._handle_conn[cd: http._ConnData] : void
     defer net.close(cd->c)
 
     req := new http.Req
+    defer req->remote_addr->free()
+    defer req->headers->free()
+    defer req->body->free()
     req->remote_addr = mem.alloc(30) as str
     req->remote_addr->format_into(30, "%d.%d.%d.%d", cd->addr[4], cd->addr[5], cd->addr[6], cd->addr[7])
-    defer req->remote_addr->free()
 
     resp := new http.Resp
     resp->status = 200

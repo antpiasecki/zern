@@ -332,24 +332,24 @@ func mem.read64be[x: ptr] : i64
     return (mem.read32be(x) << 32) | mem.read32be(x@[4])
 
 func mem.write16[x: ptr, d: i64] : void
-    x[0] = d & 0xff
-    x[1] = (d >> 8) & 0xff
+    x[0] = d as u8
+    x[1] = (d >> 8) as u8
 
 func mem.write16be[x: ptr, d: i64] : void
-    x[0] = (d >> 8) & 0xff
-    x[1] = d & 0xff
+    x[0] = (d >> 8) as u8
+    x[1] = d as u8
 
 func mem.write32[x: ptr, d: i64] : void
-    x[0] = d & 0xff
-    x[1] = (d >> 8) & 0xff
-    x[2] = (d >> 16) & 0xff
-    x[3] = (d >> 24) & 0xff
+    x[0] = d as u8
+    x[1] = (d >> 8) as u8
+    x[2] = (d >> 16) as u8
+    x[3] = (d >> 24) as u8
 
 func mem.write32be[x: ptr, d: i64] : void
-    x[0] = (d >> 24) & 0xff
-    x[1] = (d >> 16) & 0xff
-    x[2] = (d >> 8) & 0xff
-    x[3] = d & 0xff
+    x[0] = (d >> 24) as u8
+    x[1] = (d >> 16) as u8
+    x[2] = (d >> 8) as u8
+    x[3] = d as u8
 
 func mem.write64[x: ptr, d: i64] : void
     _write64(x, d)

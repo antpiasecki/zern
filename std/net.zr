@@ -70,12 +70,12 @@ func net._build_sa[sa: ptr, packed_host: i64, port: i64] : void
     mem.zero(sa, 16)
     sa[0] = AF_INET
     sa[1] = 0
-    sa[2] = (port >> 8) & 255
-    sa[3] = port & 255
-    sa[4] = (packed_host >> 24) & 255
-    sa[5] = (packed_host >> 16) & 255
-    sa[6] = (packed_host >> 8) & 255
-    sa[7] = packed_host & 255
+    sa[2] = (port >> 8) as u8
+    sa[3] = port as u8
+    sa[4] = (packed_host >> 24) as u8
+    sa[5] = (packed_host >> 16) as u8
+    sa[6] = (packed_host >> 8) as u8
+    sa[7] = packed_host as u8
 
 struct net.UDPSocket
     fd: i64
@@ -213,7 +213,7 @@ func net.encode_dns_name[domain: str] : Buffer
     while i <= domain_len
         if i == domain_len || domain[i] == '.'
             part_len := i - part_start
-            buf[out_pos] = part_len & 0xff
+            buf[out_pos] = part_len as u8
             out_pos += 1
             mem.copy_n(domain@[part_start], buf@[out_pos], part_len)
             out_pos += part_len

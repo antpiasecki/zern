@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Write};
 use crate::{
     Args, CompileMode, monomorphizer,
     parser::{Expr, ExprKind, Params, Stmt},
-    symbol_table::SymbolTable,
+    symbol_table::{SymbolTable, return_types_tokens_to_type},
     tokenizer::{Token, TokenType, ZernError, error},
 };
 
@@ -17,7 +17,7 @@ pub struct Scope {
 pub struct Env {
     scopes: Vec<Scope>,
     next_offset: usize,
-    are_we_returning_f64: bool,
+    return_type: String,
     loop_begin_label: String,
     loop_end_label: String,
     loop_continue_label: String,
@@ -31,7 +31,7 @@ impl Env {
                 defers: Vec::new(),
             }],
             next_offset: 16,
-            are_we_returning_f64: false,
+            return_type: String::new(),
             loop_begin_label: String::new(),
             loop_end_label: String::new(),
             loop_continue_label: String::new(),
@@ -403,9 +403,7 @@ _start:
             } => {
                 assert!(type_vars.is_empty());
 
-                if return_types.len() == 1 && return_types[0].lexeme == "f64" {
-                    env.are_we_returning_f64 = true;
-                }
+                env.return_type = return_types_tokens_to_type(return_types);
 
                 let name = &name.lexeme;
                 let mangled = mangle(name);
@@ -537,7 +535,7 @@ _start:
                     }
                     _ => unreachable!(), // guaranteed by typechecker
                 }
-                if env.are_we_returning_f64 {
+                if env.return_type == "f64" {
                     emit!(&mut self.output, "    movq xmm0, rax");
                 }
                 self.emit_ret();
@@ -951,8 +949,10 @@ _start:
                 }
 
                 self.emit_call_cleanup(args.len(), num_stack);
-                if self.expr_types[&expr.id] == "f64" {
-                    emit!(&mut self.output, "    movq rax, xmm0");
+                match self.expr_types[&expr.id].as_str() {
+                    "f64" => emit!(&mut self.output, "    movq rax, xmm0"),
+                    "u8" | "bool" => emit!(&mut self.output, "    movzx eax, al"),
+                    _ => {}
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
@@ -1073,6 +1073,9 @@ _start:
                             "f64 can be casted only from i64 (float conversion) or opaque (bitcast)"
                         );
                     }
+                    (_, "u8") => {
+                        emit!(&mut self.output, "    movzx eax, al");
+                    }
                     _ => {}
                 }
             }
@@ -1128,8 +1131,10 @@ _start:
                 emit!(&mut self.output, "    call {}", mangle(&func_name));
                 self.emit_call_cleanup(1 + args.len(), num_stack);
 
-                if self.expr_types[&expr.id] == "f64" {
-                    emit!(&mut self.output, "    movq rax, xmm0");
+                match self.expr_types[&expr.id].as_str() {
+                    "f64" => emit!(&mut self.output, "    movq rax, xmm0"),
+                    "u8" | "bool" => emit!(&mut self.output, "    movzx eax, al"),
+                    _ => {}
                 }
             }
             ExprKind::Try { expr } => {
