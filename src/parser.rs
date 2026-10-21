@@ -2,6 +2,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::tokenizer::{Loc, Token, TokenType, ZernError, error};
 
+use nanoserde::SerJson;
+
 // https://stackoverflow.com/a/29963675
 pub struct ScopeCall<F: FnMut()> {
     pub c: F,
@@ -29,19 +31,19 @@ macro_rules! recursion_guard {
 }
 pub(crate) use recursion_guard;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub struct Param {
     pub var_type: Token,
     pub var_name: Token,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub enum Params {
     Normal(Vec<Param>),
     Variadic,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub enum Stmt {
     Expression(Expr),
     Declare {
@@ -113,7 +115,7 @@ pub enum Stmt {
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub struct Expr {
     pub id: usize,
     pub kind: ExprKind,
@@ -131,7 +133,7 @@ impl Expr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub enum ExprKind {
     Binary {
         left: Box<Expr>,
@@ -767,7 +769,7 @@ impl Parser {
                 } else {
                     vec![]
                 };
-                self.consume(TokenType::LeftParen, "expected '(' after arguments")?;
+                let paren = self.consume(TokenType::LeftParen, "expected '(' after arguments")?;
 
                 let mut args = Vec::with_capacity(8);
                 if !self.check(&TokenType::RightParen) {
@@ -779,7 +781,7 @@ impl Parser {
                     }
                 }
 
-                let paren = self.consume(TokenType::RightParen, "expected ')' after arguments")?;
+                self.consume(TokenType::RightParen, "expected ')' after arguments")?;
 
                 expr = Expr::new(
                     ExprKind::Call {

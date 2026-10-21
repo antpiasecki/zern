@@ -6,32 +6,40 @@ mod tokenizer;
 mod typechecker;
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     process::{Command, exit},
 };
 
+use nanoserde::SerJson as _;
 use tokenizer::ZernError;
 
 fn main() {
     let args = Args::parse(std::env::args());
 
-    if let Err(err) = compile_file(args) {
-        print_error(err);
+    if let Err(err) = compile_file(&args) {
+        print_error(&args, err);
         exit(1);
     }
 }
 
-fn compile_file(args: Args) -> Result<(), ZernError> {
-    let source = match fs::read_to_string(&args.path) {
-        Ok(x) => x,
-        Err(e) => {
+fn compile_file(args: &Args) -> Result<(), ZernError> {
+    let source = if args.stdin_input {
+        std::io::read_to_string(std::io::stdin()).unwrap_or_else(|_| {
+            eprintln!("ERROR: failed to read from stdin");
+            exit(1);
+        })
+    } else {
+        fs::read_to_string(&args.path).unwrap_or_else(|e| {
             eprintln!("ERROR: failed to open {}: {e}", args.path);
             exit(1);
-        }
+        })
     };
 
     let mut included_paths = HashSet::new();
+    if let Ok(root) = fs::canonicalize(&args.path) {
+        included_paths.insert(root);
+    }
     // atp we dont know yet how many files we are including so a 15k estimate must do
     let mut tokens = Vec::with_capacity(15000);
     let tokenizer = tokenizer::Tokenizer::new(&mut tokens, args.path.clone(), source, &mut included_paths);
@@ -48,6 +56,10 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let mut monomorphizer = monomorphizer::Monomorphizer::new(&mut symbol_table);
     let statements = monomorphizer.monomorphize(statements)?;
 
+    if args.dump {
+        println!("{}", statements.serialize_json());
+    }
+
     symbol_table
         .constants
         .insert("_WINDOWS".into(), (args.mode == CompileMode::MinGW) as i64);
@@ -55,6 +67,19 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     let mut typechecker = typechecker::TypeChecker::new(&symbol_table);
     for stmt in &statements {
         typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
+    }
+
+    if args.dump {
+        println!(
+            "{}",
+            typechecker
+                .expr_types
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect::<HashMap<String, String>>()
+                .serialize_json()
+        );
+        return Ok(());
     }
 
     let mut codegen = codegen_x86_64::CodegenX86_64::new(&args, &symbol_table, &typechecker.expr_types);
@@ -104,7 +129,12 @@ fn compile_file(args: Args) -> Result<(), ZernError> {
     Ok(())
 }
 
-fn print_error(e: ZernError) {
+fn print_error(args: &Args, e: ZernError) {
+    if args.json_errors {
+        eprintln!("{}", e.serialize_json());
+        return;
+    }
+
     eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc, e.message);
     if *e.loc.filename != *"<unknown>" && e.loc.line > 0 {
         if let Ok(src) = fs::read_to_string(e.loc.filename.as_ref()) {
@@ -165,6 +195,9 @@ struct Args {
     skip_build: bool,
     mode: CompileMode,
     link_flags: String,
+    json_errors: bool,
+    dump: bool,
+    stdin_input: bool,
 }
 
 impl Args {
@@ -179,6 +212,9 @@ impl Args {
             skip_build: false,
             mode: CompileMode::StaticLD,
             link_flags: String::new(),
+            json_errors: false,
+            dump: false,
+            stdin_input: false,
         };
 
         while let Some(arg) = args.next() {
@@ -212,6 +248,12 @@ impl Args {
                     Some(s) => out.link_flags = s,
                     None => usage_error("-L option requires a value"),
                 }
+            } else if arg == "--json-errors" {
+                out.json_errors = true
+            } else if arg == "--dump" {
+                out.dump = true
+            } else if arg == "--stdin-input" {
+                out.stdin_input = true
             } else if arg == "-h" || arg == "--help" {
                 print_usage();
                 exit(0);
@@ -253,6 +295,11 @@ Usage: zern [-o <path>] [-r] [-g] [-S] [-m <static|dyn|cc|mingw>] [-L <flags>] <
   -S                       - skip the build, only emit .s
   -m <static|dyn|cc|mingw> - specify the build mode
   -L <flags>               - specify flags to pass to your linker of choice
+
+Dev flags
+  --json-errors            - print errors as JSON
+  --dump                   - dumps AST and types as JSON
+  --stdin-input            - read the source code from stdin
 "#
     );
 }

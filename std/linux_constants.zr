@@ -1,7 +1,14 @@
 const STDIN_FILENO  = 0
 const STDOUT_FILENO = 1
 
+const EPERM  = 1
+const ENOENT = 2
+const EINTR  = 4
+const EIO    = 5
 const EAGAIN = 11
+const EACCES = 13
+const EFAULT = 14
+const ENOTTY = 25
 
 const SIGABRT = 6
 

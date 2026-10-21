@@ -6,7 +6,9 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+use nanoserde::SerJson;
+
+#[derive(Debug, Clone, PartialEq, SerJson)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -73,7 +75,7 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, SerJson)]
 pub struct ZernError {
     pub loc: Loc,
     pub message: String,
@@ -90,7 +92,7 @@ macro_rules! error {
 
 pub(crate) use error;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, SerJson)]
 pub struct Loc {
     pub filename: Rc<str>,
     pub line: usize,
@@ -104,7 +106,7 @@ impl fmt::Display for Loc {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerJson)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,

@@ -52,8 +52,16 @@ func io.print[x: str] : void
     io.print_n(x as ptr, x->len())
 
 func io.println[x: str] : void
-    io.print(x)
-    io.print("\n")
+    n := x->len()
+    if n < 4096
+        // copy + syscall instead of 2 syscalls
+        s := _stackalloc(4096)
+        mem.copy_n(x@[0], s, n)
+        s[n] = '\n'
+        io.print_n(s, n+1)
+    else
+        io.print(x)
+        io.print("\n")
 
 func io.print_char[x: u8] : void
     io.print_n(^x, 1)
@@ -93,7 +101,17 @@ func io.read[fd: i64, buf: ptr, count: i64] : i64
     return _builtin_syscall(SYS_read, fd, buf, count)
 
 func io.write[fd: i64, buf: ptr, count: i64] : i64
-    return _builtin_syscall(SYS_write, fd, buf, count)
+    done := 0
+    while done < count
+        r := _builtin_syscall(SYS_write, fd, buf@[done], count - done)
+        if r == -EINTR
+            continue
+        if r < 0
+            return r
+        if r == 0
+            break
+        done = done + r
+    return done
 
 func io.read_line[] : str
     b := new str.Builder

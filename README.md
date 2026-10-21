@@ -8,7 +8,7 @@ A very cool language
 - Targets x86-64 Linux and Windows\*
 - No libc required!
 - Produces tiny static executables (17KB for `hello.zr`)
-- Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), generics, variadics, custom allocator, hashmaps, HTTP library, DNS resolver, etc.
+- Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), [generics](https://git.ton1.dev/toni/zern/src/branch/main/std/containers.zr), [variadics](https://git.ton1.dev/toni/zern/src/branch/main/std/io.zr#L14), [custom allocator](https://git.ton1.dev/toni/zern/src/branch/main/std/mem.zr), [hashmaps](https://git.ton1.dev/toni/zern/src/branch/main/std/containers.zr#L153), [HTTP library](https://git.ton1.dev/toni/zern/src/branch/main/examples/crud_api.zr), DNS resolver, etc.
 
 ## Syntax
 
@@ -39,6 +39,6 @@ For more see `examples/`.
 git clone https://git.ton1.dev/toni/zern
 cd zern
 # make sure /usr/local/bin is in your PATH or set custom PREFIX
-sudo -E ./install.sh
+./install.sh
 zern
 ```

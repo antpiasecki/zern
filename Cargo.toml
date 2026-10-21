@@ -3,3 +3,6 @@ name = "zern"
 version = "0.3.0"
 edition = "2024"
 license = "BSD-2-Clause"
+
+[dependencies]
+nanoserde = { version = "0.2.1", default-features = false, features = ["json", "std"] }

@@ -523,7 +523,7 @@ impl<'a> TypeChecker<'a> {
                                     String::new()
                                 }
                             }
-                            FnParams::Variadic => todo!(),
+                            FnParams::Variadic => ", ..".into(),
                         };
                         Ok(format!("funcptr<{}{}>", f.return_type, params_str))
                     } else {
