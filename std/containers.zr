@@ -47,7 +47,7 @@ func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
         xs->len = len
         xs->capacity = len
 
-    // ignore this horrible hack, codegen needs Array<opaque> for array literals
+    // ignore this horrible hack, codegen needs Array<opaque> instantiated for array literals
     if false
         new Array<opaque>
 

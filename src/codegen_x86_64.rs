@@ -130,18 +130,16 @@ impl<'a> CodegenX86_64<'a> {
             &mut self.output,
             ".intel_syntax noprefix
 
-.section .text._builtin_int3
+.section .text
 _builtin_int3:
     int3
     ret
 
-.section .text._builtin_f64_to_f32
 _builtin_f64_to_f32:
     cvtsd2ss xmm0, xmm0
     movd eax, xmm0
     ret
 
-.section .text._builtin_f32_to_f64
 _builtin_f32_to_f64:
     cvtss2sd xmm0, xmm0
     ret
@@ -155,7 +153,18 @@ _builtin_f32_to_f64:
 .section .note.GNU-stack
     .byte 0
 
-.section .text._builtin_syscall
+.section .text
+_builtin_rep_copy:
+    mov rcx, rdx
+    rep movsb
+    ret
+
+_builtin_rep_zero:
+    mov rcx, rsi
+    xor eax, eax
+    rep stosb
+    ret
+
 _builtin_syscall:
     mov rax, rdi
     mov rdi, rsi
@@ -167,7 +176,6 @@ _builtin_syscall:
     syscall
     ret
 
-.section .text._builtin_spawn_thread
 _builtin_spawn_thread:
     and rdx, -16
     sub rdx, 32
@@ -202,7 +210,6 @@ _builtin_spawn_thread:
     // exit thread
     syscall
 
-.section .text._builtin_lock
 _builtin_lock:
     mov eax, 1
     xchg [rdi], rax
@@ -1260,15 +1267,13 @@ _start:
 
     fn emit_int_literal(&mut self, token: &Token, reg: &str) -> Result<(), ZernError> {
         let value = if token.lexeme.starts_with("0x") {
-            match u64::from_str_radix(&token.lexeme[2..], 16) {
-                Ok(v) => v,
-                Err(_) => return error!(token.loc, "failed to parse hex integer literal"),
-            }
+            u64::from_str_radix(&token.lexeme[2..], 16)
+                .or_else(|_| error!(token.loc, "failed to parse hex integer literal"))?
         } else {
-            match token.lexeme.parse() {
-                Ok(v) => v,
-                Err(_) => return error!(token.loc, "failed to parse integer literal"),
-            }
+            token
+                .lexeme
+                .parse()
+                .or_else(|_| error!(token.loc, "failed to parse integer literal"))?
         } as i64;
         emit!(&mut self.output, "    mov {}, {}", reg, value);
         Ok(())
@@ -1330,13 +1335,12 @@ _start:
 
     fn emit_heap_alloc(&mut self, size: usize) {
         let reg = self.registers()[0];
-        let win = self.args.mode == CompileMode::MinGW;
         emit!(&mut self.output, "    mov {}, {}", reg, size);
-        if win {
+        if self.args.mode == CompileMode::MinGW {
             emit!(&mut self.output, "    sub rsp, 32");
         }
         emit!(&mut self.output, "    call mem.alloc");
-        if win {
+        if self.args.mode == CompileMode::MinGW {
             emit!(&mut self.output, "    add rsp, 32");
         }
     }

@@ -4,7 +4,7 @@ use crate::{
     monomorphizer,
     parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
     symbol_table::{FnParams, SymbolTable, return_types_tokens_to_type},
-    tokenizer::{TokenType, ZernError, error},
+    tokenizer::{Loc, TokenType, ZernError, error},
 };
 
 macro_rules! expect_type {
@@ -85,6 +85,7 @@ impl Env {
 pub struct TypeChecker<'a> {
     symbol_table: &'a SymbolTable,
     pub expr_types: HashMap<usize, String>,
+    pub resolved_method_calls: Vec<(Loc, String)>,
     current_function_return_type: String,
     depth: usize,
 }
@@ -94,6 +95,7 @@ impl<'a> TypeChecker<'a> {
         TypeChecker {
             symbol_table,
             expr_types: HashMap::with_capacity(10000),
+            resolved_method_calls: vec![],
             current_function_return_type: String::new(),
             depth: 0,
         }
@@ -574,6 +576,8 @@ impl<'a> TypeChecker<'a> {
             } => {
                 let receiver_type = self.typecheck_expr(env, callee)?;
                 let func_name = format!("{}.{}", monomorphizer::method_owner(&receiver_type), method.lexeme);
+
+                self.resolved_method_calls.push((method.loc.clone(), func_name.clone()));
 
                 let inferred_args = if type_args.is_empty() {
                     self.symbol_table

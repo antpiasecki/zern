@@ -62,6 +62,11 @@ impl SymbolTable {
                     FnType::new(vec!["ptr", "opaque", "ptr", "ptr", "i64"], "i64"),
                 ),
                 ("_builtin_lock".into(), FnType::new(vec!["ptr"], "void")),
+                (
+                    "_builtin_rep_copy".into(),
+                    FnType::new(vec!["ptr", "ptr", "i64"], "void"),
+                ),
+                ("_builtin_rep_zero".into(), FnType::new(vec!["ptr", "i64"], "void")),
                 ("_builtin_syscall".into(), FnType::new_variadic("i64")),
                 ("_read64".into(), FnType::new(vec!["ptr"], "i64")),
                 ("_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
@@ -83,15 +88,13 @@ impl SymbolTable {
                     return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
                 }
                 let mut value = if value.lexeme.starts_with("0x") {
-                    match u64::from_str_radix(&value.lexeme[2..], 16) {
-                        Ok(v) => v,
-                        Err(_) => return error!(value.loc, "failed to parse hex numeric constant"),
-                    }
+                    u64::from_str_radix(&value.lexeme[2..], 16)
+                        .or_else(|_| error!(value.loc, "failed to parse hex numeric constant"))?
                 } else {
-                    match value.lexeme.parse() {
-                        Ok(v) => v,
-                        Err(_) => return error!(value.loc, "failed to parse numeric constant"),
-                    }
+                    value
+                        .lexeme
+                        .parse()
+                        .or_else(|_| error!(value.loc, "failed to parse numeric constant"))?
                 } as i64;
                 if *neg {
                     value = -value;

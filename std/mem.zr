@@ -271,6 +271,12 @@ func ptr.zero_and_free[x: ptr, len: i64] : void
     x->free()
 
 func mem.zero[x: ptr, len: i64] : void
+    if len <= 0
+        return
+    if len >= 32
+        _builtin_rep_zero(x, len)
+        return
+
     i := 0
     while i + 8 <= len
         _write64(x@[i], 0)
@@ -305,6 +311,10 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
             i -= 1
             dst[i] = src[i]
     else
+        if n >= 32
+            _builtin_rep_copy(dst, src, n)
+            return
+
         i := 0
         while i + 8 <= n
             _write64(dst@[i], _read64(src@[i]))

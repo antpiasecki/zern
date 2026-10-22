@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::HashSet,
-    fmt, fs,
+    fs,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -100,9 +100,9 @@ pub struct Loc {
     pub length: usize,
 }
 
-impl fmt::Display for Loc {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}:{}", self.filename, self.line, self.column)
+impl Loc {
+    pub fn as_str(&self) -> String {
+        format!("{}:{}:{}", self.filename, self.line, self.column)
     }
 }
 
@@ -111,7 +111,6 @@ pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub loc: Loc,
-    pub orig_loc: Option<Loc>,
 }
 
 pub struct Tokenizer<'a> {
@@ -166,7 +165,6 @@ impl<'a> Tokenizer<'a> {
             token_type: TokenType::Eof,
             lexeme: String::new(),
             loc: self.loc.clone(),
-            orig_loc: None,
         });
 
         Ok(())
@@ -329,7 +327,6 @@ impl<'a> Tokenizer<'a> {
                     token_type: TokenType::Indent,
                     lexeme: String::new(),
                     loc: self.loc.clone(),
-                    orig_loc: None,
                 });
             }
             Ordering::Less => {
@@ -339,7 +336,6 @@ impl<'a> Tokenizer<'a> {
                         token_type: TokenType::Dedent,
                         lexeme: String::new(),
                         loc: self.loc.clone(),
-                        orig_loc: None,
                     });
                 }
                 if self.indent_stack.is_empty() || *self.indent_stack.last().unwrap() != new_indent {
@@ -521,7 +517,6 @@ impl<'a> Tokenizer<'a> {
                 column: self.start_loc.column,
                 length: self.current - self.start,
             },
-            orig_loc: None,
         });
         Ok(())
     }

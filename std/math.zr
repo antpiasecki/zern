@@ -16,6 +16,8 @@ func i64.sign[n: i64] : i64
         return 0
 
 func i64.factorial[n: i64] : i64
+    if n > 20
+        io.panic("i64.factorial: n > 20 overflows i64")
     out := 1
     for i in 2..=n
         out = out * i

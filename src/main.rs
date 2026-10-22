@@ -79,6 +79,15 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
                 .collect::<HashMap<String, String>>()
                 .serialize_json()
         );
+        println!(
+            "{}",
+            typechecker
+                .resolved_method_calls
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Vec<_>>()
+                .serialize_json()
+        );
         return Ok(());
     }
 
@@ -135,7 +144,7 @@ fn print_error(args: &Args, e: ZernError) {
         return;
     }
 
-    eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc, e.message);
+    eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc.as_str(), e.message);
     if *e.loc.filename != *"<unknown>" && e.loc.line > 0 {
         if let Ok(src) = fs::read_to_string(e.loc.filename.as_ref()) {
             if let Some(line) = src.lines().nth(e.loc.line - 1) {
@@ -287,7 +296,7 @@ fn usage_error(msg: &str) -> ! {
 fn print_usage() {
     eprintln!(
         r#"
-Usage: zern [-o <path>] [-r] [-g] [-S] [-m <static|dyn|cc|mingw>] [-L <flags>] <path>
+Usage: zern [flags] <path>
 
   -o <path>                - specifies the output path
   -r                       - runs the output executable after compilation
