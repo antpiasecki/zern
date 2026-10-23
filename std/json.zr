@@ -260,7 +260,7 @@ func json.Parser._parse_string[p: json.Parser] : Result<str>
         return err::<str>("json.parse: expected '\"'")
     p->i += 1
     sb := new str.Builder
-    defer sb->free_buffer()
+    defer sb->free_inner()
     while p->_peek() != '"'
         c := p->_peek()
         if c == 0

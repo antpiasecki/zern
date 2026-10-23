@@ -81,21 +81,7 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-func net.UDPSocket.receive[s: net.UDPSocket, len: i64] : Buffer, ptr
-    data := Buffer.alloc(len)
-    sa := mem.alloc(16)
-
-    addrlen := 16
-    len = _builtin_syscall(SYS_recvfrom, s->fd, data@[0], len, 0, sa, ^addrlen)
-    data = data->realloc(len)
-    return data, sa
-
-func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
-    io.close(s->fd)
-    s->addr->free()
-    (s as ptr)->free()
-
-func net.create_udp_client[host: str, port: i64] : Result<net.UDPSocket>
+func net.UDPSocket.new_client[host: str, port: i64] : Result<net.UDPSocket>
     packed_host := try net.resolve(host)
 
     s := new* net.UDPSocket
@@ -109,7 +95,7 @@ func net.create_udp_client[host: str, port: i64] : Result<net.UDPSocket>
     return ok::<net.UDPSocket>(s)
 
 func net.create_udp_server[host: str, port: i64] : Result<net.UDPSocket>
-    s := try net.create_udp_client(host, port)
+    s := try net.UDPSocket.new_client(host, port)
 
     if _builtin_syscall(SYS_bind, s->fd, s->addr, 16) < 0
         s->close_and_free()
@@ -120,14 +106,19 @@ func net.create_udp_server[host: str, port: i64] : Result<net.UDPSocket>
 func net.UDPSocket.send_to[s: net.UDPSocket, addr: ptr, data: ptr, len: i64] : void
     _builtin_syscall(SYS_sendto, s->fd, data, len, 0, addr, 16)
 
-struct net.UDPPacket
-    data: Buffer
-    source_addr: ptr
+func net.UDPSocket.receive[s: net.UDPSocket, len: i64] : Buffer, ptr
+    data := Buffer.alloc(len)
+    sa := mem.alloc(16)
 
-func net.UDPPacket.free[pkt: net.UDPPacket] : void
-    pkt->data->free()
-    pkt->source_addr->free()
-    (pkt as ptr)->free()
+    addrlen := 16
+    len = _builtin_syscall(SYS_recvfrom, s->fd, data@[0], len, 0, sa, ^addrlen)
+    data = data->realloc(len)
+    return data, sa
+
+func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
+    io.close(s->fd)
+    s->addr->free()
+    (s as ptr)->free()
 
 func net.parse_ipv4_str[ip: str] : Result<i64>
     parts := ip->split(".")
@@ -176,8 +167,7 @@ func net.resolve[domain: str] : Result<i64>
         else
             dns_server = "1.1.1.1"
 
-
-    s := try net.create_udp_client(dns_server, 53)
+    s := try net.UDPSocket.new_client(dns_server, 53)
     defer s->close_and_free()
 
     s->send_to(s->addr, query@[0], query->len)

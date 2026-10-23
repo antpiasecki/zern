@@ -33,7 +33,7 @@ func handle_req[s: net.UDPSocket, records: HashMap<Buffer>, req: Buffer, sa: ptr
 
     // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
     labels := new str.Builder
-    defer labels->free_buffer()
+    defer labels->free_inner()
     offset := 12
     while true
         if offset >= req->len
@@ -84,7 +84,7 @@ func handle_req[s: net.UDPSocket, records: HashMap<Buffer>, req: Buffer, sa: ptr
         nxdomain = true
 
     resp_len := offset + raw_name_len + 10 + rdata_len
-    resp := Buffer.alloc(resp_len)
+    resp := Buffer.alloc_zeroed(resp_len)
     mem.copy_n(req@[0], resp@[0], offset)
 
     resp[3] = resp[3] & 0xf0 // clear RCODE

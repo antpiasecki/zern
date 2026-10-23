@@ -385,16 +385,16 @@ func str.Builder.build_str_and_free_inner[b: str.Builder] : str
     s := mem.alloc(b->len + 1) as str
     mem.copy_n(b->data, s as ptr, b->len)
     s[b->len] = 0
-    b->free_buffer()
+    b->free_inner()
     return s
 
 func str.Builder.build_buffer_and_free_inner[b: str.Builder] : Buffer
     s := Buffer.alloc(b->len)
     mem.copy_n(b->data, s@[0], b->len)
-    b->free_buffer()
+    b->free_inner()
     return s
 
-func str.Builder.free_buffer[b: str.Builder] : void
+func str.Builder.free_inner[b: str.Builder] : void
     if b->data != 0
         b->data->free()
         b->data = 0 as ptr
