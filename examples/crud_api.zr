@@ -4,8 +4,8 @@ var todos: HashMap<str>
 
 func main[] : i64
     todos = HashMap.new::<str>()
-    todos->insert(os.uuid4(), "Buy milk")
-    todos->insert(os.uuid4(), "World domination")
+    todos->insert(os.uuid4(), "Buy milk"->make_copy())
+    todos->insert(os.uuid4(), "World domination"->make_copy())
 
     io.println("Listening on :8888...")
     http.start_server("0.0.0.0", 8888, ^handler)

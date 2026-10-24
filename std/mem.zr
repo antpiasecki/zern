@@ -373,7 +373,7 @@ struct Buffer
     len: i64
 
 func Buffer.alloc[n: i64] : Buffer
-    out := mem.alloc(8 + n) as Buffer
+    out := mem.alloc(8 + n + 1) as Buffer
     out->len = n
     return out
 
@@ -389,7 +389,7 @@ func Buffer.alloc_zeroed[n: i64] : Buffer
     return out
 
 func Buffer.realloc[b: Buffer, new_len: i64] : Buffer
-    new_b := (b as ptr)->realloc(8 + new_len) as Buffer
+    new_b := (b as ptr)->realloc(8 + new_len + 1) as Buffer
     new_b->len = new_len
     return new_b
 

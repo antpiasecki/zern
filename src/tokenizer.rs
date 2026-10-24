@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use nanoserde::SerJson;
+use nanoserde::{SerJson, SerJsonState};
 
 #[derive(Debug, Clone, PartialEq, SerJson)]
 pub enum TokenType {
@@ -92,7 +92,7 @@ macro_rules! error {
 
 pub(crate) use error;
 
-#[derive(Debug, Clone, PartialEq, SerJson)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Loc {
     pub filename: Rc<str>,
     pub line: usize,
@@ -103,6 +103,12 @@ pub struct Loc {
 impl Loc {
     pub fn as_str(&self) -> String {
         format!("{}:{}:{}", self.filename, self.line, self.column)
+    }
+}
+
+impl SerJson for Loc {
+    fn ser_json(&self, d: usize, s: &mut SerJsonState) {
+        self.as_str().ser_json(d, s);
     }
 }
 
@@ -146,7 +152,7 @@ impl<'a> Tokenizer<'a> {
                 length: 1,
             },
             start_loc: Loc {
-                filename: Rc::from(String::new()),
+                filename: Rc::from(String::from("YOU SHOULDNT SEE THIS")),
                 line: 0,
                 column: 0,
                 length: 0,

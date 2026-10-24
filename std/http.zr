@@ -286,67 +286,17 @@ func http._handle_conn[cd: http._ConnData] : void
     net.send(cd->c, resp_buf@[0], resp_buf->len)
 
 func http.status_code_to_text[code: i64] : str
-    if code == 100 return "Continue"
-    if code == 101 return "Switching Protocols"
-    if code == 102 return "Processing"
-    if code == 103 return "Early Hints"
-    if code == 200 return "OK"
-    if code == 201 return "Created"
-    if code == 202 return "Accepted"
-    if code == 203 return "Non-Authoritative Information"
-    if code == 204 return "No Content"
-    if code == 205 return "Reset Content"
-    if code == 206 return "Partial Content"
-    if code == 207 return "Multi-Status"
-    if code == 208 return "Already Reported"
-    if code == 226 return "IM Used"
-    if code == 300 return "Multiple Choices"
-    if code == 301 return "Moved Permanently"
-    if code == 302 return "Found"
-    if code == 303 return "See Other"
-    if code == 304 return "Not Modified"
-    if code == 305 return "Use Proxy"
-    if code == 306 return "Switch Proxy"
-    if code == 307 return "Temporary Redirect"
-    if code == 308 return "Permanent Redirect"
-    if code == 400 return "Bad Request"
-    if code == 401 return "Unauthorized"
-    if code == 402 return "Payment Required"
-    if code == 403 return "Forbidden"
-    if code == 404 return "Not Found"
-    if code == 405 return "Method Not Allowed"
-    if code == 406 return "Not Acceptable"
-    if code == 407 return "Proxy Authentication Required"
-    if code == 408 return "Request Timeout"
-    if code == 409 return "Conflict"
-    if code == 410 return "Gone"
-    if code == 411 return "Length Required"
-    if code == 412 return "Precondition Failed"
-    if code == 413 return "Content Too Large"
-    if code == 414 return "URI Too Long"
-    if code == 415 return "Unsupported Media Type"
-    if code == 416 return "Range Not Satisfiable"
-    if code == 417 return "Expectation Failed"
-    if code == 418 return "I'm a teapot"
-    if code == 421 return "Misdirected Request"
-    if code == 422 return "Unprocessable Content"
-    if code == 423 return "Locked"
-    if code == 424 return "Failed Dependency"
-    if code == 425 return "Too Early"
-    if code == 426 return "Upgrade Required"
-    if code == 428 return "Precondition Required"
-    if code == 429 return "Too Many Requests"
-    if code == 431 return "Request Header Fields Too Large"
-    if code == 451 return "Unavailable For Legal Reasons"
-    if code == 500 return "Internal Server Error"
-    if code == 501 return "Not Implemented"
-    if code == 502 return "Bad Gateway"
-    if code == 503 return "Service Unavailable"
-    if code == 504 return "Gateway Timeout"
-    if code == 505 return "HTTP Version Not Supported"
-    if code == 506 return "Variant Also Negotiates"
-    if code == 507 return "Insufficient Storage"
-    if code == 508 return "Loop Detected"
-    if code == 510 return "Not Extended"
-    if code == 511 return "Network Authentication Required"
+    s := "100Continue\x00101Switching Protocols\x00102Processing\x00103Early Hints\x00200OK\x00201Created\x00202Accepted\x00203Non-Authoritative Information\x00204No Content\x00205Reset Content\x00206Partial Content\x00207Multi-Status\x00208Already Reported\x00226IM Used\x00300Multiple Choices\x00301Moved Permanently\x00302Found\x00303See Other\x00304Not Modified\x00305Use Proxy\x00306Switch Proxy\x00307Temporary Redirect\x00308Permanent Redirect\x00400Bad Request\x00401Unauthorized\x00402Payment Required\x00403Forbidden\x00404Not Found\x00405Method Not Allowed\x00406Not Acceptable\x00407Proxy Authentication Required\x00408Request Timeout\x00409Conflict\x00410Gone\x00411Length Required\x00412Precondition Failed\x00413Content Too Large\x00414URI Too Long\x00415Unsupported Media Type\x00416Range Not Satisfiable\x00417Expectation Failed\x00418I'm a teapot\x00421Misdirected Request\x00422Unprocessable Content\x00423Locked\x00424Failed Dependency\x00425Too Early\x00426Upgrade Required\x00428Precondition Required\x00429Too Many Requests\x00431Request Header Fields Too Large\x00451Unavailable For Legal Reasons\x00500Internal Server Error\x00501Not Implemented\x00502Bad Gateway\x00503Service Unavailable\x00504Gateway Timeout\x00505HTTP Version Not Supported\x00506Variant Also Negotiates\x00507Insufficient Storage\x00508Loop Detected\x00510Not Extended\x00511Network Authentication Required\x00"
+    s_len := 1208
+    i := 0
+    while i < s_len
+        n_str := _stackalloc(4) as str
+        mem.copy_n(s@[i], n_str@[0], 3)
+        n_str[3] = 0
+        i += 3
+        if code == n_str->parse_i64()
+            return s@[i] as str
+        while s[i] != 0
+            i += 1
+        i += 1
     return ""

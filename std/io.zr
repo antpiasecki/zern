@@ -115,8 +115,8 @@ func io.write[fd: i64, buf: ptr, count: i64] : i64
 
 func io.read_line[] : str
     b := new str.Builder
+    c := 0 as u8
     while true
-        c := 0 as u8
         n := io.read(STDIN_FILENO, ^c, 1)
         if n < 1 || c == '\n'
             break
@@ -137,6 +137,9 @@ func io.read_file[path: str] : Result<Buffer>
     if n != len
         buf->free()
         return err::<Buffer>("io.read_file: n != len")
+
+    // null terminate it anyway
+    buf@[0][buf->len] = 0
 
     return ok::<Buffer>(buf)
 

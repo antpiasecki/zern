@@ -815,6 +815,7 @@ impl Parser {
             } else if self.match_token(&[TokenType::Arrow]) {
                 if self.check(&TokenType::Identifier)
                     && (self.check_ahead(&TokenType::DoubleColon) || self.check_ahead(&TokenType::LeftParen))
+                    && self.tokens[self.current].loc.line == self.tokens[self.current + 1].loc.line
                 {
                     let method = self.consume(TokenType::Identifier, "expected method name")?;
                     let type_args = if self.match_token(&[TokenType::DoubleColon]) {

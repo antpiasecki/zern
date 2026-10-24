@@ -1191,7 +1191,6 @@ _start:
                 }
             }
 
-            emit!(&mut self.output, "    mov al, {}", fp_idx);
             emit!(&mut self.output, "    add rsp, 32");
             return 0;
         }
@@ -1226,8 +1225,6 @@ _start:
             emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset + 8 * j);
             emit!(&mut self.output, "    push rax");
         }
-
-        emit!(&mut self.output, "    mov al, {}", fp_idx);
 
         if num_stack == 0 {
             emit!(&mut self.output, "    add rsp, {}", 8 * arg_count);
@@ -1367,7 +1364,7 @@ fn hash(s: &str) -> String {
         h ^= b as u64;
         h = h.wrapping_mul(0x100000001b3);
     }
-    format!("{:x}", h)
+    format!("{:016x}", h)
 }
 
 fn escape_str(s: &str) -> String {

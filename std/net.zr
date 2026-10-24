@@ -121,29 +121,28 @@ func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
     (s as ptr)->free()
 
 func net.parse_ipv4_str[ip: str] : Result<i64>
-    parts := ip->split(".")
-    defer parts->free_with_ptr_items()
-    if parts->len == 4
-        valid := true
-        for i in 0..4
-            p := parts->nth(i)
-            if p->len() < 1 || p->len() > 3
-                valid = false
-                break
-            for j in 0..p->len()
-                if !p[j]->is_digit()
-                    valid = false
-                    break
-            if !valid
-                break
-        if valid
-            a := parts->nth(0)->parse_i64()
-            b := parts->nth(1)->parse_i64()
-            c := parts->nth(2)->parse_i64()
-            d := parts->nth(3)->parse_i64()
-            if a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255
-                return ok::<i64>(net.pack_addr(a, b, c, d))
-    return err::<i64>("net.parse_ipv4_str: failed")
+    n := 0
+    digits := 0
+    dots := 0
+    acc := 0
+    for i in 0..ip->len()
+        c := ip[i]
+        if c->is_digit()
+            n = n * 10 + (c - '0')
+            digits += 1
+            if digits > 3
+                return err::<i64>("net.parse_ipv4_str: failed")
+        if !c->is_digit()
+            if c != '.' || digits == 0 || n > 255
+                return err::<i64>("net.parse_ipv4_str: failed")
+            acc = acc * 256 + n
+            n = 0
+            digits = 0
+            dots += 1
+    if dots != 3 || digits == 0 || n > 255
+        return err::<i64>("net.parse_ipv4_str: failed")
+    acc = acc * 256 + n
+    return ok::<i64>(acc)
 
 func net.resolve[domain: str] : Result<i64>
     // if domain is already an ip, skip dns resolution

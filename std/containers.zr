@@ -54,7 +54,7 @@ func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
 func Array.nth<T>[xs: Array<T>, n: i64] : T
     if n < 0 || n >= xs->len
         io.panic("Array.nth: out of bounds")
-    return mem.read64(xs->data@[n * 8]) as T
+    return mem.read64(xs->data@[n * 8]) as opaque as T
 
 func Array.set<T>[xs: Array<T>, n: i64, x: T] : void
     if n < 0 || n >= xs->len
@@ -103,7 +103,7 @@ func Array.free<T>[xs: Array<T>] : void
 func Array.free_with_ptr_items<T>[xs: Array<T>] : void
     if xs->data != 0
         for i in 0..xs->len
-            (xs->nth(i) as ptr)->free()
+            (xs->nth(i) as opaque as ptr)->free()
         xs->data->free()
     (xs as ptr)->free()
 

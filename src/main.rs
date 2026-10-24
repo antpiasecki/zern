@@ -106,7 +106,7 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
 
         match args.mode {
             CompileMode::MinGW => run_command(format!("x86_64-w64-mingw32-as {debug_flag} -o {out}.o {out}.s")),
-            _ => run_command(format!("as --64 {debug_flag} -o {out}.o {out}.s")),
+            _ => run_command(format!("as --64 {debug_flag} -mx86-used-note=no -o {out}.o {out}.s")),
         }
 
         match args.mode {
