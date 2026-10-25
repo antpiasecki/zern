@@ -14,6 +14,8 @@ use std::{
 use nanoserde::SerJson as _;
 use tokenizer::ZernError;
 
+use crate::parser::Stmt;
+
 fn main() {
     let args = Args::parse(std::env::args());
 
@@ -60,14 +62,15 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
         println!("{}", statements.serialize_json());
     }
 
-    symbol_table
-        .constants
-        .insert("_WINDOWS".into(), (args.mode == CompileMode::MinGW) as i64);
-
     let mut typechecker = typechecker::TypeChecker::new(&symbol_table);
+    let mut deps: Vec<HashSet<String>> = Vec::new();
     for stmt in &statements {
-        typechecker.typecheck_stmt(&mut typechecker::Env::new(), stmt)?;
+        let env = &mut typechecker::Env::new();
+        typechecker.typecheck_stmt(env, stmt)?;
+        deps.push(std::mem::take(&mut env.used_functions));
     }
+
+    let statements = strip_dead_functions(statements, deps, &symbol_table);
 
     if args.dump {
         println!(
@@ -136,6 +139,54 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
     }
 
     Ok(())
+}
+
+fn strip_dead_functions(
+    statements: Vec<Stmt>,
+    deps: Vec<HashSet<String>>,
+    symbol_table: &symbol_table::SymbolTable,
+) -> Vec<Stmt> {
+    let mut base: HashMap<String, Vec<usize>> = HashMap::default();
+    for (i, s) in statements.iter().enumerate() {
+        if let Stmt::Function { name, .. } = s {
+            let key = name.lexeme.split('<').next().unwrap();
+            base.entry(key.to_string()).or_default().push(i);
+        }
+    }
+
+    let mut keep = vec![false; statements.len()];
+    let mut queue = vec![];
+    for (i, s) in statements.iter().enumerate() {
+        match s {
+            Stmt::Function { name, .. }
+                if name.lexeme != "main"
+                    && !symbol_table.functions[&name.lexeme]
+                        .attributes
+                        .contains(&"export".into()) => {}
+            _ => {
+                keep[i] = true;
+                queue.push(i);
+            }
+        }
+    }
+
+    while let Some(i) = queue.pop() {
+        for word in deps[i].iter() {
+            let key = word.split('<').next().unwrap();
+            for &j in base.get(key).into_iter().flatten() {
+                if !keep[j] {
+                    keep[j] = true;
+                    queue.push(j);
+                }
+            }
+        }
+    }
+
+    statements
+        .into_iter()
+        .zip(keep)
+        .filter_map(|(s, k)| k.then_some(s))
+        .collect()
 }
 
 fn print_error(args: &Args, e: ZernError) {

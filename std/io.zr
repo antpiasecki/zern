@@ -2,7 +2,8 @@ include "str.zr"
 include "os.zr"
 
 func io.panic[msg: str] : void
-    io.printf("panic: %s\n", msg)
+    io.print("panic: ")
+    io.println(msg)
     _builtin_int3()
     os.exit(1)
 

@@ -7,7 +7,7 @@ A very cool language
 - Clean indentation-based syntax
 - Targets x86-64 Linux and Windows\*
 - No libc required!
-- Produces tiny static executables (17KB for `hello.zr`)
+- Produces tiny static executables (10KB for unstripped `hello.zr`)
 - Has static typing, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax), [generics](https://git.ton1.dev/toni/zern/src/branch/main/std/containers.zr), [variadics](https://git.ton1.dev/toni/zern/src/branch/main/std/io.zr#L14), [custom allocator](https://git.ton1.dev/toni/zern/src/branch/main/std/mem.zr), [hashmaps](https://git.ton1.dev/toni/zern/src/branch/main/std/containers.zr#L153), [HTTP library](https://git.ton1.dev/toni/zern/src/branch/main/examples/crud_api.zr), DNS resolver, etc.
 
 ## Syntax

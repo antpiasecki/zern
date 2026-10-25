@@ -426,7 +426,6 @@ _start:
                 if self.args.mode != CompileMode::MinGW {
                     emit!(&mut self.output, ".type {}, @function", mangled);
                 }
-                emit!(&mut self.output, ".section .text.{}", mangled);
                 emit!(&mut self.output, "{}:", mangled);
                 emit!(&mut self.output, "    push rbp");
                 emit!(&mut self.output, "    mov rbp, rsp");
@@ -1146,7 +1145,9 @@ _start:
             }
             ExprKind::Try { expr } => {
                 if self.args.mode == CompileMode::MinGW {
-                    todo!("windows can't use std Result anyway");
+                    emit!(&mut self.output, "    // ExprKind::Try unimplemented on Windows");
+                    emit!(&mut self.output, "    int3");
+                    return Ok(());
                 }
                 let ok_label = self.label();
                 self.compile_expr(env, expr)?;

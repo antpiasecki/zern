@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     monomorphizer,
@@ -50,12 +50,14 @@ static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "p
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
+    pub used_functions: HashSet<String>,
 }
 
 impl Env {
     pub fn new() -> Env {
         Env {
             scopes: vec![HashMap::new()],
+            used_functions: HashSet::new(),
         }
     }
 
@@ -151,7 +153,11 @@ impl<'a> TypeChecker<'a> {
                         if *is_offset {
                             return error!(left.loc, "@ not allowed when assigning to an index");
                         }
-                        expect_types!(self.typecheck_expr(env, indexed)?, ["ptr", "str", "Buffer"], left.loc);
+                        let indexed_type = self.typecheck_expr(env, indexed)?;
+                        if indexed_type == "Buffer" {
+                            env.used_functions.insert("io._oob_panic".into());
+                        }
+                        expect_types!(indexed_type, ["ptr", "str", "Buffer"], left.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], left.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], left.loc);
                     }
@@ -440,6 +446,7 @@ impl<'a> TypeChecker<'a> {
                     } else {
                         monomorphizer::type_name(&callee_name.lexeme, type_args)
                     };
+                    env.used_functions.insert(callee_name.clone());
                     if let Some(fn_type) = self.symbol_table.functions.get(&callee_name) {
                         // its a function (defined/builtin/extern)
                         match &fn_type.params {
@@ -503,6 +510,8 @@ impl<'a> TypeChecker<'a> {
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
+                env.used_functions.insert("mem.alloc".into());
+                env.used_functions.insert("Array.push<opaque>".into());
                 Ok("Array<opaque>".into())
             }
             ExprKind::Index {
@@ -510,13 +519,18 @@ impl<'a> TypeChecker<'a> {
                 is_offset,
                 index,
             } => {
-                expect_types!(self.typecheck_expr(env, indexed)?, ["ptr", "str", "Buffer"], expr.loc);
+                let indexed_type = self.typecheck_expr(env, indexed)?;
+                if indexed_type == "Buffer" {
+                    env.used_functions.insert("io._oob_panic".into());
+                }
+                expect_types!(indexed_type, ["ptr", "str", "Buffer"], expr.loc);
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
             ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
                     if let Some(f) = self.symbol_table.functions.get(&name.lexeme) {
+                        env.used_functions.insert(name.lexeme.clone());
                         let params_str = match &f.params {
                             FnParams::Normal(params) => {
                                 if !params.is_empty() {
@@ -546,6 +560,7 @@ impl<'a> TypeChecker<'a> {
                         format!("unknown struct name: {}", &struct_name.lexeme)
                     );
                 }
+                env.used_functions.insert("mem.alloc".into());
                 Ok(struct_name.lexeme.clone())
             }
             ExprKind::MemberAccess { left, field } => {
@@ -577,6 +592,7 @@ impl<'a> TypeChecker<'a> {
                 let receiver_type = self.typecheck_expr(env, callee)?;
                 let func_name = format!("{}.{}", monomorphizer::method_owner(&receiver_type), method.lexeme);
 
+                env.used_functions.insert(func_name.clone());
                 self.resolved_method_calls.push((method.loc.clone(), func_name.clone()));
 
                 let inferred_args = if type_args.is_empty() {
