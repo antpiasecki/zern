@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Write};
 use crate::{
     Args, CompileMode, monomorphizer,
     parser::{Expr, ExprKind, Params, Stmt},
-    symbol_table::{SymbolTable, return_types_tokens_to_type},
+    symbol_table::{SymbolTable, return_types_tokens_to_type_str},
     tokenizer::{Token, TokenType, ZernError, error},
 };
 
@@ -133,15 +133,6 @@ impl<'a> CodegenX86_64<'a> {
 .section .text
 _builtin_int3:
     int3
-    ret
-
-_builtin_f64_to_f32:
-    cvtsd2ss xmm0, xmm0
-    movd eax, xmm0
-    ret
-
-_builtin_f32_to_f64:
-    cvtss2sd xmm0, xmm0
     ret
 "
         );
@@ -410,7 +401,7 @@ _start:
             } => {
                 assert!(type_vars.is_empty());
 
-                env.return_type = return_types_tokens_to_type(return_types);
+                env.return_type = return_types_tokens_to_type_str(return_types);
 
                 let name = &name.lexeme;
                 let mangled = mangle(name);
@@ -444,7 +435,7 @@ _start:
                         let mut stack_count = 0;
                         for param in params {
                             let offset = env.define_var(param.var_name.lexeme.clone());
-                            if param.var_type.lexeme == "f64" {
+                            if param.var_type.lexeme == "f64" || param.var_type.lexeme == "f32" {
                                 if fp_reg < max_fp_reg {
                                     emit!(&mut self.output, "    movq QWORD PTR [rbp-{}], xmm{}", offset, fp_reg);
                                 } else {
@@ -541,7 +532,7 @@ _start:
                     }
                     _ => unreachable!(), // guaranteed by typechecker
                 }
-                if env.return_type == "f64" {
+                if env.return_type == "f64" || env.return_type == "f32" {
                     emit!(&mut self.output, "    movq xmm0, rax");
                 }
                 self.emit_ret();
@@ -592,13 +583,13 @@ _start:
                 env.loop_continue_label = old_loop_continue_label;
             }
             Stmt::Break(keyword) => {
-                if env.loop_end_label == "" {
+                if env.loop_end_label.is_empty() {
                     return error!(keyword.loc, "break not allowed outside loops");
                 }
                 emit!(&mut self.output, "    jmp {}", env.loop_end_label);
             }
             Stmt::Continue(keyword) => {
-                if env.loop_continue_label == "" {
+                if env.loop_continue_label.is_empty() {
                     return error!(keyword.loc, "continue not allowed outside loops");
                 }
                 emit!(&mut self.output, "    jmp {}", env.loop_continue_label);
@@ -611,7 +602,7 @@ _start:
                 emit!(&mut self.bss, "    {}: .skip 8", label);
             }
             Stmt::Defer { keyword, block } => {
-                if env.loop_begin_label != "" {
+                if !env.loop_begin_label.is_empty() {
                     return error!(keyword.loc, "defers in loops not implemented yet");
                 }
                 env.scopes.last_mut().unwrap().defers.push(*block.clone());
@@ -626,7 +617,7 @@ _start:
                 Some(id) => *id,
                 None => {
                     let id = self.file_ids.len();
-                    emit!(&mut self.output, ".file {} \"{}\"", id, escape_str(&*expr.loc.filename));
+                    emit!(&mut self.output, ".file {} \"{}\"", id, escape_str(&expr.loc.filename));
                     self.file_ids.insert((*expr.loc.filename).into(), id);
                     id
                 }
@@ -956,7 +947,7 @@ _start:
 
                 self.emit_call_cleanup(args.len(), num_stack);
                 match self.expr_types[&expr.id].as_str() {
-                    "f64" => emit!(&mut self.output, "    movq rax, xmm0"),
+                    "f64" | "f32" => emit!(&mut self.output, "    movq rax, xmm0"),
                     "u8" | "bool" => emit!(&mut self.output, "    movzx eax, al"),
                     _ => {}
                 }
@@ -1056,6 +1047,9 @@ _start:
             ExprKind::Cast { casted, type_name } => {
                 self.compile_expr(env, casted)?;
                 match (self.expr_types[&casted.id].as_str(), type_name.lexeme.as_str()) {
+                    (left, right) if left == right => {} // no-op
+                    (_, "opaque") => {}                  // bitcast
+                    ("opaque", _) => {}                  // bitcast
                     ("i64", "f64") => {
                         emit!(&mut self.output, "    cvtsi2sd xmm0, rax");
                         emit!(&mut self.output, "    movq rax, xmm0");
@@ -1064,20 +1058,30 @@ _start:
                         emit!(&mut self.output, "    movq xmm0, rax");
                         emit!(&mut self.output, "    cvttsd2si rax, xmm0");
                     }
-                    ("f64", "f64") => {}    // nothing to do
-                    ("opaque", "f64") => {} // bitcast
-                    ("f64", "opaque") => {} // bitcast
+                    ("f32", "f64") => {
+                        emit!(&mut self.output, "    movd xmm0, eax");
+                        emit!(&mut self.output, "    cvtss2sd xmm0, xmm0");
+                        emit!(&mut self.output, "    movq rax, xmm0");
+                    }
+                    ("f64", "f32") => {
+                        emit!(&mut self.output, "    movq xmm0, rax");
+                        emit!(&mut self.output, "    cvtsd2ss xmm0, xmm0");
+                        emit!(&mut self.output, "    movd eax, xmm0");
+                    }
                     ("f64", _) => {
-                        return error!(
-                            type_name.loc,
-                            "f64 can be casted only to i64 (float conversion) or opaque (bitcast)"
-                        );
+                        return error!(type_name.loc, "f64 can be casted only to i64, f32 or opaque (bitcast)");
                     }
                     (_, "f64") => {
                         return error!(
                             type_name.loc,
-                            "f64 can be casted only from i64 (float conversion) or opaque (bitcast)"
+                            "f64 can be casted only from i64, f32 or opaque (bitcast)"
                         );
+                    }
+                    ("f32", _) => {
+                        return error!(type_name.loc, "f32 can be casted only to f64 or opaque (bitcast)");
+                    }
+                    (_, "f32") => {
+                        return error!(type_name.loc, "f32 can be casted only from f64 or opaque (bitcast)");
                     }
                     (_, "u8") => {
                         emit!(&mut self.output, "    movzx eax, al");
@@ -1201,7 +1205,7 @@ _start:
         for (i, arg_type) in arg_types.iter().enumerate() {
             let offset = 8 * (arg_count - 1 - i);
             emit!(&mut self.output, "    mov rax, QWORD PTR [rsp + {}]", offset);
-            if arg_type == "f64" {
+            if arg_type == "f64" || arg_type == "f32" {
                 if fp_idx < 8 {
                     emit!(&mut self.output, "    movq xmm{}, rax", fp_idx);
                     fp_idx += 1;

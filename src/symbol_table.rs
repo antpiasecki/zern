@@ -55,8 +55,6 @@ impl SymbolTable {
         SymbolTable {
             functions: HashMap::from([
                 ("_builtin_int3".into(), FnType::new(vec![], "void")),
-                ("_builtin_f64_to_f32".into(), FnType::new(vec!["f64"], "opaque")),
-                ("_builtin_f32_to_f64".into(), FnType::new(vec!["f64"], "f64")),
                 (
                     "_builtin_spawn_thread".into(),
                     FnType::new(vec!["ptr", "opaque", "ptr", "ptr", "i64"], "i64"),
@@ -118,7 +116,7 @@ impl SymbolTable {
                 }
 
                 if type_vars.is_empty() {
-                    let return_type = return_types_tokens_to_type(return_types);
+                    let return_type = return_types_tokens_to_type_str(return_types);
                     let attributes = attributes.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>();
                     match params {
                         Params::Normal(params) => self.functions.insert(
@@ -205,7 +203,7 @@ impl SymbolTable {
     }
 }
 
-pub fn return_types_tokens_to_type(return_types: &[Token]) -> String {
+pub fn return_types_tokens_to_type_str(return_types: &[Token]) -> String {
     if return_types.len() == 1 {
         return_types[0].lexeme.clone()
     } else {

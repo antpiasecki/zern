@@ -48,7 +48,7 @@ impl<'a> Monomorphizer<'a> {
 
                     *params = substituted_params;
                     *return_types = substituted_return_types;
-                    *body = Box::new(substituted_body);
+                    **body = substituted_body;
                 }
                 Stmt::Struct { type_vars, fields, .. } if type_vars.is_empty() => {
                     for field in fields {

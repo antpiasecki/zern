@@ -1,4 +1,4 @@
-// needs to be compiled with -m dyn -L "-lraylib"
+// zern -m dyn -L "-lraylib"
 include "io.zr"
 
 func main[argc: i64, argv: ptr] : i64

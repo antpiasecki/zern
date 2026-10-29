@@ -240,28 +240,6 @@ impl Parser {
     fn func_declaration(&mut self) -> Result<Stmt, ZernError> {
         let name = self.consume(TokenType::Identifier, "expected function name")?;
 
-        let (type_vars, params, return_types, attributes) = self.parse_function_type()?;
-
-        let body = Box::new(if self.check(&TokenType::Indent) {
-            self.is_inside_function = true;
-            let body = self.block()?;
-            self.is_inside_function = false;
-            body
-        } else {
-            Stmt::Block(vec![])
-        });
-
-        Ok(Stmt::Function {
-            name,
-            params,
-            return_types,
-            type_vars,
-            body,
-            attributes,
-        })
-    }
-
-    fn parse_function_type(&mut self) -> Result<(Vec<Token>, Params, Vec<Token>, Vec<Token>), ZernError> {
         let type_vars = if self.is_type_args() {
             self.parse_type_vars()?
         } else {
@@ -313,16 +291,29 @@ impl Parser {
             self.consume(TokenType::RightBracket, "expected ']' after attributes")?;
         }
 
-        Ok((
-            type_vars,
-            if is_variadic {
-                Params::Variadic
-            } else {
-                Params::Normal(params)
-            },
+        let params = if is_variadic {
+            Params::Variadic
+        } else {
+            Params::Normal(params)
+        };
+
+        let body = Box::new(if self.check(&TokenType::Indent) {
+            self.is_inside_function = true;
+            let body = self.block()?;
+            self.is_inside_function = false;
+            body
+        } else {
+            Stmt::Block(vec![])
+        });
+
+        Ok(Stmt::Function {
+            name,
+            params,
             return_types,
+            type_vars,
+            body,
             attributes,
-        ))
+        })
     }
 
     fn parse_type_vars(&mut self) -> Result<Vec<Token>, ZernError> {
@@ -356,7 +347,7 @@ impl Parser {
         if self.is_type_args() {
             let args = self.parse_type_args()?;
 
-            name.lexeme.push_str("<");
+            name.lexeme.push('<');
             name.lexeme.push_str(
                 &args
                     .iter()
@@ -364,7 +355,7 @@ impl Parser {
                     .collect::<Vec<_>>()
                     .join(", "),
             );
-            name.lexeme.push_str(">");
+            name.lexeme.push('>');
         }
         Ok(name)
     }

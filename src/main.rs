@@ -11,10 +11,9 @@ use std::{
     process::{Command, exit},
 };
 
-use nanoserde::SerJson as _;
-use tokenizer::ZernError;
+use crate::{parser::Stmt, tokenizer::ZernError};
 
-use crate::parser::Stmt;
+use nanoserde::SerJson as _;
 
 fn main() {
     let args = Args::parse(std::env::args());
@@ -94,7 +93,7 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
         return Ok(());
     }
 
-    let mut codegen = codegen_x86_64::CodegenX86_64::new(&args, &symbol_table, &typechecker.expr_types);
+    let mut codegen = codegen_x86_64::CodegenX86_64::new(args, &symbol_table, &typechecker.expr_types);
     codegen.emit_prologue()?;
     for stmt in statements {
         codegen.compile_stmt(&mut codegen_x86_64::Env::new(), &stmt)?;
@@ -113,20 +112,14 @@ fn compile_file(args: &Args) -> Result<(), ZernError> {
         }
 
         match args.mode {
-            CompileMode::StaticLD => run_command(format!(
-                "ld -static -o {out} {out}.o --gc-sections -e _start {}",
-                args.link_flags
-            )),
+            CompileMode::StaticLD => run_command(format!("ld -static -o {out} {out}.o -e _start {}", args.link_flags)),
             CompileMode::DynamicLD => run_command(format!(
-                "ld --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o {out} {out}.o --gc-sections -e _start {}",
+                "ld --dynamic-linker /lib64/ld-linux-x86-64.so.2 -o {out} {out}.o -e _start {}",
                 args.link_flags
             )),
-            CompileMode::CC => run_command(format!(
-                "cc -no-pie -o {out} {out}.o -flto -Wl,--gc-sections {}",
-                args.link_flags
-            )),
+            CompileMode::CC => run_command(format!("cc -no-pie -o {out} {out}.o -flto {}", args.link_flags)),
             CompileMode::MinGW => run_command(format!(
-                "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto -Wl,--gc-sections {}",
+                "x86_64-w64-mingw32-gcc -o {out} {out}.o -flto {}",
                 args.link_flags
             )),
         }
@@ -196,30 +189,30 @@ fn print_error(args: &Args, e: ZernError) {
     }
 
     eprintln!("{}: \x1b[91mERROR\x1b[0m: {}", e.loc.as_str(), e.message);
-    if *e.loc.filename != *"<unknown>" && e.loc.line > 0 {
-        if let Ok(src) = fs::read_to_string(e.loc.filename.as_ref()) {
-            if let Some(line) = src.lines().nth(e.loc.line - 1) {
-                if e.loc.line > 1 {
-                    if let Some(previous_line) = src.lines().nth(e.loc.line - 2) {
-                        eprintln!("{} | \x1b[90m{}\x1b[0m", e.loc.line - 1, previous_line);
-                    }
-                }
-
-                let line_num_str = e.loc.line.to_string();
-                eprintln!("{} | {}", line_num_str, line);
-
-                let col0 = e.loc.column.saturating_sub(1);
-                let underline_len = e.loc.length.max(1);
-                let caret_line = format!("{}{}", " ".repeat(col0), "^".repeat(underline_len));
-
-                eprintln!(
-                    "{:>width$} | \x1b[91m{}\x1b[0m",
-                    "",
-                    caret_line,
-                    width = line_num_str.len()
-                );
-            }
+    if *e.loc.filename != *"<unknown>"
+        && e.loc.line > 0
+        && let Ok(src) = fs::read_to_string(e.loc.filename.as_ref())
+        && let Some(line) = src.lines().nth(e.loc.line - 1)
+    {
+        if e.loc.line > 1
+            && let Some(previous_line) = src.lines().nth(e.loc.line - 2)
+        {
+            eprintln!("{} | \x1b[90m{}\x1b[0m", e.loc.line - 1, previous_line);
         }
+
+        let line_num_str = e.loc.line.to_string();
+        eprintln!("{} | {}", line_num_str, line);
+
+        let col0 = e.loc.column.saturating_sub(1);
+        let underline_len = e.loc.length.max(1);
+        let caret_line = format!("{}{}", " ".repeat(col0), "^".repeat(underline_len));
+
+        eprintln!(
+            "{:>width$} | \x1b[91m{}\x1b[0m",
+            "",
+            caret_line,
+            width = line_num_str.len()
+        );
     }
 }
 

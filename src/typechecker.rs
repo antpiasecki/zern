@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     monomorphizer,
     parser::{Expr, ExprKind, Params, ScopeCall, Stmt, recursion_guard},
-    symbol_table::{FnParams, SymbolTable, return_types_tokens_to_type},
+    symbol_table::{FnParams, SymbolTable, return_types_tokens_to_type_str},
     tokenizer::{Loc, TokenType, ZernError, error},
 };
 
@@ -46,7 +46,7 @@ macro_rules! expect_same_types {
         }
     }};
 }
-static BUILTIN_TYPES: [&str; 8] = ["void", "u8", "i64", "f64", "str", "bool", "ptr", "opaque"];
+static BUILTIN_TYPES: [&str; 9] = ["void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "opaque"];
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
@@ -254,12 +254,12 @@ impl<'a> TypeChecker<'a> {
                 body,
                 attributes: _,
             } => {
-                let return_type = return_types_tokens_to_type(return_types);
+                let return_type = return_types_tokens_to_type_str(return_types);
                 if return_types.len() > 2 {
                     return error!(&return_types[2].loc, "functions cannot return more than two values");
                 }
 
-                if return_types.len() > 1 && return_type.contains(&"f64") {
+                if return_types.len() > 1 && return_type.contains("f64") {
                     return error!(
                         &return_types[1].loc,
                         "returning f64 among multiple values not implemented yet"
@@ -482,7 +482,7 @@ impl<'a> TypeChecker<'a> {
                             let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
                             let return_type = param_types.remove(0);
 
-                            for (arg, param_type) in args.into_iter().zip(param_types) {
+                            for (arg, param_type) in args.iter().zip(param_types) {
                                 expect_type!(self.typecheck_expr(env, arg)?, param_type, expr.loc);
                             }
                             Ok(return_type.into())
@@ -497,7 +497,7 @@ impl<'a> TypeChecker<'a> {
                         let mut param_types = monomorphizer::split_type_args(&var_type[8..var_type.len() - 1]);
                         let return_type = param_types.remove(0);
 
-                        for (arg, param_type) in args.into_iter().zip(param_types) {
+                        for (arg, param_type) in args.iter().zip(param_types) {
                             expect_type!(self.typecheck_expr(env, arg)?, param_type, expr.loc);
                         }
                         Ok(return_type.into())

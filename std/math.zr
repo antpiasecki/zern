@@ -149,12 +149,6 @@ func i64.octal_to_decimal[octal: i64] : i64
         octal = octal / 10
     return decimal
 
-func f64.to_ffi_f32[f: f64] : f64
-    return _builtin_f64_to_f32(f) as f64
-
-func f64.from_ffi_f32[f: f64] : f64
-    return _builtin_f32_to_f64(f)
-
 func f64.to_str_buf[x: f64, buf: str] : i64
     bits := x as opaque as i64
     sign := (bits >> 63) & 1
