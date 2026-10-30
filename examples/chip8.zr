@@ -64,12 +64,9 @@ struct CHIP8
     keyboard_map: Array<i64>
 
 func CHIP8.init[c: CHIP8] : void
-    c->memory = Buffer.alloc(4096)
-    mem.zero(c->memory@[0], 4096)
-    c->display = Buffer.alloc(64*32)
-    mem.zero(c->display@[0], 64*32)
-    c->reg = Buffer.alloc(16)
-    mem.zero(c->reg@[0], 16)
+    c->memory = Buffer.alloc_zeroed(4096)
+    c->display = Buffer.alloc_zeroed(64*32)
+    c->reg = Buffer.alloc_zeroed(16)
 
     c->stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as Array<i64>
 

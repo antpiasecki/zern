@@ -953,23 +953,27 @@ _start:
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
+                let n = exprs.len();
                 self.emit_heap_alloc(24);
                 emit!(&mut self.output, "    push rax");
-                emit!(&mut self.output, "    mov rdi, rax");
-                emit!(&mut self.output, "    mov rcx, 24");
-                emit!(&mut self.output, "    xor eax, eax");
-                emit!(&mut self.output, "    rep stosb");
-                emit!(&mut self.output, "    pop rax");
-                emit!(&mut self.output, "    push rax");
 
-                for expr in exprs {
-                    self.compile_expr(env, expr)?;
-                    emit!(&mut self.output, "    mov rsi, rax");
-                    emit!(&mut self.output, "    pop rdi");
-                    emit!(&mut self.output, "    push rdi");
-                    emit!(&mut self.output, "    call {}", mangle("Array.push<opaque>"));
+                if n == 0 {
+                    emit!(&mut self.output, "    xor ecx, ecx");
+                } else {
+                    self.emit_heap_alloc(n * 8);
+                    emit!(&mut self.output, "    push rax");
+                    for (i, expr) in exprs.iter().enumerate() {
+                        self.compile_expr(env, expr)?;
+                        emit!(&mut self.output, "    mov rcx, [rsp]");
+                        emit!(&mut self.output, "    mov [rcx + {}], rax", i * 8);
+                    }
+                    emit!(&mut self.output, "    pop rcx");
                 }
                 emit!(&mut self.output, "    pop rax");
+                emit!(&mut self.output, "    mov edx, {}", n);
+                emit!(&mut self.output, "    mov [rax], rcx");
+                emit!(&mut self.output, "    mov [rax + 8], rdx");
+                emit!(&mut self.output, "    mov [rax + 16], rdx");
             }
             ExprKind::Index {
                 indexed,
@@ -1033,9 +1037,8 @@ _start:
                 emit!(&mut self.output, "    push rax");
                 emit!(&mut self.output, "    sub rsp, 8");
                 emit!(&mut self.output, "    mov rdi, rax");
-                emit!(&mut self.output, "    mov rcx, {}", memory_size);
-                emit!(&mut self.output, "    xor eax, eax");
-                emit!(&mut self.output, "    rep stosb");
+                emit!(&mut self.output, "    mov rsi, {}", memory_size);
+                emit!(&mut self.output, "    call mem.zero");
                 emit!(&mut self.output, "    add rsp, 8");
                 emit!(&mut self.output, "    pop rax");
             }

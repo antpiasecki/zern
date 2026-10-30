@@ -511,7 +511,6 @@ impl<'a> TypeChecker<'a> {
                     self.typecheck_expr(env, expr)?;
                 }
                 env.used_functions.insert("mem.alloc".into());
-                env.used_functions.insert("Array.push<opaque>".into());
                 Ok("Array<opaque>".into())
             }
             ExprKind::Index {
@@ -561,6 +560,7 @@ impl<'a> TypeChecker<'a> {
                     );
                 }
                 env.used_functions.insert("mem.alloc".into());
+                env.used_functions.insert("mem.zero".into());
                 Ok(struct_name.lexeme.clone())
             }
             ExprKind::MemberAccess { left, field } => {

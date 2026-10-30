@@ -270,6 +270,11 @@ func ptr.zero_and_free[x: ptr, len: i64] : void
     mem.zero(x, len)
     x->free()
 
+func mem.alloc_zeroed[len: i64] : ptr
+    b := mem.alloc(len)
+    mem.zero(b, len)
+    return b
+
 func mem.zero[x: ptr, len: i64] : void
     if len <= 0
         return

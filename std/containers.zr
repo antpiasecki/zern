@@ -42,8 +42,7 @@ struct Array<T>
 
 func Array.preallocate_and_zero<T>[xs: Array<T>, len: i64] : void
     if len > 0
-        xs->data = mem.alloc(len * 8)
-        mem.zero(xs->data, len * 8)
+        xs->data = mem.alloc_zeroed(len * 8)
         xs->len = len
         xs->capacity = len
 
