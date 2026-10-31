@@ -41,6 +41,7 @@ func mem._ensure_allocator[] : void
         while true
             base := _builtin_syscall(SYS_mmap, 0x10000000, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE|MAP_FIXED_NOREPLACE, -1, 0)
             if base == 0x10000000
+                _builtin_syscall(SYS_madvise, base, size, MADV_DONTDUMP)
                 break
             if base > 0
                 _builtin_syscall(SYS_munmap, base, size)
@@ -397,46 +398,43 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x@[4], d)
 
-// TODO: this should be a builtin type since you dont actually allocate it
-struct Slice
-
-func Slice.make[p: ptr, len: i64] : Slice
+func slice.make[p: ptr, len: i64] : slice
     if len < 0 || len > 0x7FFFFFFF
-        io.panic("Slice.make: bad length")
+        io.panic("slice.make: bad length")
     if (p as i64) < 0 || (p as i64) >= 0x200000000
-        io.panic("Slice.make: pointer above 8 GB")
-    return (((p as i64) << 31) | len) as Slice
+        io.panic("slice.make: pointer above 8 GB")
+    return (((p as i64) << 31) | len) as slice
 
-func Slice.make_from_cstr[s: str] : Slice
-    return Slice.make(s@[0], s->len())
+func slice.make_from_cstr[s: str] : slice
+    return slice.make(s@[0], s->len())
 
-func Slice.copy_cstr[s: str] : Slice
-    out := Slice.alloc(s->len())
+func slice.copy_cstr[s: str] : slice
+    out := slice.alloc(s->len())
     mem.copy_n(s@[0], out->ptr(), s->len())
     return out
 
-func Slice.alloc[len: i64] : Slice
+func slice.alloc[len: i64] : slice
     p := 0 as ptr
     if len > 0
         p = mem.alloc(len)
-    return Slice.make(p, len)
+    return slice.make(p, len)
 
-func Slice.alloc_zeroed[len: i64] : Slice
-    s := Slice.alloc(len)
+func slice.alloc_zeroed[len: i64] : slice
+    s := slice.alloc(len)
     mem.zero(s->ptr(), len)
     return s
 
-func Slice.ptr[s: Slice] : ptr
+func slice.ptr[s: slice] : ptr
     return (((s as i64) >> 31) & 0x1FFFFFFFF) as ptr
 
-func Slice.len[s: Slice] : i64
+func slice.len[s: slice] : i64
     return (s as i64) & 0x7FFFFFFF
 
-func Slice.to_cstr[s: Slice] : str
+func slice.to_cstr[s: slice] : str
     out := mem.alloc(s->len() + 1)
     mem.copy_n(s->ptr(), out@[0], s->len())
     out[s->len()] = 0
     return out as str
 
-func Slice.free[s: Slice] : void
+func slice.free[s: slice] : void
     s->ptr()->free()

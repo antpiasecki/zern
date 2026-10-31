@@ -139,12 +139,12 @@ func io.read_line[] : str
         b->append_char(c)
     return b->build_str_and_free_inner()
 
-// due to Slices being Slices reading a file larger than 2GB will fail
-func io.read_file[path: str] : Result<Slice>
+// due to slices being slices reading a file larger than 2GB will fail
+func io.read_file[path: str] : Result<slice>
     fd := try io.open_for_reading(path)
 
     len := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
-    buf := Slice.alloc(len)
+    buf := slice.alloc(len)
     _builtin_syscall(SYS_lseek, fd, 0, SEEK_SET)
 
     n := io.read(fd, buf@[0], len)
@@ -153,9 +153,9 @@ func io.read_file[path: str] : Result<Slice>
     // TODO?
     if n != len
         buf->free()
-        return err::<Slice>("io.read_file: n != len")
+        return err::<slice>("io.read_file: n != len")
 
-    return ok::<Slice>(buf)
+    return ok::<slice>(buf)
 
 func io.write_text_file[path: str, content: str] : Result<i64>
     return io.write_file(path, content as ptr, content->len())

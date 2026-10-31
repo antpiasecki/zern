@@ -1,7 +1,7 @@
 include "net.zr"
 include "json.zr"
 
-func http.build_request[method: str, path: str, headers: HashMap<str>, body: Slice] : Slice
+func http.build_request[method: str, path: str, headers: HashMap<str>, body: slice] : slice
     sb := new str.Builder
 
     first_line := _stackalloc(256) as str
@@ -22,7 +22,7 @@ func http.build_request[method: str, path: str, headers: HashMap<str>, body: Sli
     return sb->build_slice_and_free_inner()
 
 // TODO: handle malformed data
-func http.decode_chunked_encoding_bs[s: ptr] : Slice
+func http.decode_chunked_encoding_bs[s: ptr] : slice
     sb := new str.Builder
 
     i := 0
@@ -80,12 +80,12 @@ func http.parse_url[url: str] : http.Url
 
     return out
 
-func http.do_request[method: str, url: str, headers: HashMap<str>, body: Slice] : Result<Slice>
+func http.do_request[method: str, url: str, headers: HashMap<str>, body: slice] : Result<slice>
     parsed_url := http.parse_url(url)
     defer parsed_url->free()
 
     if !parsed_url->schema->equal("http")
-        return err::<Slice>("only http schema is supported")
+        return err::<slice>("only http schema is supported")
 
     headers->insert("Host", parsed_url->host)
     headers->insert("Accept-Encoding", "identity")
@@ -116,20 +116,20 @@ func http.do_request[method: str, url: str, headers: HashMap<str>, body: Slice] 
     pos := (buffer@[0] as str)->find("\r\n\r\n") + 4
 
     if (buffer@[0] as str)->find("Transfer-Encoding: chunked") != -1
-        return ok::<Slice>(http.decode_chunked_encoding_bs(buffer@[pos]))
+        return ok::<slice>(http.decode_chunked_encoding_bs(buffer@[pos]))
     else
-        out := Slice.alloc(total - pos)
+        out := slice.alloc(total - pos)
         mem.copy_n(buffer@[pos], out@[0], total - pos)
-        return ok::<Slice>(out)
+        return ok::<slice>(out)
 
-func http.get[url: str] : Result<Slice>
+func http.get[url: str] : Result<slice>
     headers := HashMap.new::<str>()
     defer headers->free()
-    body := Slice.alloc(0)
+    body := slice.alloc(0)
     defer body->free()
     return http.do_request("GET", url, headers, body)
 
-func http.post[url: str, content_type: str, body: Slice] : Result<Slice>
+func http.post[url: str, content_type: str, body: slice] : Result<slice>
     headers := HashMap.new::<str>()
     headers->insert("Content-Type", content_type)
     defer headers->free()
@@ -140,36 +140,36 @@ struct http.Req
     method: str
     path: str
     headers: HashMap<str>
-    body: Slice
+    body: slice
 
 struct http.Resp
     status: i64
     headers: HashMap<str>
-    body: Slice
+    body: slice
 
 func http.Resp.string[w: http.Resp, status: i64, body: str] : void
     w->status = status
-    w->body = Slice.copy_cstr(body)
+    w->body = slice.copy_cstr(body)
 
 func http.Resp.json[w: http.Resp, status: i64, value: json.Value] : void
     w->status = status
     body := value->dump()
     defer body->free()
     w->headers->insert("Content-Type", "application/json")
-    w->body = Slice.copy_cstr(body)
+    w->body = slice.copy_cstr(body)
 
 func http.Resp.error[w: http.Resp, status: i64] : void
     w->status = status
     body := _stackalloc(2048) as str
     body->format_into(2048, "%d %s\n", status, http.status_code_to_text(status))
-    w->body = Slice.copy_cstr(body)
+    w->body = slice.copy_cstr(body)
 
 func http.Resp.send[w: http.Resp, c: i64] : void
     b := w->build()
     defer b->free()
     net.send(c, b@[0], b->len())
 
-func http.Resp.build[w: http.Resp] : Slice
+func http.Resp.build[w: http.Resp] : slice
     sb := new str.Builder
 
     status_line := _stackalloc(256) as str
@@ -233,7 +233,7 @@ func http._handle_conn[cd: http._ConnData] : void
     resp := new http.Resp
     resp->status = 200
     resp->headers = HashMap.new::<str>()
-    resp->body = 0 as Slice
+    resp->body = 0 as slice
     defer resp->headers->free()
     defer resp->body->free()
 
@@ -276,7 +276,7 @@ func http._handle_conn[cd: http._ConnData] : void
     // TODO: parse req->headers
 
     body_pos := (raw_req as str)->find_n(n, "\r\n\r\n", 4) + 4
-    req->body = Slice.alloc(n - body_pos)
+    req->body = slice.alloc(n - body_pos)
     if n - body_pos > 0
         mem.copy_n(raw_req@[body_pos], req->body@[0], n - body_pos)
 

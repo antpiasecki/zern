@@ -46,7 +46,9 @@ macro_rules! expect_same_types {
         }
     }};
 }
-static BUILTIN_TYPES: [&str; 9] = ["void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "opaque"];
+static BUILTIN_TYPES: [&str; 10] = [
+    "void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "slice", "opaque",
+];
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
@@ -154,10 +156,10 @@ impl<'a> TypeChecker<'a> {
                             return error!(left.loc, "@ not allowed when assigning to an index");
                         }
                         let indexed_type = self.typecheck_expr(env, indexed)?;
-                        if indexed_type == "Slice" {
+                        if indexed_type == "slice" {
                             env.used_functions.insert("io._oob_panic".into());
                         }
-                        expect_types!(indexed_type, ["ptr", "str", "Slice"], left.loc);
+                        expect_types!(indexed_type, ["ptr", "str", "slice"], left.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], left.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], left.loc);
                     }
@@ -519,10 +521,10 @@ impl<'a> TypeChecker<'a> {
                 index,
             } => {
                 let indexed_type = self.typecheck_expr(env, indexed)?;
-                if indexed_type == "Slice" {
+                if indexed_type == "slice" {
                     env.used_functions.insert("io._oob_panic".into());
                 }
-                expect_types!(indexed_type, ["ptr", "str", "Slice"], expr.loc);
+                expect_types!(indexed_type, ["ptr", "str", "slice"], expr.loc);
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }

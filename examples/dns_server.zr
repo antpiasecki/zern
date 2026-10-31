@@ -6,9 +6,9 @@ const TTL = 60
 const PORT = 10053
 
 func main[] : i64
-    records := HashMap.new::<Slice>()
+    records := HashMap.new::<slice>()
 
-    test_su_buffer := Slice.alloc(4)
+    test_su_buffer := slice.alloc(4)
     mem.write32be(test_su_buffer@[0], net.pack_addr(1, 2, 3, 4))
     records->insert("test.su", test_su_buffer)
 
@@ -22,13 +22,13 @@ func main[] : i64
             s->send_to(sa, resp@[0], resp->len())
             resp->free()
 
-func handle_req[s: net.UDPSocket, records: HashMap<Slice>, req: Slice, sa: ptr] : Slice
+func handle_req[s: net.UDPSocket, records: HashMap<slice>, req: slice, sa: ptr] : slice
     defer req->free()
     defer sa->free()
     req_len := req->len()
 
     if req->len() <= 12
-        return 0 as Slice
+        return 0 as slice
 
     // we assume that QDCOUNT=1 but i think that's reasonable
 
@@ -38,18 +38,18 @@ func handle_req[s: net.UDPSocket, records: HashMap<Slice>, req: Slice, sa: ptr] 
     offset := 12
     while true
         if offset >= req_len
-            return 0 as Slice
+            return 0 as slice
         length := req[offset] as i64
         offset += 1
         if length == 0
             break
         if length > 63 || offset + length > req_len
-            return 0 as Slice
+            return 0 as slice
         labels->append_n(req@[offset], length)
         labels->append_char('.')
         offset += length
     if offset > req_len
-        return 0 as Slice
+        return 0 as slice
 
     raw_name_len := offset-12
     name := labels->build_str_and_free_inner()
@@ -60,7 +60,7 @@ func handle_req[s: net.UDPSocket, records: HashMap<Slice>, req: Slice, sa: ptr] 
     name_lower[name_lower->len()-1] = 0 // remove extra dot
 
     if offset+4 > req_len
-        return 0 as Slice
+        return 0 as slice
     // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
     question_type := mem.read16be(req@[offset])
     offset += 2
@@ -85,7 +85,7 @@ func handle_req[s: net.UDPSocket, records: HashMap<Slice>, req: Slice, sa: ptr] 
         nxdomain = true
 
     resp_len := offset + raw_name_len + 10 + rdata_len
-    resp := Slice.alloc_zeroed(resp_len)
+    resp := slice.alloc_zeroed(resp_len)
     mem.copy_n(req@[0], resp@[0], offset)
 
     resp[3] = resp[3] & 0xf0 // clear RCODE

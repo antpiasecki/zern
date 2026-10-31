@@ -384,8 +384,8 @@ func str.Builder.build_str_and_free_inner[b: str.Builder] : str
     b->free_inner()
     return s
 
-func str.Builder.build_slice_and_free_inner[b: str.Builder] : Slice
-    s := Slice.alloc(b->len)
+func str.Builder.build_slice_and_free_inner[b: str.Builder] : slice
+    s := slice.alloc(b->len)
     mem.copy_n(b->data, s@[0], b->len)
     b->free_inner()
     return s

@@ -54,6 +54,7 @@ const SOCK_DGRAM  = 2
 const SOL_SOCKET = 1
 
 const SO_REUSEADDR = 2
+const SO_RCVTIMEO = 20
 
 const SOMAXCONN = 128
 
@@ -68,3 +69,4 @@ const IFFNOPI = 0x1000
 const ETH_DATA_LEN = 1500
 
 const MADV_DONTNEED = 4
+const MADV_DONTDUMP = 16
