@@ -20,18 +20,18 @@ func main[] : i64
     vertices_vals := [-0.5, 0.0, -0.5, 1.0, 0.0, 0.0, 0.5, 0.0, -0.5, 0.0, 1.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.0, -0.5, 0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0] as Array<f64>
     vertices := _stackalloc(256)
     pack_floats(vertices, vertices_vals)
-    
+
     indices_vals := [3,2,4, 2,1,4, 1,0,4, 0,3,4, 0,1,2, 0,2,3] as Array<i64>
     indices := _stackalloc(256)
     pack_ints(indices, indices_vals)
-    
+
     vao := 0
     glGenVertexArrays(1, ^vao)
     glBindVertexArray(vao)
 
     ebo := 0
     glGenBuffers(1, ^ebo)
-    
+
     vbo := 0
     glGenBuffers(1, ^vbo)
     glBindBuffer(GL_ARRAY_BUFFER, vbo)

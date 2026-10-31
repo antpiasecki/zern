@@ -1,8 +1,6 @@
 /target
 /out*
 /TODO
-/zed
-/tree-sitter
 /vscode
 /lsp*
 /*.py

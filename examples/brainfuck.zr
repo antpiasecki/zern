@@ -6,7 +6,7 @@ func main[] : i64
     src_len := src->len()
     i := 0
 
-    memory := Buffer.alloc_zeroed(30000)
+    memory := Slice.alloc_zeroed(30000)
     defer memory->free()
     p := 0
 

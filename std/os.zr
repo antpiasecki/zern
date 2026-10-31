@@ -50,10 +50,16 @@ func os.sleep[ms: i64] : void
     req->tv_nsec = (ms % 1000) * 1000000
     _builtin_syscall(SYS_nanosleep, req, 0)
 
-func os.time[] : i64
+func os.time_ms[] : i64
     ts := new os.Timespec
     _builtin_syscall(SYS_clock_gettime, CLOCK_REALTIME, ts)
     out := ts->tv_sec * 1000 + ts->tv_nsec / 1000000
+    return out
+
+func os.monotonic_time_ns[] : i64
+    ts := new os.Timespec
+    _builtin_syscall(SYS_clock_gettime, CLOCK_MONOTONIC, ts)
+    out := ts->tv_sec * 1000000000 + ts->tv_nsec
     return out
 
 func os.urandom_buf[buf: ptr, n: i64] : void

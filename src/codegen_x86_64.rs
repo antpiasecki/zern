@@ -283,16 +283,17 @@ _start:
                     } => {
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, indexed)?;
-                        if self.expr_types[&indexed.id] == "Buffer" {
-                            emit!(&mut self.output, "    mov rcx, [rax]");
-                            emit!(&mut self.output, "    add rax, 8");
+                        if self.expr_types[&indexed.id] == "Slice" {
+                            emit!(&mut self.output, "    mov rcx, rax");
+                            emit!(&mut self.output, "    and ecx, 0x7fffffff");
+                            emit!(&mut self.output, "    shr rax, 31");
                         }
                         emit!(&mut self.output, "    push rax");
-                        if self.expr_types[&indexed.id] == "Buffer" {
+                        if self.expr_types[&indexed.id] == "Slice" {
                             emit!(&mut self.output, "    push rcx");
                         }
                         self.compile_expr(env, index)?;
-                        if self.expr_types[&indexed.id] == "Buffer" {
+                        if self.expr_types[&indexed.id] == "Slice" {
                             emit!(&mut self.output, "    pop rcx");
                             let ok_label = self.label();
                             emit!(&mut self.output, "    cmp rax, rcx");
@@ -981,16 +982,17 @@ _start:
                 index,
             } => {
                 self.compile_expr(env, indexed)?;
-                if self.expr_types[&indexed.id] == "Buffer" {
-                    emit!(&mut self.output, "    mov rcx, [rax]");
-                    emit!(&mut self.output, "    add rax, 8");
+                if self.expr_types[&indexed.id] == "Slice" {
+                    emit!(&mut self.output, "    mov rcx, rax");
+                    emit!(&mut self.output, "    and ecx, 0x7fffffff");
+                    emit!(&mut self.output, "    shr rax, 31");
                 }
                 emit!(&mut self.output, "    push rax");
-                if self.expr_types[&indexed.id] == "Buffer" {
+                if self.expr_types[&indexed.id] == "Slice" {
                     emit!(&mut self.output, "    push rcx");
                 }
                 self.compile_expr(env, index)?;
-                if self.expr_types[&indexed.id] == "Buffer" {
+                if self.expr_types[&indexed.id] == "Slice" {
                     emit!(&mut self.output, "    pop rcx");
                     let ok_label = self.label();
                     emit!(&mut self.output, "    cmp rax, rcx");

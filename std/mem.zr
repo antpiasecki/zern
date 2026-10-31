@@ -36,12 +36,29 @@ func mem._ensure_allocator[] : void
         a->alloc_func = ^mem.FreeListAllocator.alloc
         a->free_func = ^mem.FreeListAllocator.free
         a->realloc_func = ^mem.FreeListAllocator.realloc
+
+        size := 0x1C0000000
+        while true
+            base := _builtin_syscall(SYS_mmap, 0x10000000, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE|MAP_FIXED_NOREPLACE, -1, 0)
+            if base == 0x10000000
+                break
+            if base > 0
+                _builtin_syscall(SYS_munmap, base, size)
+
+            size = size / 2
+            if size < 0x1000000
+                io.panic("mem._ensure_allocator: could not reserve heap at low address")
+        (a as mem.FreeListAllocator)->heap_base = 0x10000000 as ptr
+        (a as mem.FreeListAllocator)->heap_size = size
         mem.allocator = a
 
 struct mem.FreeListAllocator
     alloc_func: funcptr<ptr, mem.Allocator, i64>
     free_func: funcptr<void, mem.Allocator, ptr>
     realloc_func: funcptr<ptr, mem.Allocator, ptr, i64>
+    heap_base: ptr
+    heap_top: i64
+    heap_size: i64
     head: mem.FreeListBlock
     tail: mem.FreeListBlock
     rover: mem.FreeListBlock
@@ -74,16 +91,20 @@ func mem.FreeListBlock._split[blk: mem.FreeListBlock, fla: mem.FreeListAllocator
         blk->len = needed
         blk->next = new_blk
 
+func mem.FreeListAllocator._take_chunk[fla: mem.FreeListAllocator, len: i64] : ptr
+    if len > fla->heap_size - fla->heap_top
+        io.panic("mem.FreeListAllocator._take_chunk: out of memory")
+    p := fla->heap_base@[fla->heap_top]
+    fla->heap_top += len
+    return p
+
 func mem.FreeListAllocator._request_space[fla: mem.FreeListAllocator, len: i64] : mem.FreeListBlock
     needed := len + mem.FreeListBlock.LEN
     alloc_len := (needed + 4095) & -4096
     if alloc_len < 1048576
         alloc_len = 1048576
 
-    blk := _builtin_syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.FreeListBlock
-    if (blk as ptr as i64) == MAP_FAILED
-        io.panic("mem._request_space: failed to mmap")
-
+    blk := fla->_take_chunk(alloc_len) as mem.FreeListBlock
     blk->len = alloc_len - mem.FreeListBlock.LEN
     blk->free = false
     blk->next = 0 as mem.FreeListBlock
@@ -167,6 +188,9 @@ func mem.FreeListAllocator.trim[fla: mem.FreeListAllocator] : void
         if (cur as i64 & 4095) != 0 || (block_total & 4095) != 0
             break
 
+        if (cur as i64) + block_total != (fla->heap_base as i64) + fla->heap_top
+            break
+
         prev := cur->prev
         if prev as ptr
             prev->next = 0 as mem.FreeListBlock
@@ -174,7 +198,8 @@ func mem.FreeListAllocator.trim[fla: mem.FreeListAllocator] : void
             fla->head = 0 as mem.FreeListBlock
 
         fla->tail = prev
-        _builtin_syscall(SYS_munmap, cur, block_total)
+        _builtin_syscall(SYS_madvise, cur, block_total, MADV_DONTNEED)
+        fla->heap_top = (cur as i64) - (fla->heap_base as i64)
 
         cur = prev
 
@@ -224,7 +249,6 @@ func mem.FreeListAllocator.free[a: mem.Allocator, x: ptr] : void
                 blk->next->prev = prev
             if fla->tail as ptr == blk as ptr
                 fla->tail = prev
-            blk = prev
 
 func mem.FreeListAllocator.realloc[a: mem.Allocator, x: ptr, new_len: i64] : ptr
     fla := a as mem.FreeListAllocator
@@ -373,30 +397,46 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x@[4], d)
 
-// sneaky length-prefixed buffer
-struct Buffer
-    len: i64
+// TODO: this should be a builtin type since you dont actually allocate it
+struct Slice
 
-func Buffer.alloc[n: i64] : Buffer
-    out := mem.alloc(8 + n + 1) as Buffer
-    out->len = n
+func Slice.make[p: ptr, len: i64] : Slice
+    if len < 0 || len > 0x7FFFFFFF
+        io.panic("Slice.make: bad length")
+    if (p as i64) < 0 || (p as i64) >= 0x200000000
+        io.panic("Slice.make: pointer above 8 GB")
+    return (((p as i64) << 31) | len) as Slice
+
+func Slice.make_from_cstr[s: str] : Slice
+    return Slice.make(s@[0], s->len())
+
+func Slice.copy_cstr[s: str] : Slice
+    out := Slice.alloc(s->len())
+    mem.copy_n(s@[0], out->ptr(), s->len())
     return out
 
-func Buffer.from_str[s: str] : Buffer
-    out := Buffer.alloc(s->len())
-    mem.copy_n(s@[0], out@[0], out->len)
-    return out
+func Slice.alloc[len: i64] : Slice
+    p := 0 as ptr
+    if len > 0
+        p = mem.alloc(len)
+    return Slice.make(p, len)
 
-func Buffer.alloc_zeroed[n: i64] : Buffer
-    out := Buffer.alloc(n)
-    if n > 0
-        mem.zero(out@[0], n)
-    return out
+func Slice.alloc_zeroed[len: i64] : Slice
+    s := Slice.alloc(len)
+    mem.zero(s->ptr(), len)
+    return s
 
-func Buffer.realloc[b: Buffer, new_len: i64] : Buffer
-    new_b := (b as ptr)->realloc(8 + new_len + 1) as Buffer
-    new_b->len = new_len
-    return new_b
+func Slice.ptr[s: Slice] : ptr
+    return (((s as i64) >> 31) & 0x1FFFFFFFF) as ptr
 
-func Buffer.free[b: Buffer] : void
-    (b as ptr)->free()
+func Slice.len[s: Slice] : i64
+    return (s as i64) & 0x7FFFFFFF
+
+func Slice.to_cstr[s: Slice] : str
+    out := mem.alloc(s->len() + 1)
+    mem.copy_n(s->ptr(), out@[0], s->len())
+    out[s->len()] = 0
+    return out as str
+
+func Slice.free[s: Slice] : void
+    s->ptr()->free()

@@ -9,4 +9,4 @@ func main[argc: i64, argv: ptr] : i64
     resp := http.get(url)->expect("request failed")
     defer resp->free()
 
-    io.print_n(resp@[0], resp->len)
+    io.print_n(resp@[0], resp->len())

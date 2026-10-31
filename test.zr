@@ -36,30 +36,33 @@ func TestRunner.run_directory[tr: TestRunner, dir: str] : void
             tr->run_test(joined)
 
 func TestRunner.run_test[tr: TestRunner, x: str] : void
+    io.println("------------------")
     name := os.basename(x)
 
     if tr->build_blacklist->contains_str(name)
-        io.printf("Skipping %s...\n", x)
+        io.printf("Skipped %s\n", x)
         return
 
-    io.printf("Building %s...\n", x)
+    io.printf("Building %s", x)
 
     build_cmd := "./target/release/zern "->concat(x)
     custom_build_flags, ok := tr->custom_build_flags->get_ok(name)
     if ok
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
-    build_start_time := os.time()
+    build_start_time := os.monotonic_time_ns()
     status := os.run_shell_command(build_cmd)
     if !status->ok()
         os.exit(1)
     (status as ptr)->free()
-    build_end_time := os.time()
+    build_end_time := os.monotonic_time_ns()
 
-    io.printf("%dms\n", build_end_time - build_start_time)
+    t := io.format_time(build_end_time - build_start_time)
+    io.printf(" took %s\n", t)
+    t->free()
 
     if tr->run_blacklist->contains_str(name)
-        io.printf("Skipping %s...\n", x)
+        io.printf("Skipped %s\n", x)
         return
 
     io.printf("Running %s...\n", x)
@@ -69,12 +72,14 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     if ok
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
-    run_start_time := os.time()
+    run_start_time := os.monotonic_time_ns()
     status = os.run_shell_command(run_cmd)
     if !status->ok()
-        io.println("Test failed.")
+        io.println("TEST FAILED")
         os.exit(1)
     (status as ptr)->free()
-    run_end_time := os.time()
+    run_end_time := os.monotonic_time_ns()
 
-    io.printf("Running %s took %dms\n", x, run_end_time - run_start_time)
+    t = io.format_time(run_end_time - run_start_time)
+    io.printf("Running %s took %s\n", x, t)
+    t->free()
