@@ -1,40 +1,5 @@
 include "mem.zr"
 
-struct Result<T>
-    value: T
-    err: str
-
-func Result.free<T>[r: Result<T>] : void
-    (r as ptr)->free()
-
-func Result.is_err<T>[r: Result<T>] : bool
-    return r->err as bool
-
-func Result.unpack<T>[r: Result<T>] : T, str
-    v := r->value
-    err := r->err
-    r->free()
-    return v, err
-
-func Result.expect<T>[r: Result<T>, msg: str] : T
-    if r->is_err()
-        full_msg := _stackalloc(1024) as str
-        full_msg->format_into(1024, "%s: %s", msg, r->err)
-        io.panic(full_msg)
-    v := r->value
-    r->free()
-    return v
-
-func ok<T>[value: T] : Result<T>
-    r := new* Result<T>
-    r->value = value
-    return r
-
-func err<T>[err: str] : Result<T>
-    r := new* Result<T>
-    r->err = err
-    return r
-
 struct Array<T>
     data: ptr
     len: i64
@@ -191,22 +156,16 @@ func HashMap.insert_with_overwrite<T>[hm: HashMap<T>, key: str, value: T] : void
     new_node->next = hm->table->nth(index)
     hm->table->set(index, new_node)
 
-func HashMap.get<T>[hm: HashMap<T>, key: str] : Result<T>
-    v, ok := hm->get_ok(key)
-    if !ok
-        return err::<T>("HashMap.get: key not found")
-    return ok::<T>(v)
-
-func HashMap.get_ok<T>[hm: HashMap<T>, key: str] : T, bool
+func HashMap.get<T>[hm: HashMap<T>, key: str] : T, err
     index := HashMap._djb2(key)
     current := hm->table->nth(index)
 
     while current as ptr
         if current->key->equal(key)
-            return current->value as T, true
+            return current->value as T, ok()
         current = current->next
 
-    return 0 as T, false
+    return 0 as T, error("HashMap.get: key not found")
 
 func HashMap.contains<T>[hm: HashMap<T>, key: str] : bool
     index := HashMap._djb2(key)

@@ -4,7 +4,8 @@ include "net.zr"
 const FRAME_SIZE = 1500
 
 func main[] : i64
-    fd := io.open_with_flags_and_mode("/dev/net/tun", O_RDWR|O_NONBLOCK, 0)->expect("failed to open tun")
+    fd, err := io.open_with_flags_and_mode("/dev/net/tun", O_RDWR|O_NONBLOCK, 0)
+    if err io.panic_with("failed to open tun", err)
     defer io.close(fd)
 
     name := "sahur"

@@ -19,7 +19,8 @@ func main[argc: i64, argv: ptr] : i64
     c := new CHIP8
     c->init()
 
-    buffer := io.read_file(path)->expect("failed to read file")
+    buffer, err := io.read_file(path)
+    if err io.panic_with("failed to read file", err)
 
     for i in 0..buffer->len()
         c->memory[0x200 + i] = buffer[i]

@@ -46,8 +46,8 @@ macro_rules! expect_same_types {
         }
     }};
 }
-static BUILTIN_TYPES: [&str; 10] = [
-    "void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "slice", "opaque",
+static BUILTIN_TYPES: [&str; 11] = [
+    "void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "slice", "err", "opaque",
 ];
 
 pub struct Env {
@@ -219,7 +219,7 @@ impl<'a> TypeChecker<'a> {
             } => {
                 expect_types!(
                     self.typecheck_expr(env, condition)?,
-                    ["i64", "u8", "ptr", "bool", "opaque"],
+                    ["i64", "u8", "ptr", "bool", "err", "opaque"],
                     keyword.loc
                 );
                 self.typecheck_stmt(env, then_branch)?;
@@ -419,7 +419,7 @@ impl<'a> TypeChecker<'a> {
                         Ok(right_type)
                     }
                     TokenType::Bang => {
-                        expect_types!(right_type, ["bool", "i64", "ptr", "u8"], op.loc);
+                        expect_types!(right_type, ["bool", "i64", "ptr", "err", "u8"], op.loc);
                         Ok("bool".into())
                     }
                     _ => unreachable!(),
@@ -652,17 +652,20 @@ impl<'a> TypeChecker<'a> {
             }
             ExprKind::Try { expr } => {
                 let expr_type = self.typecheck_expr(env, expr)?;
-                let Some((base_type, inner_type)) = expr_type.split_once('<') else {
-                    return error!(expr.loc, "only a Result can be try-ed");
+                let Some(xs) = split_multiple_type(&expr_type) else {
+                    return error!(expr.loc, "try can only be used on (T,err)");
                 };
-                if base_type != "Result" {
-                    return error!(expr.loc, "only a Result can be try-ed");
+                if xs.len() != 2 || xs[1] != "err" {
+                    return error!(expr.loc, "try can only be used on (T,err)");
                 }
-                if expr_type.split('<').next().unwrap() != self.current_function_return_type.split('<').next().unwrap()
-                {
-                    return error!(expr.loc, "try can be used only in a function returning a Result");
+                let valid = match split_multiple_type(&self.current_function_return_type) {
+                    Some(parts) => parts.len() == 2 && parts[1] == "err",
+                    None => &self.current_function_return_type == "err",
+                };
+                if !valid {
+                    return error!(expr.loc, "try requires the function to return err or (T,err)");
                 }
-                Ok(inner_type.strip_suffix(">").unwrap().into())
+                Ok(xs[0].to_string())
             }
         }?;
 

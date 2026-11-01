@@ -27,7 +27,9 @@ struct TestRunner
     custom_run_args: HashMap<str>
 
 func TestRunner.run_directory[tr: TestRunner, dir: str] : void
-    files := os.list_directory(dir)->expect("failed to open test directory")
+    files, err := os.list_directory(dir)
+    if err
+        io.panic("failed to open test directory")
     for i in 0..files->len
         joined := dir->concat("/")->concat(files->nth(i))
         if os.is_a_directory(joined)
@@ -43,11 +45,11 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
         io.printf("Skipped %s\n", x)
         return
 
-    io.printf("Building %s", x)
+    io.printf("Building %s...\n", x)
 
     build_cmd := "./target/release/zern "->concat(x)
-    custom_build_flags, ok := tr->custom_build_flags->get_ok(name)
-    if ok
+    custom_build_flags, err := tr->custom_build_flags->get(name)
+    if !err
         build_cmd = build_cmd->concat(" ")->concat(custom_build_flags)
 
     build_start_time := os.monotonic_time_ns()
@@ -58,7 +60,7 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     build_end_time := os.monotonic_time_ns()
 
     t := io.format_time(build_end_time - build_start_time)
-    io.printf(" took %s\n", t)
+    io.printf("Building %s took %s\n", x, t)
     t->free()
 
     if tr->run_blacklist->contains_str(name)
@@ -68,8 +70,8 @@ func TestRunner.run_test[tr: TestRunner, x: str] : void
     io.printf("Running %s...\n", x)
 
     run_cmd := "./out"
-    custom_run_args, ok := tr->custom_run_args->get_ok(name)
-    if ok
+    custom_run_args, err := tr->custom_run_args->get(name)
+    if !err
         run_cmd = run_cmd->concat(" ")->concat(custom_run_args)
 
     run_start_time := os.monotonic_time_ns()

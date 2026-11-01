@@ -6,7 +6,8 @@ func main[argc: i64, argv: ptr] : i64
         return 1
 
     url := os.arg(argv, 1)
-    resp := http.get(url)->expect("request failed")
+    resp, err := http.get(url)
+    if err io.panic_with("request failed", err)
     defer resp->free()
 
     io.print_n(resp@[0], resp->len())

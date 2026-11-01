@@ -1,11 +1,14 @@
 include "json.zr"
 
 func main[] : i64
-    v := json.parse("{\"apples\": 3, \"names\": [\"Alice\", \"Bob\"]}")->expect("failed to parse")
+    v, err := json.parse("{\"apples\": 3, \"names\": [\"Alice\", \"Bob\"]}")
+    if err io.panic_with("failed to parse", err)
     defer v->free()
 
     io.println(v->dump())
 
-    names := v->object()->get("names")->expect("names not found")->array()
-    for i in 0..names->len
-        io.println(names->nth(i)->str())
+    names, err := v->object()->get("names")
+    if err io.panic("names not found")
+    names_arr := names->array()
+    for i in 0..names_arr->len
+        io.println(names_arr->nth(i)->str())

@@ -20,7 +20,10 @@ func main[] : i64
 
     while true
         io.println("Guess a number: ")
-        guess := io.read_line()->parse_i64()
+        guess, err := io.read_line()->parse_i64()
+        if err
+            io.println("Not a number!")
+            continue
 
         if guess == answer
             io.println("You win!")

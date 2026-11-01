@@ -1,11 +1,22 @@
 include "str.zr"
 include "os.zr"
 
+func ok[] : err
+    return 0 as err
+
+func error[s: str] : err
+    return s as err
+
 func io.panic[msg: str] : void
     io.print("panic: ")
     io.println(msg)
     _builtin_int3()
     os.exit(1)
+
+func io.panic_with[msg: str, e: err] : void
+    s := _stackalloc(2048) as str
+    s->format_into(2048, "%s: %s", msg, e)
+    io.panic(s)
 
 func io._oob_panic[len: i64, n: i64] : void
     s := _stackalloc(1024) as str
@@ -140,7 +151,7 @@ func io.read_line[] : str
     return b->build_str_and_free_inner()
 
 // due to slices being slices reading a file larger than 2GB will fail
-func io.read_file[path: str] : Result<slice>
+func io.read_file[path: str] : slice, err
     fd := try io.open_for_reading(path)
 
     len := _builtin_syscall(SYS_lseek, fd, 0, SEEK_END)
@@ -153,30 +164,30 @@ func io.read_file[path: str] : Result<slice>
     // TODO?
     if n != len
         buf->free()
-        return err::<slice>("io.read_file: n != len")
+        return 0 as slice, error("io.read_file: n != len")
 
-    return ok::<slice>(buf)
+    return buf, ok()
 
-func io.write_text_file[path: str, content: str] : Result<i64>
+func io.write_text_file[path: str, content: str] : i64, err
     return io.write_file(path, content as ptr, content->len())
 
-func io.write_file[path: str, content: ptr, len: i64] : Result<i64>
+func io.write_file[path: str, content: ptr, len: i64] : i64, err
     fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, 644->octal_to_decimal())
     defer io.close(fd)
 
     n := io.write(fd, content, len)
     if n != len
-        return err::<i64>("io.write_file: n != len")
-    return ok::<i64>(n)
+        return 0, error("io.write_file: n != len")
+    return n, ok()
 
-func io.open_for_reading[path: str] : Result<i64>
+func io.open_for_reading[path: str] : i64, err
     return io.open_with_flags_and_mode(path, O_RDONLY, 0)
 
-func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : Result<i64>
+func io.open_with_flags_and_mode[path: str, flags: i64, mode: i64] : i64, err
     fd := _builtin_syscall(SYS_openat, AT_FDCWD, path, flags, mode)
     if fd < 0
-        return err::<i64>("io.open_with_flags_and_mode: failed to open")
-    return ok::<i64>(fd)
+        return 0, error("io.open_with_flags_and_mode: failed to open")
+    return fd, ok()
 
 func io.close[fd: i64] : void
     _builtin_syscall(SYS_close, fd)

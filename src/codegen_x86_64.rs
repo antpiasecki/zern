@@ -1153,27 +1153,23 @@ _start:
                 }
             }
             ExprKind::Try { expr } => {
-                if self.args.mode == CompileMode::MinGW {
-                    emit!(&mut self.output, "    // ExprKind::Try unimplemented on Windows");
-                    emit!(&mut self.output, "    int3");
-                    return Ok(());
-                }
-                let ok_label = self.label();
                 self.compile_expr(env, expr)?;
-                emit!(&mut self.output, "    push rax");
-                emit!(&mut self.output, "    cmp QWORD PTR [rax+8], 0");
+                let ok_label = self.label();
+                emit!(&mut self.output, "    test rdx, rdx");
                 emit!(&mut self.output, "    je {}", ok_label);
 
-                self.emit_all_defers(env)?;
-                emit!(&mut self.output, "    pop rax");
+                emit!(&mut self.output, "    push rdx");
+                if env.return_type.starts_with('(') {
+                    emit!(&mut self.output, "    xor eax, eax");
+                    self.emit_all_defers(env)?;
+                    emit!(&mut self.output, "    pop rdx");
+                } else {
+                    self.emit_all_defers(env)?;
+                    emit!(&mut self.output, "    pop rax");
+                }
                 self.emit_ret();
 
                 emit!(&mut self.output, "{}:", ok_label);
-                emit!(&mut self.output, "    pop rax");
-                emit!(&mut self.output, "    push QWORD PTR [rax]");
-                emit!(&mut self.output, "    mov rdi, rax");
-                emit!(&mut self.output, "    call ptr.free");
-                emit!(&mut self.output, "    pop rax");
             }
         }
         Ok(())

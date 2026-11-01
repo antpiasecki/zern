@@ -12,11 +12,16 @@ func main[] : i64
     mem.write32be(test_su_buffer@[0], net.pack_addr(1, 2, 3, 4))
     records->insert("test.su", test_su_buffer)
 
-    s := net.create_udp_server("0.0.0.0", PORT)->expect("failed to create udp server")
+    s, err := net.create_udp_server("0.0.0.0", PORT)
+    if err io.panic_with("failed to create udp server", err)
 
     io.printf("Listening on port :%d...\n", PORT)
     while true
-        data, sa := s->receive(4096)
+        sa := mem.alloc(16)
+        data, err := s->receive(sa, 4096)
+        if err
+            sa->free()
+            continue
         resp := handle_req(s, records, data, sa)
         if resp as ptr != 0
             s->send_to(sa, resp@[0], resp->len())
@@ -73,8 +78,8 @@ func handle_req[s: net.UDPSocket, records: HashMap<slice>, req: slice, sa: ptr] 
     nxdomain := false
     rdata := 0 as ptr
     rdata_len := 0
-    record, ok := records->get_ok(name_lower)
-    if question_class == DNS_CLASS_IN && ok
+    record, err := records->get(name_lower)
+    if question_class == DNS_CLASS_IN && !err
         if question_type == DNS_TYPE_A && record->len() == 4
             rdata = record@[0]
             rdata_len = record->len()

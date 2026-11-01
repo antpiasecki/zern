@@ -166,13 +166,13 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
 func os.file_exists[path: str] : bool
     return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
 
-func os.get_file_size[path: str] : Result<i64>
+func os.get_file_size[path: str] : i64, err
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
-    if rc != 0 return err::<i64>("os.get_file_size: fstat failed")
+    if rc != 0 return 0, error("os.get_file_size: fstat failed")
 
-    return ok::<i64>(mem.read64(st@[48]))
+    return mem.read64(st@[48]), ok()
 
 func os.is_a_directory[path: str] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
@@ -185,7 +185,7 @@ func os.is_a_directory[path: str] : bool
 func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
     return _builtin_syscall(SYS_ioctl, fd, op, argp)
 
-func os.list_directory[path: str] : Result<Array<str>>
+func os.list_directory[path: str] : Array<str>, err
     fd := try io.open_for_reading(path)
     defer io.close(fd)
 
@@ -195,7 +195,7 @@ func os.list_directory[path: str] : Result<Array<str>>
         n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
-            return err::<Array<str>>("os.list_directory: getdents() failed")
+            return 0 as Array<str>, error("os.list_directory: getdents() failed")
         else if n == 0
             break
 
@@ -216,7 +216,7 @@ func os.list_directory[path: str] : Result<Array<str>>
                     files->push((name as str)->make_copy())
             pos += len
 
-    return ok::<Array<str>>(files)
+    return files, ok()
 
 const os._STACK_SIZE = 0x40000
 

@@ -244,7 +244,7 @@ func str.to_upper[s: str] : str
         i += 1
     return out
 
-func str.parse_i64[s: str] : i64
+func str.parse_i64[s: str] : i64, err
     len := s->len()
     i := 0
 
@@ -253,14 +253,17 @@ func str.parse_i64[s: str] : i64
         sign = -1
         i += 1
 
+    if i == len
+        return 0, error("str.parse_i64: failed to parse")
+
     num := 0
     while i < len
         d := s[i]
         if !d->is_digit()
-            break
+            return 0, error("str.parse_i64: failed to parse")
         num = num * 10 + (d - '0')
         i += 1
-    return num * sign
+    return num * sign, ok()
 
 func str.parse_hex_i64[s: str] : i64
     len := s->len()
@@ -379,14 +382,16 @@ func str.Builder.advance[b: str.Builder, n: i64] : void
 
 func str.Builder.build_str_and_free_inner[b: str.Builder] : str
     s := mem.alloc(b->len + 1) as str
-    mem.copy_n(b->data, s as ptr, b->len)
+    if b->len > 0
+        mem.copy_n(b->data, s as ptr, b->len)
     s[b->len] = 0
     b->free_inner()
     return s
 
 func str.Builder.build_slice_and_free_inner[b: str.Builder] : slice
     s := slice.alloc(b->len)
-    mem.copy_n(b->data, s@[0], b->len)
+    if b->len > 0
+        mem.copy_n(b->data, s@[0], b->len)
     b->free_inner()
     return s
 

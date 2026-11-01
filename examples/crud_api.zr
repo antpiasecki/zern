@@ -24,13 +24,13 @@ func handler[r: http.Req, w: http.Resp] : void
 
             w->json(200, out)
         else if r->method->equal("POST")
-            v, e := json.parse(r->body@[0] as str)->unpack()
-            if e as ptr
+            v, err := json.parse(r->body@[0] as str)
+            if err
                 w->string(400, "failed to parse body")
                 return
             defer v->free()
-            content, e := v->object()->get("content")->unpack()
-            if e as ptr
+            content, err := v->object()->get("content")
+            if err
                 w->string(400, "missing content field")
                 return
 
@@ -42,18 +42,18 @@ func handler[r: http.Req, w: http.Resp] : void
             w->error(405)
     else
         id := r->path@[1] as str
-        todo, ok := todos->get_ok(id)
-        if ok
+        todo, err := todos->get(id)
+        if !err
             if r->method->equal("GET")
                 w->string(200, todo)
             else if r->method->equal("POST")
-                v, e := json.parse(r->body@[0] as str)->unpack()
-                if e as ptr
+                v, err := json.parse(r->body@[0] as str)
+                if err
                     w->string(400, "failed to parse body")
                     return
                 defer v->free()
-                content, e := v->object()->get("content")->unpack()
-                if e as ptr
+                content, err := v->object()->get("content")
+                if err
                     w->string(400, "missing content field")
                     return
                 todo->free()
