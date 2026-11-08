@@ -119,40 +119,40 @@ func framebuffer_size_callback[window: ptr, width: i64, height: i64] : void
 func glfw_error_callback[code: i64, description: str] : void
     io.println(description)
 
-func glfwInit[] : i64 @[extern]
-func glfwWindowHint[hint: i64, value: i64] : void @[extern]
-func glfwCreateWindow[width: i64, height: i64, title: str, monitor: ptr, share: ptr] : ptr @[extern]
-func glfwMakeContextCurrent[window: ptr] : void @[extern]
-func glfwSetFramebufferSizeCallback[window: ptr, callback: funcptr<void, ptr, i64, i64>] : void @[extern]
-func glfwWindowShouldClose[window: ptr] : i64 @[extern]
-func glfwSwapBuffers[window: ptr] : void @[extern]
-func glfwPollEvents[] : void @[extern]
-func glfwTerminate[] : void @[extern]
-func glfwSetErrorCallback[callback: funcptr<void, i64, str>] : ptr @[extern]
-func glfwGetTime[] : f64 @[extern]
-func glClearColor[red: f32, green: f32, blue: f32, alpha: f32] : void @[extern]
-func glClear[mask: i64] : void @[extern]
-func glViewport[x: i64, y: i64, width: i64, height: i64] : void @[extern]
-func glGenBuffers[n: i64, buffers: ptr] : void @[extern]
-func glBindBuffer[target: i64, buffer: i64] : void @[extern]
-func glBufferData[target: i64, size: i64, data: ptr, usage: i64] : void @[extern]
-func glCreateShader[type: i64] : i64 @[extern]
-func glShaderSource[shader: i64, count: i64, string: ptr, length: ptr] : void @[extern]
-func glCompileShader[shader: i64] : void @[extern]
-func glCreateProgram[] : i64 @[extern]
-func glAttachShader[program: i64, shader: i64] : void @[extern]
-func glLinkProgram[program: i64] : void @[extern]
-func glUseProgram[program: i64] : void @[extern]
-func glDeleteShader[shader: i64] : void @[extern]
-func glVertexAttribPointer[index: i64, size: i64, type: i64, normalized: bool, stride: i64, pointer: ptr] : void @[extern]
-func glEnableVertexAttribArray[index: i64] : void @[extern]
-func glGenVertexArrays[n: i64, arrays: ptr] : void @[extern]
-func glBindVertexArray[array: i64] : void @[extern]
-func glDrawArrays[mode: i64, first: i64, count: i64] : void @[extern]
-func glEnable[cap: i64] : void @[extern]
-func glDrawElements[mode: i64, count: i64, type: i64, indices: ptr] : void @[extern]
-func glUniformMatrix4fv[location: i64, count: i64, transpose: bool, value: ptr] : void @[extern]
-func glGetUniformLocation[program: i64, name: str] : i64 @[extern]
+func glfwInit[] : i64 @extern
+func glfwWindowHint[hint: i64, value: i64] : void @extern
+func glfwCreateWindow[width: i64, height: i64, title: str, monitor: ptr, share: ptr] : ptr @extern
+func glfwMakeContextCurrent[window: ptr] : void @extern
+func glfwSetFramebufferSizeCallback[window: ptr, callback: funcptr<void, ptr, i64, i64>] : void @extern
+func glfwWindowShouldClose[window: ptr] : i64 @extern
+func glfwSwapBuffers[window: ptr] : void @extern
+func glfwPollEvents[] : void @extern
+func glfwTerminate[] : void @extern
+func glfwSetErrorCallback[callback: funcptr<void, i64, str>] : ptr @extern
+func glfwGetTime[] : f64 @extern
+func glClearColor[red: f32, green: f32, blue: f32, alpha: f32] : void @extern
+func glClear[mask: i64] : void @extern
+func glViewport[x: i64, y: i64, width: i64, height: i64] : void @extern
+func glGenBuffers[n: i64, buffers: ptr] : void @extern
+func glBindBuffer[target: i64, buffer: i64] : void @extern
+func glBufferData[target: i64, size: i64, data: ptr, usage: i64] : void @extern
+func glCreateShader[type: i64] : i64 @extern
+func glShaderSource[shader: i64, count: i64, string: ptr, length: ptr] : void @extern
+func glCompileShader[shader: i64] : void @extern
+func glCreateProgram[] : i64 @extern
+func glAttachShader[program: i64, shader: i64] : void @extern
+func glLinkProgram[program: i64] : void @extern
+func glUseProgram[program: i64] : void @extern
+func glDeleteShader[shader: i64] : void @extern
+func glVertexAttribPointer[index: i64, size: i64, type: i64, normalized: bool, stride: i64, pointer: ptr] : void @extern
+func glEnableVertexAttribArray[index: i64] : void @extern
+func glGenVertexArrays[n: i64, arrays: ptr] : void @extern
+func glBindVertexArray[array: i64] : void @extern
+func glDrawArrays[mode: i64, first: i64, count: i64] : void @extern
+func glEnable[cap: i64] : void @extern
+func glDrawElements[mode: i64, count: i64, type: i64, indices: ptr] : void @extern
+func glUniformMatrix4fv[location: i64, count: i64, transpose: bool, value: ptr] : void @extern
+func glGetUniformLocation[program: i64, name: str] : i64 @extern
 
 const GLFW_CONTEXT_VERSION_MAJOR = 0x00022002
 const GLFW_CONTEXT_VERSION_MINOR = 0x00022003

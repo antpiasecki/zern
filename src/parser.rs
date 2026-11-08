@@ -280,15 +280,9 @@ impl Parser {
         }
 
         let mut attributes = vec![];
-        if self.match_token(&[TokenType::At]) {
-            self.consume(TokenType::LeftBracket, "expected '[' after '@'")?;
-            loop {
-                attributes.push(self.consume(TokenType::Identifier, "expected attribute")?);
-                if !self.match_token(&[TokenType::Comma]) {
-                    break;
-                }
-            }
-            self.consume(TokenType::RightBracket, "expected ']' after attributes")?;
+        while self.check(&TokenType::At) && self.peek().loc.line == self.previous().loc.line {
+            self.consume(TokenType::At, "expected '@'")?;
+            attributes.push(self.consume(TokenType::Identifier, "expected attribute")?);
         }
 
         let params = if is_variadic {
