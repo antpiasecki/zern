@@ -115,7 +115,8 @@ impl<'a> CodegenX86_64<'a> {
 
     pub fn get_output(&self) -> String {
         format!(
-            ".section .rodata
+            ".intel_syntax noprefix
+.section .rodata
 {}
 .section .bss
 .align 8
@@ -126,93 +127,11 @@ impl<'a> CodegenX86_64<'a> {
     }
 
     pub fn emit_prologue(&mut self) -> Result<(), ZernError> {
-        emit!(
-            &mut self.output,
-            ".intel_syntax noprefix
-
-.section .text
-_builtin_int3:
-    int3
-    ret
-"
-        );
-
         if self.args.mode != CompileMode::MinGW {
-            emit!(
-                &mut self.output,
-                "
-.section .note.GNU-stack
-    .byte 0
-
-.section .text
-_builtin_rep_copy:
-    mov rcx, rdx
-    rep movsb
-    ret
-
-_builtin_rep_zero:
-    mov rcx, rsi
-    xor eax, eax
-    rep stosb
-    ret
-
-_builtin_syscall:
-    mov rax, rdi
-    mov rdi, rsi
-    mov rsi, rdx
-    mov rdx, rcx
-    mov r10, r8
-    mov r8, r9
-    mov r9, [rsp+8]
-    syscall
-    ret
-
-_builtin_spawn_thread:
-    and rdx, -16
-    sub rdx, 32
-    mov [rdx], rdi
-    mov [rdx+8], rsi
-    mov [rdx+16], rcx
-    mov [rdx+24], r8
-    mov rsi, rdx
-    // CLONE_VM|FS|FILES|SIGHAND|THREAD|SYSVSEM
-    mov edi, 0x50f00
-    xor edx, edx
-    xor r10d, r10d
-    xor r8d, r8d
-    mov eax, 56
-    // clone
-    syscall
-    test rax, rax
-    jz .Lspawn_child
-    ret
-.Lspawn_child:
-    xor ebp, ebp
-    pop rax
-    pop rdi
-    call rax
-    mov rdi, [rsp]
-    mov rsi, [rsp+8]
-    mov eax, 11
-    // munmap
-    syscall
-    xor edi, edi
-    mov eax, 60
-    // exit thread
-    syscall
-
-_builtin_lock:
-    mov eax, 1
-    xchg [rdi], rax
-    test rax, rax
-    jz .Llock_done
-    pause
-    jmp _builtin_lock
-.Llock_done:
-    ret
-"
-            );
+            emit!(&mut self.output, ".section .note.GNU-stack");
+            emit!(&mut self.output, "    .byte 0");
         }
+        emit!(&mut self.output, ".section .text");
 
         match self.args.mode {
             CompileMode::StaticLD | CompileMode::DynamicLD => {
@@ -220,7 +139,6 @@ _builtin_lock:
                     &mut self.output,
                     "
 .globl _start
-.section .text
 _start:
     xor rbp, rbp
     // setup args
@@ -608,6 +526,19 @@ _start:
                 }
                 env.scopes.last_mut().unwrap().defers.push(*block.clone());
             }
+            Stmt::AsmFunction {
+                name,
+                params: _,
+                return_types: _,
+                body,
+            } => {
+                let name = &name.lexeme;
+                let mangled = mangle(name);
+
+                emit!(&mut self.output, "{}:", mangled);
+                emit!(&mut self.output, "{}", &body.lexeme[1..body.lexeme.len() - 1]);
+                emit!(&mut self.output, "    ret");
+            }
         }
         Ok(())
     }
@@ -872,31 +803,6 @@ _start:
                 args,
                 type_args,
             } => {
-                if let ExprKind::Variable(callee_name) = &callee.kind
-                    && callee_name.lexeme == "_read64"
-                {
-                    self.compile_expr(env, &args[0])?;
-                    emit!(&mut self.output, "    mov rax, [rax]");
-                    return Ok(());
-                }
-
-                if let ExprKind::Variable(callee_name) = &callee.kind
-                    && callee_name.lexeme == "_write64"
-                {
-                    self.compile_expr(env, &args[0])?;
-                    emit!(&mut self.output, "    push rax");
-                    self.compile_expr(env, &args[1])?;
-                    emit!(&mut self.output, "    pop rcx");
-                    emit!(&mut self.output, "    mov [rcx], rax");
-                    return Ok(());
-                }
-
-                if let ExprKind::Variable(callee_name) = &callee.kind
-                    && callee_name.lexeme == "_var_arg"
-                {
-                    return self.emit_var_arg(env, &args[0]);
-                }
-
                 if let ExprKind::Variable(callee_name) = &callee.kind
                     && callee_name.lexeme == "_stackalloc"
                 {
@@ -1294,38 +1200,6 @@ _start:
         };
 
         Ok(field.offset)
-    }
-
-    fn emit_var_arg(&mut self, env: &mut Env, index_expr: &Expr) -> Result<(), ZernError> {
-        self.compile_expr(env, index_expr)?;
-        emit!(&mut self.output, "    mov r10, rax");
-
-        let stack_label = self.label();
-        let done_label = self.label();
-        let register_count = if self.args.mode == CompileMode::MinGW { 4 } else { 6 };
-        let stack_base = if self.args.mode == CompileMode::MinGW { 48 } else { 16 };
-
-        emit!(&mut self.output, "    cmp r10, {}", register_count);
-        emit!(&mut self.output, "    jge {}", stack_label);
-
-        // register-backed variadic arguments
-        emit!(&mut self.output, "    mov rax, r10");
-        emit!(&mut self.output, "    inc rax");
-        emit!(&mut self.output, "    shl rax, 3");
-        emit!(&mut self.output, "    neg rax");
-        emit!(&mut self.output, "    sub rax, 8");
-        emit!(&mut self.output, "    mov rax, [rbp + rax]");
-        emit!(&mut self.output, "    jmp {}", done_label);
-
-        // stack-backed variadic arguments
-        emit!(&mut self.output, "{}:", stack_label);
-        emit!(&mut self.output, "    mov rax, r10");
-        emit!(&mut self.output, "    sub rax, {}", register_count);
-        emit!(&mut self.output, "    shl rax, 3");
-        emit!(&mut self.output, "    mov rax, [rbp + rax + {}]", stack_base);
-
-        emit!(&mut self.output, "{}:", done_label);
-        Ok(())
     }
 
     fn emit_ret(&mut self) {

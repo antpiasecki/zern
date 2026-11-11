@@ -111,6 +111,12 @@ pub enum Stmt {
         keyword: Token,
         block: Box<Stmt>,
     },
+    AsmFunction {
+        name: Token,
+        params: Params,
+        return_types: Vec<Token>,
+        body: Token,
+    },
 }
 
 pub static NEXT_EXPR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -219,6 +225,9 @@ impl Parser {
             if self.match_token(&[TokenType::KeywordFunc]) {
                 return self.func_declaration();
             }
+            if self.match_token(&[TokenType::KeywordAsm]) {
+                return self.asm_func_declaration();
+            }
             if self.match_token(&[TokenType::KeywordConst]) {
                 return self.const_declaration();
             }
@@ -307,6 +316,59 @@ impl Parser {
             type_vars,
             body,
             attributes,
+        })
+    }
+
+    fn asm_func_declaration(&mut self) -> Result<Stmt, ZernError> {
+        let name = self.consume(TokenType::Identifier, "expected function name")?;
+        self.consume(TokenType::LeftBracket, "expected '[' after function name")?;
+
+        let mut is_variadic = false;
+        let mut params = Vec::with_capacity(8);
+        if !self.check(&TokenType::RightBracket) {
+            if self.match_token(&[TokenType::DoubleDot]) {
+                is_variadic = true;
+            } else {
+                loop {
+                    let var_name = self.consume(TokenType::Identifier, "expected parameter name")?;
+                    self.consume(TokenType::Colon, "expected ':' after parameter name")?;
+
+                    let var_type = self.parse_type_name()?;
+
+                    params.push(Param { var_type, var_name });
+                    if !self.match_token(&[TokenType::Comma]) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.consume(TokenType::RightBracket, "expected ']' after arguments")?;
+        self.consume(TokenType::Colon, "expected ':' after '['")?;
+
+        let mut return_types = vec![];
+        loop {
+            return_types.push(self.parse_type_name()?);
+            if !self.match_token(&[TokenType::Comma]) {
+                break;
+            }
+        }
+
+        let params = if is_variadic {
+            Params::Variadic
+        } else {
+            Params::Normal(params)
+        };
+
+        self.consume(TokenType::Indent, "expected an indent after asm function declaration")?;
+        let body = self.consume(TokenType::StringLiteral, "expected string literal in asm function body")?;
+        self.consume(TokenType::Dedent, "expected a dedent after asm function body")?;
+
+        Ok(Stmt::AsmFunction {
+            name,
+            params,
+            return_types,
+            body,
         })
     }
 

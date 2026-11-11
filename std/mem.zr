@@ -10,21 +10,21 @@ var mem.allocator: mem.Allocator
 var mem._lock: i64
 
 func mem.alloc[len: i64] : ptr
-    _builtin_lock(^mem._lock)
+    builtin.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
     return (mem.allocator->alloc_func)(mem.allocator, len)
 
 func ptr.free[x: ptr] : void
-    _builtin_lock(^mem._lock)
+    builtin.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
     (mem.allocator->free_func)(mem.allocator, x)
 
 func ptr.realloc[x: ptr, new_len: i64] : ptr
-    _builtin_lock(^mem._lock)
+    builtin.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
@@ -32,19 +32,19 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
 
 func mem._ensure_allocator[] : void
     if mem.allocator as ptr == 0
-        a := _builtin_syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Allocator
+        a := builtin.syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as mem.Allocator
         a->alloc_func = ^mem.FreeListAllocator.alloc
         a->free_func = ^mem.FreeListAllocator.free
         a->realloc_func = ^mem.FreeListAllocator.realloc
 
         size := 0x1C0000000
         while true
-            base := _builtin_syscall(SYS_mmap, 0x10000000, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE|MAP_FIXED_NOREPLACE, -1, 0)
+            base := builtin.syscall(SYS_mmap, 0x10000000, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE|MAP_FIXED_NOREPLACE, -1, 0)
             if base == 0x10000000
-                _builtin_syscall(SYS_madvise, base, size, MADV_DONTDUMP)
+                builtin.syscall(SYS_madvise, base, size, MADV_DONTDUMP)
                 break
             if base > 0
-                _builtin_syscall(SYS_munmap, base, size)
+                builtin.syscall(SYS_munmap, base, size)
 
             size = size / 2
             if size < 0x1000000
@@ -142,9 +142,9 @@ func mem.FreeListAllocator.alloc[a: mem.Allocator, len: i64] : ptr
     if len <= 1024
         c := (len + 7) / 8
         slot := fla->bins@[c*8]
-        head := _read64(slot) as ptr
+        head := builtin.read64(slot) as ptr
         if head != 0
-            _write64(slot, _read64(head))
+            builtin.write64(slot, builtin.read64(head))
             return head
 
     // try to cut off a piece of an already available block
@@ -178,7 +178,7 @@ func mem.FreeListAllocator.alloc[a: mem.Allocator, len: i64] : ptr
 
 // releases freed and page aligned blocks back to OS
 func mem.FreeListAllocator.trim[fla: mem.FreeListAllocator] : void
-    _builtin_lock(^mem._lock)
+    builtin.lock(^mem._lock)
     defer
         mem._lock = 0
 
@@ -199,7 +199,7 @@ func mem.FreeListAllocator.trim[fla: mem.FreeListAllocator] : void
             fla->head = 0 as mem.FreeListBlock
 
         fla->tail = prev
-        _builtin_syscall(SYS_madvise, cur, block_total, MADV_DONTNEED)
+        builtin.syscall(SYS_madvise, cur, block_total, MADV_DONTNEED)
         fla->heap_top = (cur as i64) - (fla->heap_base as i64)
 
         cur = prev
@@ -217,8 +217,8 @@ func mem.FreeListAllocator.free[a: mem.Allocator, x: ptr] : void
 
     if blk->len <= 1024
         slot := fla->bins@[(blk->len / 8) * 8]
-        _write64(x, _read64(slot))
-        _write64(slot, x as i64)
+        builtin.write64(x, builtin.read64(slot))
+        builtin.write64(slot, x as i64)
         return
 
     blk->free = true
@@ -304,12 +304,12 @@ func mem.zero[x: ptr, len: i64] : void
     if len <= 0
         return
     if len >= 32
-        _builtin_rep_zero(x, len)
+        builtin.rep_zero(x, len)
         return
 
     i := 0
     while i + 8 <= len
-        _write64(x@[i], 0)
+        builtin.write64(x@[i], 0)
         i += 8
     while i < len
         x[i] = 0 as u8
@@ -336,18 +336,18 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         i := n
         while i - 8 >= 0
             i -= 8
-            _write64(dst@[i], _read64(src@[i]))
+            builtin.write64(dst@[i], builtin.read64(src@[i]))
         while i > 0
             i -= 1
             dst[i] = src[i]
     else
         if n >= 32
-            _builtin_rep_copy(dst, src, n)
+            builtin.rep_copy(dst, src, n)
             return
 
         i := 0
         while i + 8 <= n
-            _write64(dst@[i], _read64(src@[i]))
+            builtin.write64(dst@[i], builtin.read64(src@[i]))
             i += 8
         while i < n
             dst[i] = src[i]
@@ -366,7 +366,7 @@ func mem.read32be[x: ptr] : i64
     return (x[0] as i64 << 24) | (x[1] << 16) | (x[2] << 8) | x[3]
 
 func mem.read64[x: ptr] : i64
-    return _read64(x)
+    return builtin.read64(x)
 
 func mem.read64be[x: ptr] : i64
     return (mem.read32be(x) << 32) | mem.read32be(x@[4])
@@ -392,7 +392,7 @@ func mem.write32be[x: ptr, d: i64] : void
     x[3] = d as u8
 
 func mem.write64[x: ptr, d: i64] : void
-    _write64(x, d)
+    builtin.write64(x, d)
 
 func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)

@@ -2,12 +2,13 @@ include "linux_constants.zr"
 include "linux_syscalls.zr"
 include "str.zr"
 include "containers.zr"
+include "builtin.zr"
 
 func os.exit[code: i64] : void
-    _builtin_syscall(SYS_exit_group, code)
+    builtin.syscall(SYS_exit_group, code)
 
 func os.getpid[] : i64
-    return _builtin_syscall(SYS_getpid)
+    return builtin.syscall(SYS_getpid)
 
 func os.arg[argv: ptr, n: i64] : str
     return mem.read64(argv@[n * 8]) as str
@@ -52,24 +53,24 @@ func os.sleep[ms: i64] : void
     req := new os.Timespec
     req->tv_sec = ms / 1000
     req->tv_nsec = (ms % 1000) * 1000000
-    _builtin_syscall(SYS_nanosleep, req, 0)
+    builtin.syscall(SYS_nanosleep, req, 0)
 
 func os.time_ms[] : i64
     ts := new os.Timespec
-    _builtin_syscall(SYS_clock_gettime, CLOCK_REALTIME, ts)
+    builtin.syscall(SYS_clock_gettime, CLOCK_REALTIME, ts)
     out := ts->tv_sec * 1000 + ts->tv_nsec / 1000000
     return out
 
 func os.monotonic_time_ns[] : i64
     ts := new os.Timespec
-    _builtin_syscall(SYS_clock_gettime, CLOCK_MONOTONIC, ts)
+    builtin.syscall(SYS_clock_gettime, CLOCK_MONOTONIC, ts)
     out := ts->tv_sec * 1000000000 + ts->tv_nsec
     return out
 
 func os.urandom_buf[buf: ptr, n: i64] : void
     pos := 0
     while pos < n
-        ret := _builtin_syscall(SYS_getrandom, buf@[pos], n - pos, 0)
+        ret := builtin.syscall(SYS_getrandom, buf@[pos], n - pos, 0)
         if ret <= 0 io.panic("os.urandom_buf: syscall failed")
         pos += ret
 
@@ -113,10 +114,10 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
 
     pipe := _stackalloc(8)
     if capture_stdout
-        if _builtin_syscall(SYS_pipe, pipe) == -1
+        if builtin.syscall(SYS_pipe, pipe) == -1
             io.panic("os._run_shell_command: failed to pipe")
 
-    pid := _builtin_syscall(SYS_fork)
+    pid := builtin.syscall(SYS_fork)
     if pid < 0
         if capture_stdout
             io.close(mem.read32(pipe@[0]))
@@ -126,13 +127,13 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
     if pid == 0
         if capture_stdout
             io.close(mem.read32(pipe@[0]))
-            ret := _builtin_syscall(SYS_dup2, mem.read32(pipe@[4]), STDOUT_FILENO)
+            ret := builtin.syscall(SYS_dup2, mem.read32(pipe@[4]), STDOUT_FILENO)
             if ret < 0
                 io.panic("os._run_shell_command: failed to dup2")
             io.close(mem.read32(pipe@[4]))
 
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
-        _builtin_syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
+        builtin.syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
         os.exit(127)
     else
         if capture_stdout
@@ -149,7 +150,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
 
         status := 0
         rusage := _stackalloc(192)
-        wp := _builtin_syscall(SYS_wait4, pid, ^status, 0, rusage)
+        wp := builtin.syscall(SYS_wait4, pid, ^status, 0, rusage)
         if wp < 0 return res
         status = status & 0xffffffff
 
@@ -164,12 +165,12 @@ func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
         return res
 
 func os.file_exists[path: str] : bool
-    return _builtin_syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
+    return builtin.syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
 
 func os.get_file_size[path: str] : i64, err
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
-    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
     if rc != 0 return 0, error("os.get_file_size: fstat failed")
 
     return mem.read64(st@[48]), ok()
@@ -177,13 +178,13 @@ func os.get_file_size[path: str] : i64, err
 func os.is_a_directory[path: str] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
-    rc := _builtin_syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
     if rc != 0 return false
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
 
 func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
-    return _builtin_syscall(SYS_ioctl, fd, op, argp)
+    return builtin.syscall(SYS_ioctl, fd, op, argp)
 
 func os.list_directory[path: str] : Array<str>, err
     fd := try io.open_for_reading(path)
@@ -192,7 +193,7 @@ func os.list_directory[path: str] : Array<str>, err
     files := [] as Array<str>
     buf := _stackalloc(1024)
     while true
-        n := _builtin_syscall(SYS_getdents64, fd, buf, 1024)
+        n := builtin.syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
             return 0 as Array<str>, error("os.list_directory: getdents() failed")
@@ -221,11 +222,11 @@ func os.list_directory[path: str] : Array<str>, err
 const os._STACK_SIZE = 0x40000
 
 func os.spawn_thread<T>[f: funcptr<void, T>, arg: T] : i64
-    ret := _builtin_syscall(SYS_mmap, 0, os._STACK_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0)
+    ret := builtin.syscall(SYS_mmap, 0, os._STACK_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0)
     if ret < 0 && ret > -4096
         io.panic("os.spawn_thread: failed to mmap")
     base := ret as ptr
-    tid := _builtin_spawn_thread(f as ptr, arg as opaque, base@[os._STACK_SIZE], base, os._STACK_SIZE)
+    tid := builtin.spawn_thread(f as ptr, arg as opaque, base@[os._STACK_SIZE], base, os._STACK_SIZE)
     if tid < 0
         io.panic("os.spawn_thread: failed to spawn thread")
     return tid

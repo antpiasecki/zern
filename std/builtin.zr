@@ -1,0 +1,98 @@
+asm builtin.int3[] : void
+    "int3"
+
+asm builtin.read64[p: ptr] : i64
+    "mov rax, [rdi]"
+
+asm builtin.write64[p: ptr, value: i64] : void
+    "mov [rdi], rsi"
+
+asm builtin.lock[lock: ptr] : void
+    "
+    mov eax, 1
+    xchg [rdi], rax
+    test rax, rax
+    jz .Llock_done
+    pause
+    jmp builtin.lock
+.Llock_done:
+    "
+
+asm builtin.rep_copy[dst: ptr, src: ptr, len: i64] : void
+    "
+    mov rcx, rdx
+    rep movsb
+    "
+
+asm builtin.rep_zero[dst: ptr, len: i64] : void
+    "
+    mov rcx, rsi
+    xor eax, eax
+    rep stosb
+    "
+
+asm builtin.syscall[..] : i64
+    "
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8, r9
+    mov r9, [rsp+8]
+    syscall
+    "
+
+asm builtin.var_arg[index: i64] : opaque
+    "
+    mov rax, rdi
+    cmp rax, 6
+    jge .Lvar_arg_stack
+    inc rax
+    shl rax, 3
+    neg rax
+    sub rax, 8
+    mov rax, [rbp + rax]
+    jmp .Lvar_arg_done
+.Lvar_arg_stack:
+    sub rax, 6
+    shl rax, 3
+    mov rax, [rbp + rax + 16]
+.Lvar_arg_done:
+    "
+
+asm builtin.spawn_thread[fn: ptr, arg: opaque, stack: ptr, map_addr: ptr, map_len: i64] : i64
+    "
+    and rdx, -16
+    sub rdx, 32
+    mov [rdx], rdi
+    mov [rdx+8], rsi
+    mov [rdx+16], rcx
+    mov [rdx+24], r8
+    mov rsi, rdx
+    // CLONE_VM|FS|FILES|SIGHAND|THREAD|SYSVSEM
+    mov edi, 0x50f00
+    xor edx, edx
+    xor r10d, r10d
+    xor r8d, r8d
+    mov eax, 56
+    // clone
+    syscall
+    test rax, rax
+    jz .Lspawn_child
+    ret
+.Lspawn_child:
+    xor ebp, ebp
+    pop rax
+    pop rdi
+    call rax
+    mov rdi, [rsp]
+    mov rsi, [rsp+8]
+    mov eax, 11
+    // munmap
+    syscall
+    xor edi, edi
+    mov eax, 60
+    // exit thread
+    syscall
+    "

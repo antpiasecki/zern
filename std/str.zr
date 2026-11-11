@@ -63,11 +63,11 @@ func str.equal_n[a: str, b: str, n: i64] : bool
     return true
 
 func str.format_into[..] : void
-    target_buf := _var_arg(0) as ptr
-    max_len := _var_arg(1) as i64
+    target_buf := builtin.var_arg(0) as ptr
+    max_len := builtin.var_arg(1) as i64
     if max_len <= 0
         return
-    format := _var_arg(2) as ptr
+    format := builtin.var_arg(2) as ptr
     i := 0
     arg_counter := 3
     written := 0
@@ -82,17 +82,17 @@ func str.format_into[..] : void
         if format[i] == '%'
             i += 1
             if format[i] == 'd'
-                tmp_len := (_var_arg(arg_counter) as i64)->to_str_buf(tmp)
+                tmp_len := (builtin.var_arg(arg_counter) as i64)->to_str_buf(tmp)
                 mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
                 written += math.min(tmp_len, remaining)
                 arg_counter += 1
             else if format[i] == 'x'
-                tmp_len := (_var_arg(arg_counter) as i64)->to_hex_str_buf(tmp)
+                tmp_len := (builtin.var_arg(arg_counter) as i64)->to_hex_str_buf(tmp)
                 mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
                 written += math.min(tmp_len, remaining)
                 arg_counter += 1
             else if format[i] == 's'
-                s := _var_arg(arg_counter) as str
+                s := builtin.var_arg(arg_counter) as str
                 if s as ptr == 0
                     s = "(null)"
                 tmp_len := s->len()
@@ -100,11 +100,11 @@ func str.format_into[..] : void
                 written += math.min(tmp_len, remaining)
                 arg_counter += 1
             else if format[i] == 'c'
-                target_buf[written] = _var_arg(arg_counter) as u8
+                target_buf[written] = builtin.var_arg(arg_counter) as u8
                 written += 1
                 arg_counter += 1
             else if format[i] == 'f'
-                tmp_len := (_var_arg(arg_counter) as opaque as f64)->to_str_buf(tmp)
+                tmp_len := (builtin.var_arg(arg_counter) as opaque as f64)->to_str_buf(tmp)
                 mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
                 written += math.min(tmp_len, remaining)
                 arg_counter += 1

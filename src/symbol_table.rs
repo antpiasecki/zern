@@ -23,24 +23,6 @@ pub struct FnType {
     pub attributes: Vec<String>,
 }
 
-impl FnType {
-    fn new(params: Vec<&str>, return_type: &str) -> FnType {
-        FnType {
-            return_type: return_type.to_string(),
-            params: FnParams::Normal(params.iter().map(|x| x.to_string()).collect()),
-            attributes: vec![],
-        }
-    }
-
-    fn new_variadic(return_type: &str) -> FnType {
-        FnType {
-            return_type: return_type.to_string(),
-            params: FnParams::Variadic,
-            attributes: vec![],
-        }
-    }
-}
-
 pub struct SymbolTable {
     pub functions: HashMap<String, FnType>,
     pub generic_functions: HashMap<String, Stmt>,
@@ -53,24 +35,14 @@ pub struct SymbolTable {
 impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
-            functions: HashMap::from([
-                ("_builtin_int3".into(), FnType::new(vec![], "void")),
-                (
-                    "_builtin_spawn_thread".into(),
-                    FnType::new(vec!["ptr", "opaque", "ptr", "ptr", "i64"], "i64"),
-                ),
-                ("_builtin_lock".into(), FnType::new(vec!["ptr"], "void")),
-                (
-                    "_builtin_rep_copy".into(),
-                    FnType::new(vec!["ptr", "ptr", "i64"], "void"),
-                ),
-                ("_builtin_rep_zero".into(), FnType::new(vec!["ptr", "i64"], "void")),
-                ("_builtin_syscall".into(), FnType::new_variadic("i64")),
-                ("_read64".into(), FnType::new(vec!["ptr"], "i64")),
-                ("_write64".into(), FnType::new(vec!["ptr", "i64"], "void")),
-                ("_var_arg".into(), FnType::new(vec!["i64"], "opaque")),
-                ("_stackalloc".into(), FnType::new(vec!["i64"], "ptr")),
-            ]),
+            functions: HashMap::from([(
+                "_stackalloc".into(),
+                FnType {
+                    return_type: "ptr".into(),
+                    params: FnParams::Normal(vec!["i64".into()]),
+                    attributes: vec![],
+                },
+            )]),
             generic_functions: HashMap::new(),
             generic_structs: HashMap::new(),
             constants: HashMap::new(),
@@ -187,6 +159,40 @@ impl SymbolTable {
                 let label = format!("_global_{:03}", self.globals.len());
                 self.globals
                     .insert(var_name.lexeme.clone(), (label, var_type.lexeme.clone()));
+            }
+            Stmt::AsmFunction {
+                name,
+                params,
+                return_types,
+                body: _,
+            } => {
+                if self.is_name_defined(&name.lexeme) {
+                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
+                }
+
+                if name.lexeme.starts_with('_') {
+                    return error!(name.loc, "user function names cannot start with '_'");
+                }
+
+                let return_type = return_types_tokens_to_type_str(return_types);
+                match params {
+                    Params::Normal(params) => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type,
+                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
+                            attributes: vec![],
+                        },
+                    ),
+                    Params::Variadic => self.functions.insert(
+                        name.lexeme.clone(),
+                        FnType {
+                            return_type,
+                            params: FnParams::Variadic,
+                            attributes: vec![],
+                        },
+                    ),
+                };
             }
             _ => {}
         }
