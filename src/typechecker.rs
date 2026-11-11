@@ -264,8 +264,8 @@ impl<'a> TypeChecker<'a> {
                 attributes: _,
             } => {
                 let return_type = return_types_tokens_to_type_str(return_types);
-                if return_types.len() > 2 {
-                    return error!(&return_types[2].loc, "functions cannot return more than two values");
+                if return_types.len() > 3 {
+                    return error!(&return_types[3].loc, "functions cannot return more than three values");
                 }
 
                 if return_types.len() > 1 && return_type.contains("f64") {
@@ -365,8 +365,8 @@ impl<'a> TypeChecker<'a> {
                 body: _,
             } => {
                 let return_type = return_types_tokens_to_type_str(return_types);
-                if return_types.len() > 2 {
-                    return error!(&return_types[2].loc, "functions cannot return more than two values");
+                if return_types.len() > 3 {
+                    return error!(&return_types[3].loc, "functions cannot return more than three values");
                 }
 
                 if !self.is_valid_type_name(&return_type) {

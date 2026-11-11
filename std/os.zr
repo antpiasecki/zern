@@ -134,7 +134,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : ^os.CmdResult
             io.close(mem.read32(pipe@[4]))
 
         argv := ["sh", "-c", command, 0] // gets freed after child process exits
-        builtin.syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ as ptr)
+        builtin.syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ)
         os.exit(127)
     else
         if capture_stdout

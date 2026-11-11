@@ -78,6 +78,8 @@ macro_rules! emit {
     }};
 }
 
+static REGISTERS_FOR_RETURNS: [&str; 3] = ["rax", "rdx", "rcx"];
+
 pub struct CodegenX86_64<'a> {
     output: String,
     rodata: String,
@@ -142,16 +144,12 @@ impl<'a> CodegenX86_64<'a> {
 .globl _start
 _start:
     xor rbp, rbp
-    // setup args
     pop rdi
     mov rsi, rsp
-    // save environ
     lea rdx, [rsi + rdi*8 + 8]
     lea rax, [rip + _builtin_environ]
     mov [rax], rdx
-    // align stack
     and rsp, -16
-    // exit(main())
     call main
     mov rdi, rax
     mov rax, 231
@@ -243,19 +241,15 @@ _start:
                 self.compile_expr(env, value)?;
 
                 for (i, target) in targets.iter().enumerate() {
-                    let reg = match i {
-                        0 => "rax",
-                        1 => "rdx",
-                        _ => {
-                            return error!(&op.loc, "destructuring more than 2 values not implemented yet");
-                        }
+                    let Some(r) = REGISTERS_FOR_RETURNS.get(i) else {
+                        return error!(&op.loc, "destructuring more than 3 values not implemented yet");
                     };
 
                     let offset = match env.get_var(&target.lexeme) {
                         Some(offset) => offset,
                         None => env.define_var(target.lexeme.clone()),
                     };
-                    emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], {}", offset, reg);
+                    emit!(&mut self.output, "    mov QWORD PTR [rbp-{}], {}", offset, r);
                 }
             }
             Stmt::Const { .. } => {
@@ -431,26 +425,13 @@ _start:
                     .replace_range(prologue_offset..prologue_offset + patch.len(), &patch);
             }
             Stmt::Return { keyword: _, exprs } => {
-                match exprs.len() {
-                    2 => {
-                        self.compile_expr(env, &exprs[1])?;
-                        emit!(&mut self.output, "    push rax");
-                        self.compile_expr(env, &exprs[0])?;
-                        emit!(&mut self.output, "    push rax");
-                        self.emit_all_defers(env)?;
-                        emit!(&mut self.output, "    pop rax");
-                        emit!(&mut self.output, "    pop rdx");
-                    }
-                    1 => {
-                        self.compile_expr(env, &exprs[0])?;
-                        emit!(&mut self.output, "    push rax");
-                        self.emit_all_defers(env)?;
-                        emit!(&mut self.output, "    pop rax");
-                    }
-                    0 => {
-                        self.emit_all_defers(env)?;
-                    }
-                    _ => unreachable!(), // guaranteed by typechecker
+                for e in exprs.iter().rev() {
+                    self.compile_expr(env, e)?;
+                    emit!(&mut self.output, "    push rax");
+                }
+                self.emit_all_defers(env)?;
+                for r in REGISTERS_FOR_RETURNS.iter().take(exprs.len()) {
+                    emit!(&mut self.output, "    pop {}", r);
                 }
                 if env.return_type == "f64" || env.return_type == "f32" {
                     emit!(&mut self.output, "    movq xmm0, rax");
