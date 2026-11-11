@@ -6,7 +6,7 @@ func collatz_num[n: i64] : i64
     return n * 3 + 1
 
 func main[] : i64
-    cache := [] as Array<i64>
+    cache := [] as ^Array<i64>
     cache->preallocate_and_zero(1000000)
     cache->set(1, 1)
     best_len := 0

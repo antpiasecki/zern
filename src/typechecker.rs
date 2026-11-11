@@ -166,7 +166,14 @@ impl<'a> TypeChecker<'a> {
                     ExprKind::MemberAccess { left, field } => {
                         let left_type = self.typecheck_expr(env, left)?;
 
-                        let Some(fields) = self.symbol_table.structs.get(&left_type) else {
+                        if !left_type.starts_with('^') {
+                            return error!(
+                                &field.loc,
+                                format!("member access requires a struct pointer, got {left_type}")
+                            );
+                        }
+
+                        let Some(fields) = self.symbol_table.structs.get(&left_type[1..]) else {
                             return error!(&field.loc, format!("unknown struct type: {}", left_type));
                         };
 
@@ -403,7 +410,7 @@ impl<'a> TypeChecker<'a> {
                         Ok(left_type)
                     }
                     TokenType::Mod
-                    | TokenType::Xor
+                    | TokenType::Caret
                     | TokenType::BitAnd
                     | TokenType::BitOr
                     | TokenType::ShiftLeft
@@ -538,11 +545,12 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             ExprKind::ArrayLiteral(exprs) => {
+                // TODO
                 for expr in exprs {
                     self.typecheck_expr(env, expr)?;
                 }
                 env.used_functions.insert("mem.alloc".into());
-                Ok("Array<opaque>".into())
+                Ok("^Array<opaque>".into())
             }
             ExprKind::Index {
                 indexed,
@@ -592,12 +600,19 @@ impl<'a> TypeChecker<'a> {
                 }
                 env.used_functions.insert("mem.alloc".into());
                 env.used_functions.insert("mem.zero".into());
-                Ok(struct_name.lexeme.clone())
+                Ok(format!("^{}", struct_name.lexeme.clone()))
             }
             ExprKind::MemberAccess { left, field } => {
                 let left_type = self.typecheck_expr(env, left)?;
 
-                let Some(fields) = self.symbol_table.structs.get(&left_type) else {
+                if !left_type.starts_with('^') {
+                    return error!(
+                        &field.loc,
+                        format!("member access requires a struct pointer, got {left_type}")
+                    );
+                }
+
+                let Some(fields) = self.symbol_table.structs.get(&left_type[1..]) else {
                     return error!(&field.loc, format!("unknown struct type: {}", left_type));
                 };
 
@@ -641,6 +656,7 @@ impl<'a> TypeChecker<'a> {
                 } else {
                     monomorphizer::type_name(&func_name, &inferred_args)
                 };
+                let func_name = strip_caret(&func_name).to_string();
 
                 let Some(func_type) = self.symbol_table.functions.get(&func_name) else {
                     return error!(
@@ -714,11 +730,15 @@ impl<'a> TypeChecker<'a> {
         if name.starts_with("funcptr<") {
             return true;
         }
-        if self.symbol_table.structs.contains_key(name) {
+        if name.starts_with('^') && self.symbol_table.structs.contains_key(&name[1..]) {
             return true;
         }
         false
     }
+}
+
+pub fn strip_caret(s: &str) -> &str {
+    s.strip_prefix('^').unwrap_or(s)
 }
 
 pub fn split_multiple_type(s: &str) -> Option<Vec<&str>> {

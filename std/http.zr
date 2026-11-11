@@ -1,7 +1,7 @@
 include "net.zr"
 include "json.zr"
 
-func http.build_request[method: str, path: str, headers: HashMap<str>, body: slice] : slice
+func http.build_request[method: str, path: str, headers: ^HashMap<str>, body: slice] : slice
     sb := new str.Builder
 
     first_line := _stackalloc(256) as str
@@ -44,13 +44,13 @@ struct http.Url
     port: i64
     path: str
 
-func http.Url.free[u: http.Url] : void
+func http.Url.free[u: ^http.Url] : void
     u->schema->free()
     u->host->free()
     u->path->free()
     (u as ptr)->free()
 
-func http.parse_url[url: str] : http.Url
+func http.parse_url[url: str] : ^http.Url
     out := new* http.Url
     colon_pos := url->find("://")
 
@@ -82,7 +82,7 @@ func http.parse_url[url: str] : http.Url
 
     return out
 
-func http.do_request[method: str, url: str, headers: HashMap<str>, body: slice] : slice, err
+func http.do_request[method: str, url: str, headers: ^HashMap<str>, body: slice] : slice, err
     parsed_url := http.parse_url(url)
     defer parsed_url->free()
 
@@ -141,37 +141,37 @@ struct http.Req
     remote_addr: str
     method: str
     path: str
-    headers: HashMap<str>
+    headers: ^HashMap<str>
     body: slice
 
 struct http.Resp
     status: i64
-    headers: HashMap<str>
+    headers: ^HashMap<str>
     body: slice
 
-func http.Resp.string[w: http.Resp, status: i64, body: str] : void
+func http.Resp.string[w: ^http.Resp, status: i64, body: str] : void
     w->status = status
     w->body = slice.copy_cstr(body)
 
-func http.Resp.json[w: http.Resp, status: i64, value: json.Value] : void
+func http.Resp.json[w: ^http.Resp, status: i64, value: ^json.Value] : void
     w->status = status
     body := value->dump()
     defer body->free()
     w->headers->insert("Content-Type", "application/json")
     w->body = slice.copy_cstr(body)
 
-func http.Resp.error[w: http.Resp, status: i64] : void
+func http.Resp.error[w: ^http.Resp, status: i64] : void
     w->status = status
     body := _stackalloc(2048) as str
     body->format_into(2048, "%d %s\n", status, http.status_code_to_text(status))
     w->body = slice.copy_cstr(body)
 
-func http.Resp.send[w: http.Resp, c: i64] : void
+func http.Resp.send[w: ^http.Resp, c: i64] : void
     b := w->build()
     defer b->free()
     net.send(c, b@[0], b->len())
 
-func http.Resp.build[w: http.Resp] : slice
+func http.Resp.build[w: ^http.Resp] : slice
     sb := new str.Builder
 
     status_line := _stackalloc(256) as str
@@ -202,9 +202,9 @@ func http.Resp.build[w: http.Resp] : slice
 struct http._ConnData
     c: i64
     addr: ptr
-    handler: funcptr<void, http.Req, http.Resp>
+    handler: funcptr<void, ^http.Req, ^http.Resp>
 
-func http.start_server[host: str, port: i64, handler: funcptr<void, http.Req, http.Resp>] : void
+func http.start_server[host: str, port: i64, handler: funcptr<void, ^http.Req, ^http.Resp>] : void
     s, err := net.listen(host, port)
     if err io.panic_with("failed to listen", err)
 
@@ -219,9 +219,9 @@ func http.start_server[host: str, port: i64, handler: funcptr<void, http.Req, ht
             continue
 
         cd->handler = handler
-        os.spawn_thread::<http._ConnData>(^http._handle_conn, cd)
+        os.spawn_thread::<^http._ConnData>(^http._handle_conn, cd)
 
-func http._handle_conn[cd: http._ConnData] : void
+func http._handle_conn[cd: ^http._ConnData] : void
     defer (cd as ptr)->free()
     defer cd->addr->free()
     defer net.close(cd->c)

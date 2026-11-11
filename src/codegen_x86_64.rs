@@ -5,6 +5,7 @@ use crate::{
     parser::{Expr, ExprKind, Params, Stmt},
     symbol_table::{SymbolTable, return_types_tokens_to_type_str},
     tokenizer::{Token, TokenType, ZernError, error},
+    typechecker::strip_caret,
 };
 
 type VarOffset = usize;
@@ -626,7 +627,7 @@ _start:
                         emit!(&mut self.output, "    idiv rbx");
                         emit!(&mut self.output, "    mov rax, rdx");
                     }
-                    TokenType::Xor => {
+                    TokenType::Caret => {
                         emit!(&mut self.output, "    xor rax, rbx");
                     }
                     TokenType::BitAnd => {
@@ -1189,7 +1190,7 @@ _start:
     }
 
     fn get_field_offset(&self, left: &Expr, field: &Token) -> Result<usize, ZernError> {
-        let struct_name = &self.expr_types[&left.id];
+        let struct_name = strip_caret(&self.expr_types[&left.id]);
 
         let Some(fields) = self.symbol_table.structs.get(struct_name) else {
             return error!(&field.loc, format!("unknown struct type: {}", struct_name));

@@ -17,11 +17,11 @@ func main[] : i64
     glfwMakeContextCurrent(window)
     glfwSetFramebufferSizeCallback(window, ^framebuffer_size_callback)
 
-    vertices_vals := [-0.5, 0.0, -0.5, 1.0, 0.0, 0.0, 0.5, 0.0, -0.5, 0.0, 1.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.0, -0.5, 0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0] as Array<f64>
+    vertices_vals := [-0.5, 0.0, -0.5, 1.0, 0.0, 0.0, 0.5, 0.0, -0.5, 0.0, 1.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.0, -0.5, 0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0] as ^Array<f64>
     vertices := _stackalloc(256)
     pack_floats(vertices, vertices_vals)
 
-    indices_vals := [3,2,4, 2,1,4, 1,0,4, 0,3,4, 0,1,2, 0,2,3] as Array<i64>
+    indices_vals := [3,2,4, 2,1,4, 1,0,4, 0,3,4, 0,1,2, 0,2,3] as ^Array<i64>
     indices := _stackalloc(256)
     pack_ints(indices, indices_vals)
 
@@ -91,7 +91,7 @@ void main() { FragColor = vec4(ourColor, 1.0); }"
         b_cos := b->cos()
         c_sin := c->sin()
         c_cos := c->cos()
-        model_vals := [c_cos*b_cos, c_sin*b_cos, -b_sin, 0.0, c_cos*b_sin*a_sin - c_sin*a_cos, c_sin*b_sin*a_sin + c_cos*a_cos, b_cos*a_sin, 0.0, c_cos*b_sin*a_cos + c_sin*a_sin, c_sin*b_sin*a_cos - c_cos*a_sin, b_cos*a_cos, 0.0,0.0, 0.0, 0.0, 1.0] as Array<f64>
+        model_vals := [c_cos*b_cos, c_sin*b_cos, -b_sin, 0.0, c_cos*b_sin*a_sin - c_sin*a_cos, c_sin*b_sin*a_sin + c_cos*a_cos, b_cos*a_sin, 0.0, c_cos*b_sin*a_cos + c_sin*a_sin, c_sin*b_sin*a_cos - c_cos*a_sin, b_cos*a_cos, 0.0,0.0, 0.0, 0.0, 1.0] as ^Array<f64>
         pack_floats(model, model_vals)
         model_vals->free()
         glUniformMatrix4fv(model_loc, 1, true, model)
@@ -104,12 +104,12 @@ void main() { FragColor = vec4(ourColor, 1.0); }"
 
     glfwTerminate()
 
-func pack_floats[b: ptr, xs: Array<f64>] : void
+func pack_floats[b: ptr, xs: ^Array<f64>] : void
     for i in 0..xs->len
         // convert to C float and get the bit pattern
         mem.write32(b@[i*4], xs->nth(i) as f32 as opaque as i64)
 
-func pack_ints[b: ptr, xs: Array<i64>] : void
+func pack_ints[b: ptr, xs: ^Array<i64>] : void
     for i in 0..xs->len
         mem.write32(b@[i*4], xs->nth(i))
 

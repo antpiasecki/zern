@@ -399,6 +399,7 @@ impl Parser {
     }
 
     fn parse_type_name(&mut self) -> Result<Token, ZernError> {
+        let is_ptr = self.match_token(&[TokenType::Caret]);
         let mut name = self.consume(TokenType::Identifier, "expected type")?;
         if self.is_type_args() {
             let args = self.parse_type_args()?;
@@ -412,6 +413,9 @@ impl Parser {
                     .join(", "),
             );
             name.lexeme.push('>');
+        }
+        if is_ptr {
+            name.lexeme = format!("^{}", name.lexeme)
         }
         Ok(name)
     }
@@ -699,7 +703,7 @@ impl Parser {
         while self.match_token(&[
             TokenType::Plus,
             TokenType::Minus,
-            TokenType::Xor,
+            TokenType::Caret,
             TokenType::BitAnd,
             TokenType::BitOr,
         ]) {
@@ -770,7 +774,7 @@ impl Parser {
     fn unary(&mut self) -> Result<Expr, ZernError> {
         recursion_guard!(self, &self.previous().loc);
 
-        if self.match_token(&[TokenType::Xor]) {
+        if self.match_token(&[TokenType::Caret]) {
             let right = self.unary()?;
             return Ok(Expr::new(
                 ExprKind::AddrOf { expr: Box::new(right) },

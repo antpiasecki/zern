@@ -22,7 +22,7 @@ pub enum TokenType {
     Star,
     Slash,
     Mod,
-    Xor,
+    Caret,
     Bang,
     Colon,
     DoubleColon,
@@ -193,7 +193,7 @@ impl<'a> Tokenizer<'a> {
             '*' => self.add_token(TokenType::Star)?,
             ',' => self.add_token(TokenType::Comma)?,
             '%' => self.add_token(TokenType::Mod)?,
-            '^' => self.add_token(TokenType::Xor)?,
+            '^' => self.add_token(TokenType::Caret)?,
             ':' => {
                 if self.match_char(':') {
                     self.add_token(TokenType::DoubleColon)?

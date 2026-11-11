@@ -93,22 +93,23 @@ func os.uuid4[] : str
     out->format_into(37, "%x-%x-%x-%x-%x%x", mem.read32be(b@[0]), mem.read16be(b@[4]), mem.read16be(b@[6]), mem.read16be(b@[8]), mem.read16be(b@[10]), mem.read32be(b@[12]))
     return out
 
+// TODO
 struct os.CmdResult
     success: bool
     exit_code: i64
     max_rss: i64
     stdout: str
 
-func os.CmdResult.ok[r: os.CmdResult] : bool
+func os.CmdResult.ok[r: ^os.CmdResult] : bool
     return r->success && r->exit_code == 0
 
-func os.run_shell_command[command: str] : os.CmdResult
+func os.run_shell_command[command: str] : ^os.CmdResult
     return os._run_shell_command(command, false)
 
-func os.run_shell_command_with_output[command: str] : os.CmdResult
+func os.run_shell_command_with_output[command: str] : ^os.CmdResult
     return os._run_shell_command(command, true)
 
-func os._run_shell_command[command: str, capture_stdout: bool] : os.CmdResult
+func os._run_shell_command[command: str, capture_stdout: bool] : ^os.CmdResult
     res := new* os.CmdResult
     res->success = false
 
@@ -186,17 +187,17 @@ func os.is_a_directory[path: str] : bool
 func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
     return builtin.syscall(SYS_ioctl, fd, op, argp)
 
-func os.list_directory[path: str] : Array<str>, err
+func os.list_directory[path: str] : ^Array<str>, err
     fd := try io.open_for_reading(path)
     defer io.close(fd)
 
-    files := [] as Array<str>
+    files := [] as ^Array<str>
     buf := _stackalloc(1024)
     while true
         n := builtin.syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
-            return 0 as Array<str>, error("os.list_directory: getdents() failed")
+            return 0 as ^Array<str>, error("os.list_directory: getdents() failed")
         else if n == 0
             break
 

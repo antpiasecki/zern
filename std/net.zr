@@ -81,38 +81,38 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-func net.UDPSocket.new_client[host: str, port: i64] : net.UDPSocket, err
+func net.UDPSocket.new_client[host: str, port: i64] : ^net.UDPSocket, err
     packed_host := try net.resolve(host)
 
     s := new* net.UDPSocket
     s->fd = builtin.syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0)
     if s->fd < 0
         (s as ptr)->free()
-        return 0 as net.UDPSocket, error("net.create_udp_client: socket() failed")
+        return 0 as ^net.UDPSocket, error("net.create_udp_client: socket() failed")
 
     s->addr = mem.alloc(16)
     net._build_sa(s->addr, packed_host, port)
     return s, ok()
 
-func net.create_udp_server[host: str, port: i64] : net.UDPSocket, err
+func net.create_udp_server[host: str, port: i64] : ^net.UDPSocket, err
     s := try net.UDPSocket.new_client(host, port)
 
     if builtin.syscall(SYS_bind, s->fd, s->addr, 16) < 0
         s->close_and_free()
-        return 0 as net.UDPSocket, error("net.create_udp_server: bind() failed")
+        return 0 as ^net.UDPSocket, error("net.create_udp_server: bind() failed")
 
     return s, ok()
 
-func net.UDPSocket.set_timeout[s: net.UDPSocket, ms: i64] : void
+func net.UDPSocket.set_timeout[s: ^net.UDPSocket, ms: i64] : void
     t := new os.Timeval
     t->tv_sec = ms / 1000
     t->tv_usec = (ms % 1000) * 1000
     builtin.syscall(SYS_setsockopt, s->fd, SOL_SOCKET, SO_RCVTIMEO, t, 16)
 
-func net.UDPSocket.send_to[s: net.UDPSocket, addr: ptr, data: ptr, len: i64] : void
+func net.UDPSocket.send_to[s: ^net.UDPSocket, addr: ptr, data: ptr, len: i64] : void
     builtin.syscall(SYS_sendto, s->fd, data, len, 0, addr, 16)
 
-func net.UDPSocket.receive[s: net.UDPSocket, sa_out: ptr, len: i64] : slice, err
+func net.UDPSocket.receive[s: ^net.UDPSocket, sa_out: ptr, len: i64] : slice, err
     data := slice.alloc(len)
 
     addrlen := 16
@@ -123,7 +123,7 @@ func net.UDPSocket.receive[s: net.UDPSocket, sa_out: ptr, len: i64] : slice, err
     data = slice.make(data->ptr(), true_len)
     return data, ok()
 
-func net.UDPSocket.close_and_free[s: net.UDPSocket] : void
+func net.UDPSocket.close_and_free[s: ^net.UDPSocket] : void
     io.close(s->fd)
     s->addr->free()
     (s as ptr)->free()

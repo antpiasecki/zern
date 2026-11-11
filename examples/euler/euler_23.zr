@@ -3,7 +3,7 @@ include "containers.zr"
 const LIMIT = 28123
 
 func main[] : i64
-    abundant := [] as Array<bool>
+    abundant := [] as ^Array<bool>
     abundant->preallocate_and_zero(LIMIT + 1)
 
     for i in 1..abundant->len
@@ -16,7 +16,7 @@ func main[] : i64
 
     io.println_i64(sum)
 
-func is_sum_of_two_abundants[abundant: Array<bool>, n: i64] : bool
+func is_sum_of_two_abundants[abundant: ^Array<bool>, n: i64] : bool
     for i in 0..=n/2
         if abundant->nth(i) && abundant->nth(n - i)
             return true

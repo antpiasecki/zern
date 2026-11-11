@@ -27,7 +27,7 @@ func main[] : i64
             s->send_to(sa, resp@[0], resp->len())
             resp->free()
 
-func handle_req[s: net.UDPSocket, records: HashMap<slice>, req: slice, sa: ptr] : slice
+func handle_req[s: ^net.UDPSocket, records: ^HashMap<slice>, req: slice, sa: ptr] : slice
     defer req->free()
     defer sa->free()
     req_len := req->len()

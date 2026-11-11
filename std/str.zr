@@ -194,10 +194,10 @@ func str.reverse[s: str] : str
     out[len] = 0
     return out
 
-func str.split[haystack: str, needle: str]: Array<str>
+func str.split[haystack: str, needle: str]: ^Array<str>
     haystack_len := haystack->len()
     needle_len := needle->len()
-    result := [] as Array<str>
+    result := [] as ^Array<str>
 
     if !needle_len
         if !haystack_len
@@ -358,29 +358,29 @@ struct str.Builder
     len: i64
     capacity: i64
 
-func str.Builder.append_char[b: str.Builder, c: u8] : void
+func str.Builder.append_char[b: ^str.Builder, c: u8] : void
     b->_maybe_grow(1)
     b->data[b->len] = c
     b->len += 1
 
-func str.Builder.append[b: str.Builder, s: str] : void
+func str.Builder.append[b: ^str.Builder, s: str] : void
     b->append_n(s as ptr, s->len())
 
-func str.Builder.append_n[b: str.Builder, s: ptr, len: i64] : void
+func str.Builder.append_n[b: ^str.Builder, s: ptr, len: i64] : void
     b->_maybe_grow(len)
     mem.copy_n(s, b->data@[b->len], len)
     b->len += len
 
-func str.Builder.manual_n[b: str.Builder, len: i64] : ptr
+func str.Builder.manual_n[b: ^str.Builder, len: i64] : ptr
     b->_maybe_grow(len)
     p := b->data@[b->len]
     b->advance(len)
     return p
 
-func str.Builder.advance[b: str.Builder, n: i64] : void
+func str.Builder.advance[b: ^str.Builder, n: i64] : void
     b->len += n
 
-func str.Builder.build_str_and_free_inner[b: str.Builder] : str
+func str.Builder.build_str_and_free_inner[b: ^str.Builder] : str
     s := mem.alloc(b->len + 1) as str
     if b->len > 0
         mem.copy_n(b->data, s as ptr, b->len)
@@ -388,21 +388,21 @@ func str.Builder.build_str_and_free_inner[b: str.Builder] : str
     b->free_inner()
     return s
 
-func str.Builder.build_slice_and_free_inner[b: str.Builder] : slice
+func str.Builder.build_slice_and_free_inner[b: ^str.Builder] : slice
     s := slice.alloc(b->len)
     if b->len > 0
         mem.copy_n(b->data, s@[0], b->len)
     b->free_inner()
     return s
 
-func str.Builder.free_inner[b: str.Builder] : void
+func str.Builder.free_inner[b: ^str.Builder] : void
     if b->data != 0
         b->data->free()
         b->data = 0 as ptr
     b->len = 0
     b->capacity = 0
 
-func str.Builder._maybe_grow[b: str.Builder, needed: i64] : void
+func str.Builder._maybe_grow[b: ^str.Builder, needed: i64] : void
     if b->len + needed > b->capacity
         new_capacity := 64
         if b->capacity != 0

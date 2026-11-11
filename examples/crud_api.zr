@@ -1,6 +1,6 @@
 include "http.zr"
 
-var todos: HashMap<str>
+var todos: ^HashMap<str>
 
 func main[] : i64
     todos = HashMap.new::<str>()
@@ -10,7 +10,7 @@ func main[] : i64
     io.println("Listening on :8888...")
     http.start_server("0.0.0.0", 8888, ^handler)
 
-func handler[r: http.Req, w: http.Resp] : void
+func handler[r: ^http.Req, w: ^http.Resp] : void
     if r->path->equal("/")
         if r->method->equal("GET")
             out := json.new_object()

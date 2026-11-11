@@ -7,6 +7,7 @@ use crate::{
     parser::{Expr, ExprKind, NEXT_EXPR_ID, Param, Params, Stmt},
     symbol_table::SymbolTable,
     tokenizer::{Token, ZernError, error},
+    typechecker::strip_caret,
 };
 
 pub struct Monomorphizer<'a> {
@@ -476,7 +477,8 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn enqueue_type(&mut self, token: &Token) {
-        let Some((name, args)) = split_type_name(&token.lexeme) else {
+        let lexeme = strip_caret(&token.lexeme);
+        let Some((name, args)) = split_type_name(lexeme) else {
             return;
         };
 
@@ -566,7 +568,7 @@ pub fn type_name(name: &str, types: &[Token]) -> String {
 }
 
 pub fn method_owner(receiver_type: &str) -> &str {
-    receiver_type.split("<").next().unwrap_or(receiver_type)
+    strip_caret(receiver_type).split("<").next().unwrap_or(receiver_type)
 }
 
 pub fn infer_method_type_args(receiver_type: &str, method: &Stmt) -> Vec<Token> {
