@@ -87,6 +87,7 @@ pub enum Stmt {
     Function {
         name: Token,
         params: Params,
+        is_asm: bool,
         return_types: Vec<Token>,
         type_vars: Vec<Token>,
         body: Box<Stmt>,
@@ -110,12 +111,6 @@ pub enum Stmt {
     Defer {
         keyword: Token,
         block: Box<Stmt>,
-    },
-    AsmFunction {
-        name: Token,
-        params: Params,
-        return_types: Vec<Token>,
-        body: Token,
     },
 }
 
@@ -312,6 +307,7 @@ impl Parser {
         Ok(Stmt::Function {
             name,
             params,
+            is_asm: false,
             return_types,
             type_vars,
             body,
@@ -364,11 +360,14 @@ impl Parser {
         let body = self.consume(TokenType::StringLiteral, "expected string literal in asm function body")?;
         self.consume(TokenType::Dedent, "expected a dedent after asm function body")?;
 
-        Ok(Stmt::AsmFunction {
+        Ok(Stmt::Function {
             name,
             params,
+            is_asm: true,
             return_types,
-            body,
+            type_vars: vec![],
+            body: Box::new(Stmt::Expression(Expr::new(ExprKind::Literal(body.clone()), &body.loc))),
+            attributes: vec![],
         })
     }
 

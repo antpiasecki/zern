@@ -258,6 +258,7 @@ impl<'a> TypeChecker<'a> {
             Stmt::Function {
                 name,
                 params,
+                is_asm: _,
                 return_types,
                 type_vars: _,
                 body,
@@ -357,35 +358,6 @@ impl<'a> TypeChecker<'a> {
             Stmt::GlobalVariable { .. } => {}
             Stmt::Defer { keyword: _, block } => {
                 self.typecheck_stmt(env, block)?;
-            }
-            Stmt::AsmFunction {
-                name: _,
-                params,
-                return_types,
-                body: _,
-            } => {
-                let return_type = return_types_tokens_to_type_str(return_types);
-                if return_types.len() > 3 {
-                    return error!(&return_types[3].loc, "functions cannot return more than three values");
-                }
-
-                if !self.is_valid_type_name(&return_type) {
-                    return error!(&return_types[0].loc, "unrecognized type: ".to_owned() + &return_type);
-                }
-
-                match params {
-                    Params::Normal(params) => {
-                        for param in params {
-                            if !self.is_valid_type_name(&param.var_type.lexeme) {
-                                return error!(
-                                    &param.var_name.loc,
-                                    "unrecognized type: ".to_owned() + &param.var_type.lexeme
-                                );
-                            }
-                        }
-                    }
-                    Params::Variadic => {}
-                }
             }
         }
         Ok(())

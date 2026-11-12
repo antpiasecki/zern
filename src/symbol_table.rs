@@ -74,6 +74,7 @@ impl SymbolTable {
             Stmt::Function {
                 name,
                 params,
+                is_asm: _,
                 return_types,
                 type_vars,
                 body,
@@ -114,6 +115,7 @@ impl SymbolTable {
                         Stmt::Function {
                             name: name.clone(),
                             params: params.clone(),
+                            is_asm: false,
                             return_types: return_types.clone(),
                             type_vars: type_vars.clone(),
                             body: body.clone(),
@@ -159,40 +161,6 @@ impl SymbolTable {
                 let label = format!("_global_{:03}", self.globals.len());
                 self.globals
                     .insert(var_name.lexeme.clone(), (label, var_type.lexeme.clone()));
-            }
-            Stmt::AsmFunction {
-                name,
-                params,
-                return_types,
-                body: _,
-            } => {
-                if self.is_name_defined(&name.lexeme) {
-                    return error!(name.loc, format!("tried to redefine '{}'", name.lexeme));
-                }
-
-                if name.lexeme.starts_with('_') {
-                    return error!(name.loc, "user function names cannot start with '_'");
-                }
-
-                let return_type = return_types_tokens_to_type_str(return_types);
-                match params {
-                    Params::Normal(params) => self.functions.insert(
-                        name.lexeme.clone(),
-                        FnType {
-                            return_type,
-                            params: FnParams::Normal(params.iter().map(|x| x.var_type.lexeme.clone()).collect()),
-                            attributes: vec![],
-                        },
-                    ),
-                    Params::Variadic => self.functions.insert(
-                        name.lexeme.clone(),
-                        FnType {
-                            return_type,
-                            params: FnParams::Variadic,
-                            attributes: vec![],
-                        },
-                    ),
-                };
             }
             _ => {}
         }

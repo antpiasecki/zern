@@ -308,6 +308,7 @@ _start:
             Stmt::Function {
                 name,
                 params,
+                is_asm,
                 return_types,
                 type_vars,
                 body,
@@ -319,6 +320,19 @@ _start:
 
                 let name = &name.lexeme;
                 let mangled = mangle(name);
+
+                if *is_asm {
+                    let Stmt::Expression(Expr { id: _, kind, loc: _ }) = *body.clone() else {
+                        unreachable!();
+                    };
+                    let ExprKind::Literal(s) = kind else {
+                        unreachable!();
+                    };
+                    emit!(&mut self.output, "{}:", mangled);
+                    emit!(&mut self.output, "{}", &s.lexeme[1..s.lexeme.len() - 1]);
+                    emit!(&mut self.output, "    ret");
+                    return Ok(());
+                }
 
                 if self.symbol_table.functions[name].attributes.contains(&"extern".into()) {
                     emit!(&mut self.output, ".extern {}", mangled);
@@ -507,19 +521,6 @@ _start:
                     return error!(keyword.loc, "defers in loops not implemented yet");
                 }
                 env.scopes.last_mut().unwrap().defers.push(*block.clone());
-            }
-            Stmt::AsmFunction {
-                name,
-                params: _,
-                return_types: _,
-                body,
-            } => {
-                let name = &name.lexeme;
-                let mangled = mangle(name);
-
-                emit!(&mut self.output, "{}:", mangled);
-                emit!(&mut self.output, "{}", &body.lexeme[1..body.lexeme.len() - 1]);
-                emit!(&mut self.output, "    ret");
             }
         }
         Ok(())

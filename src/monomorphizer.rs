@@ -77,6 +77,7 @@ impl<'a> Monomorphizer<'a> {
                 let Stmt::Function {
                     name,
                     params,
+                    is_asm: _,
                     return_types,
                     type_vars,
                     body,
@@ -117,6 +118,7 @@ impl<'a> Monomorphizer<'a> {
                 new_fns.push(Stmt::Function {
                     name: mangled_name_token,
                     params: substituted_params,
+                    is_asm: false,
                     return_types: substituted_return_types,
                     type_vars: vec![],
                     body: substituted_body,
