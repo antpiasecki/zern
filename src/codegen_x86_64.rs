@@ -200,16 +200,16 @@ _start:
                     } => {
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, indexed)?;
-                        if self.expr_types[&indexed.id] == "^Bytes" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                             emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
                             emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                         }
                         emit!(&mut self.output, "    push rax");
-                        if self.expr_types[&indexed.id] == "^Bytes" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                             emit!(&mut self.output, "    push rcx");
                         }
                         self.compile_expr(env, index)?;
-                        if self.expr_types[&indexed.id] == "^Bytes" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                             emit!(&mut self.output, "    pop rcx");
                             let ok_label = self.label();
                             emit!(&mut self.output, "    cmp rax, rcx");
@@ -732,6 +732,9 @@ _start:
                     };
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
+                    // self.emit_heap_alloc(16);
+                    // emit!(&mut self.output, "    mov QWORD PTR [rax], [rip + {}]", label);
+                    // emit!(&mut self.output, "    mov QWORD PTR [rax+8], {}", value.len());
                 }
                 TokenType::KeywordTrue => {
                     emit!(&mut self.output, "    mov rax, 1");
@@ -870,16 +873,16 @@ _start:
                 index,
             } => {
                 self.compile_expr(env, indexed)?;
-                if self.expr_types[&indexed.id] == "^Bytes" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                     emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
                     emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                 }
                 emit!(&mut self.output, "    push rax");
-                if self.expr_types[&indexed.id] == "^Bytes" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                     emit!(&mut self.output, "    push rcx");
                 }
                 self.compile_expr(env, index)?;
-                if self.expr_types[&indexed.id] == "^Bytes" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
                     emit!(&mut self.output, "    pop rcx");
                     let ok_label = self.label();
                     emit!(&mut self.output, "    cmp rax, rcx");

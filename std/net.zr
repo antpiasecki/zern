@@ -5,9 +5,9 @@ const DNS_TYPE_AAAA = 28
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
 
-var net._dns_server: str
+var net._dns_server: cstr
 
-func net.listen[host: str, port: i64] : i64, err
+func net.listen[host: cstr, port: i64] : i64, err
     packed_host := try net.parse_ipv4_str(host)
 
     s := builtin.syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
@@ -32,7 +32,7 @@ func net.listen[host: str, port: i64] : i64, err
 
     return s, ok()
 
-func net.connect[host: str, port: i64] : i64, err
+func net.connect[host: cstr, port: i64] : i64, err
     packed_host := try net.resolve(host)
 
     s := builtin.syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
@@ -61,8 +61,8 @@ func net.close[s: i64] : void
 func net.pack_addr[a: i64, b: i64, c: i64, d: i64] : i64
     return (a << 24) | (b << 16) | (c << 8) | d
 
-func net.ipv4_to_string[ip: ptr] : str
-    out := mem.alloc(50) as str
+func net.ipv4_to_string[ip: ptr] : cstr
+    out := mem.alloc(50) as cstr
     out->format_into(50, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
     return out
 
@@ -81,7 +81,7 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-func net.UDPSocket.new_client[host: str, port: i64] : ^net.UDPSocket, err
+func net.UDPSocket.new_client[host: cstr, port: i64] : ^net.UDPSocket, err
     packed_host := try net.resolve(host)
 
     s := new* net.UDPSocket
@@ -94,7 +94,7 @@ func net.UDPSocket.new_client[host: str, port: i64] : ^net.UDPSocket, err
     net._build_sa(s->addr, packed_host, port)
     return s, ok()
 
-func net.create_udp_server[host: str, port: i64] : ^net.UDPSocket, err
+func net.create_udp_server[host: cstr, port: i64] : ^net.UDPSocket, err
     s := try net.UDPSocket.new_client(host, port)
 
     if builtin.syscall(SYS_bind, s->fd, s->addr, 16) < 0
@@ -128,7 +128,7 @@ func net.UDPSocket.close_and_free[s: ^net.UDPSocket] : void
     s->addr->free()
     (s as ptr)->free()
 
-func net.parse_ipv4_str[ip: str] : i64, err
+func net.parse_ipv4_str[ip: cstr] : i64, err
     n := 0
     digits := 0
     dots := 0
@@ -152,7 +152,7 @@ func net.parse_ipv4_str[ip: str] : i64, err
     acc = acc * 256 + n
     return acc, ok()
 
-func net.resolve[domain: str] : i64, err
+func net.resolve[domain: cstr] : i64, err
     // if domain is already an ip, skip dns resolution
     ip, err := net.parse_ipv4_str(domain)
     if !err
@@ -161,7 +161,7 @@ func net.resolve[domain: str] : i64, err
     query := net.build_dns_query(domain, DNS_TYPE_A)
     defer query->free()
 
-    dns_server := 0 as str
+    dns_server := 0 as cstr
     if net._dns_server as ptr != 0
         dns_server = net._dns_server
     else
@@ -211,7 +211,7 @@ func net.resolve[domain: str] : i64, err
     out := net.pack_addr(data[pos] as i64, data[pos+1] as i64, data[pos+2] as i64, data[pos+3] as i64)
     return out, ok()
 
-func net.encode_dns_name[domain: str] : ^Bytes
+func net.encode_dns_name[domain: cstr] : ^Bytes
     domain_len := domain->len()
     buf := Bytes.alloc(domain_len + 2)
     out_pos := 0
@@ -230,7 +230,7 @@ func net.encode_dns_name[domain: str] : ^Bytes
     buf[out_pos] = 0
     return buf
 
-func net.build_dns_query[domain_name: str, record_type: i64] : ^Bytes
+func net.build_dns_query[domain_name: cstr, record_type: i64] : ^Bytes
     name := net.encode_dns_name(domain_name)
     defer name->free()
     out := Bytes.alloc(12 + name->len + 4)

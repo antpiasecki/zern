@@ -24,7 +24,7 @@ func rule110_step[state: ptr] : void
         left = center
 
 func print_state[state: ptr]: void
-    s := _stackalloc(SIZE + 1) as str
+    s := _stackalloc(SIZE + 1) as cstr
     for i in 0..SIZE
         if state[i]
             s[i] = '#'

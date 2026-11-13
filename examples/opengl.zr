@@ -116,19 +116,19 @@ func pack_ints[b: ptr, xs: ^Array<i64>] : void
 func framebuffer_size_callback[window: ptr, width: i64, height: i64] : void
     glViewport(0, 0, width, height)
 
-func glfw_error_callback[code: i64, description: str] : void
+func glfw_error_callback[code: i64, description: cstr] : void
     io.println(description)
 
 func glfwInit[] : i64 @extern
 func glfwWindowHint[hint: i64, value: i64] : void @extern
-func glfwCreateWindow[width: i64, height: i64, title: str, monitor: ptr, share: ptr] : ptr @extern
+func glfwCreateWindow[width: i64, height: i64, title: cstr, monitor: ptr, share: ptr] : ptr @extern
 func glfwMakeContextCurrent[window: ptr] : void @extern
 func glfwSetFramebufferSizeCallback[window: ptr, callback: funcptr<void, ptr, i64, i64>] : void @extern
 func glfwWindowShouldClose[window: ptr] : i64 @extern
 func glfwSwapBuffers[window: ptr] : void @extern
 func glfwPollEvents[] : void @extern
 func glfwTerminate[] : void @extern
-func glfwSetErrorCallback[callback: funcptr<void, i64, str>] : ptr @extern
+func glfwSetErrorCallback[callback: funcptr<void, i64, cstr>] : ptr @extern
 func glfwGetTime[] : f64 @extern
 func glClearColor[red: f32, green: f32, blue: f32, alpha: f32] : void @extern
 func glClear[mask: i64] : void @extern
@@ -152,7 +152,7 @@ func glDrawArrays[mode: i64, first: i64, count: i64] : void @extern
 func glEnable[cap: i64] : void @extern
 func glDrawElements[mode: i64, count: i64, type: i64, indices: ptr] : void @extern
 func glUniformMatrix4fv[location: i64, count: i64, transpose: bool, value: ptr] : void @extern
-func glGetUniformLocation[program: i64, name: str] : i64 @extern
+func glGetUniformLocation[program: i64, name: cstr] : i64 @extern
 
 const GLFW_CONTEXT_VERSION_MAJOR = 0x00022002
 const GLFW_CONTEXT_VERSION_MINOR = 0x00022003

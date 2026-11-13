@@ -46,7 +46,9 @@ macro_rules! expect_same_types {
         }
     }};
 }
-static BUILTIN_TYPES: [&str; 10] = ["void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "err", "opaque"];
+static BUILTIN_TYPES: [&str; 10] = [
+    "void", "u8", "i64", "f64", "f32", "cstr", "bool", "ptr", "err", "opaque",
+];
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
@@ -157,7 +159,7 @@ impl<'a> TypeChecker<'a> {
                         if indexed_type == "^Bytes" {
                             env.used_functions.insert("io._oob_panic".into());
                         }
-                        expect_types!(indexed_type, ["ptr", "str", "^Bytes"], left.loc);
+                        expect_types!(indexed_type, ["ptr", "str", "cstr", "^Bytes"], left.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], left.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], left.loc);
                     }
@@ -412,7 +414,7 @@ impl<'a> TypeChecker<'a> {
                 TokenType::IntLiteral => Ok("i64".into()),
                 TokenType::FloatLiteral => Ok("f64".into()),
                 TokenType::CharLiteral => Ok("u8".into()),
-                TokenType::StringLiteral => Ok("str".into()),
+                TokenType::StringLiteral => Ok("cstr".into()),
                 TokenType::KeywordTrue => Ok("bool".into()),
                 TokenType::KeywordFalse => Ok("bool".into()),
                 _ => unreachable!(),
@@ -528,14 +530,16 @@ impl<'a> TypeChecker<'a> {
                 index,
             } => {
                 let indexed_type = self.typecheck_expr(env, indexed)?;
-                if indexed_type == "^Bytes" {
+                expect_types!(indexed_type, ["ptr", "cstr", "str", "^Bytes"], expr.loc);
+                expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
+
+                if indexed_type == "^Bytes" || indexed_type == "str" {
                     if *is_offset {
-                        return error!(indexed.loc, "@[] cannot be used on ^Bytes");
+                        return error!(indexed.loc, "@[] can only be used on ptr or cstr");
                     }
                     env.used_functions.insert("io._oob_panic".into());
                 }
-                expect_types!(indexed_type, ["ptr", "str", "^Bytes"], expr.loc);
-                expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
+
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
             ExprKind::AddrOf { expr } => match &expr.kind {

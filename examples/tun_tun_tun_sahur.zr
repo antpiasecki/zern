@@ -18,8 +18,8 @@ func main[] : i64
     ret := os.ioctl(fd, TUNSETIFF, req)
     if ret < 0 io.panic("ioctl(TUNSETIFF) failed")
 
-    end := str.find_n(req as str, 16, "\0", 1)
-    created_iface_name := (req as str)->substr_n(0, end)
+    end := cstr.find_n(req as cstr, 16, "\0", 1)
+    created_iface_name := (req as cstr)->substr_n(0, end)
 
     ret = os.ioctl(fd, TUNSETPERSIST, 0 as ptr)
     if ret < 0 io.panic("ioctl(TUNSETPERSIST) failed")
@@ -52,5 +52,5 @@ func main[] : i64
         io.printf("src: %s\n", net.ipv4_to_string(f@[12]))
         io.printf("dst: %s\n", net.ipv4_to_string(f@[16]))
         io.println("payload:")
-        io.println(str.hex_encode((f@[ihl]) as str, n-ihl))
+        io.println(cstr.hex_encode((f@[ihl]) as cstr, n-ihl))
         io.println("-------------------------------")

@@ -1,9 +1,9 @@
 include "http.zr"
 
-var todos: ^HashMap<str>
+var todos: ^HashMap<cstr>
 
 func main[] : i64
-    todos = HashMap.new::<str>()
+    todos = HashMap.new::<cstr>()
     todos->insert(os.uuid4(), "Buy milk"->make_copy())
     todos->insert(os.uuid4(), "World domination"->make_copy())
 
@@ -24,7 +24,7 @@ func handler[r: ^http.Req, w: ^http.Resp] : void
 
             w->json(200, out)
         else if r->method->equal("POST")
-            v, err := json.parse(r->body->get_raw_unchecked_pointer() as str)
+            v, err := json.parse(r->body->get_raw_unchecked_pointer() as cstr)
             if err
                 w->string(400, "failed to parse body")
                 return
@@ -41,13 +41,13 @@ func handler[r: ^http.Req, w: ^http.Resp] : void
         else
             w->error(405)
     else
-        id := r->path@[1] as str
+        id := r->path@[1] as cstr
         todo, err := todos->get(id)
         if !err
             if r->method->equal("GET")
                 w->string(200, todo)
             else if r->method->equal("POST")
-                v, err := json.parse(r->body->get_raw_unchecked_pointer() as str)
+                v, err := json.parse(r->body->get_raw_unchecked_pointer() as cstr)
                 if err
                     w->string(400, "failed to parse body")
                     return

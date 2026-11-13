@@ -37,7 +37,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
     // we assume that QDCOUNT=1 but i think that's reasonable
 
     // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
-    labels := new str.Builder
+    labels := new cstr.Builder
     defer labels->free_inner()
     offset := 12
     while true

@@ -2,7 +2,7 @@
 include "io.zr"
 
 func main[argc: i64, argv: ptr] : i64
-    path := 0 as str
+    path := 0 as cstr
     disassemble := false
 
     for i in 1..argc
@@ -269,7 +269,7 @@ func CHIP8.step[c: ^CHIP8] : void
             for i in 0..=x
                 c->reg[i] = c->memory[c->I + i]
 
-func InitWindow[width: i64, height: i64, title: str] : void @extern
+func InitWindow[width: i64, height: i64, title: cstr] : void @extern
 func SetTargetFPS[fps: i64] : void @extern
 func WindowShouldClose[] : bool @extern
 func BeginDrawing[] : void @extern

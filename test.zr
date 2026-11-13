@@ -8,25 +8,25 @@ func main[] : i64
             os.exit(1)
 
     tr := new TestRunner
-    tr->build_blacklist = [] as ^Array<str>
-    tr->run_blacklist = ["sqlite_crud.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "crud_api.zr", "tun_tun_tun_sahur.zr", "opengl.zr"] as ^Array<str>
-    tr->custom_build_flags = HashMap.new::<str>()
+    tr->build_blacklist = [] as ^Array<cstr>
+    tr->run_blacklist = ["sqlite_crud.zr", "guess_number.zr", "dns_server.zr", "chip8.zr", "crud_api.zr", "tun_tun_tun_sahur.zr", "opengl.zr"] as ^Array<cstr>
+    tr->custom_build_flags = HashMap.new::<cstr>()
     tr->custom_build_flags->insert("chip8.zr", "-m dyn -L \"-lraylib\"")
     tr->custom_build_flags->insert("sqlite_crud.zr", "-m dyn -L \"-lsqlite3\"")
     tr->custom_build_flags->insert("opengl.zr", "-m dyn -L \"-lGL -lglfw\"")
-    tr->custom_run_args = HashMap.new::<str>()
+    tr->custom_run_args = HashMap.new::<cstr>()
     tr->custom_run_args->insert("fetch.zr", "http://example.com")
 
     tr->run_directory("examples")
     io.println("DONE")
 
 struct TestRunner
-    build_blacklist: ^Array<str>
-    run_blacklist: ^Array<str>
-    custom_build_flags: ^HashMap<str>
-    custom_run_args: ^HashMap<str>
+    build_blacklist: ^Array<cstr>
+    run_blacklist: ^Array<cstr>
+    custom_build_flags: ^HashMap<cstr>
+    custom_run_args: ^HashMap<cstr>
 
-func TestRunner.run_directory[tr: ^TestRunner, dir: str] : void
+func TestRunner.run_directory[tr: ^TestRunner, dir: cstr] : void
     files, err := os.list_directory(dir)
     if err
         io.panic("failed to open test directory")
@@ -37,7 +37,7 @@ func TestRunner.run_directory[tr: ^TestRunner, dir: str] : void
         else
             tr->run_test(joined)
 
-func TestRunner.run_test[tr: ^TestRunner, x: str] : void
+func TestRunner.run_test[tr: ^TestRunner, x: cstr] : void
     io.println("------------------")
     name := os.basename(x)
 

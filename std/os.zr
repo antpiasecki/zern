@@ -10,22 +10,22 @@ func os.exit[code: i64] : void
 func os.getpid[] : i64
     return builtin.syscall(SYS_getpid)
 
-func os.arg[argv: ptr, n: i64] : str
-    return mem.read64(argv@[n * 8]) as str
+func os.arg[argv: ptr, n: i64] : cstr
+    return mem.read64(argv@[n * 8]) as cstr
 
-func os.getenv[name: str] : str, bool
+func os.getenv[name: cstr] : cstr, bool
     name_len := name->len()
     i := 0
     while true
-        entry := mem.read64((_builtin_environ as ptr)@[i * 8]) as str
+        entry := mem.read64((_builtin_environ as ptr)@[i * 8]) as cstr
         if entry as ptr == 0
             break
         if entry->equal_n(name, name_len) && entry[name_len] == '='
-            return entry@[name_len + 1] as str, true
+            return entry@[name_len + 1] as cstr, true
         i += 1
     return "", false
 
-func os.basename[path: str] : str
+func os.basename[path: cstr] : cstr
     len := path->len()
     end := len
     while end > 0 && path[end - 1] == '/'
@@ -84,12 +84,12 @@ func os.urandom_i64[] : i64
     os.urandom_buf(^n, 8)
     return n
 
-func os.uuid4[] : str
+func os.uuid4[] : cstr
     b := _stackalloc(16)
     os.urandom_buf(b, 16)
     b[6] = (b[6] & 0x0f) | 0x40
     b[8] = (b[8] & 0x3f) | 0x80
-    out := mem.alloc(37) as str
+    out := mem.alloc(37) as cstr
     out->format_into(37, "%x-%x-%x-%x-%x%x", mem.read32be(b@[0]), mem.read16be(b@[4]), mem.read16be(b@[6]), mem.read16be(b@[8]), mem.read16be(b@[10]), mem.read32be(b@[12]))
     return out
 
@@ -98,18 +98,18 @@ struct os.CmdResult
     success: bool
     exit_code: i64
     max_rss: i64
-    stdout: str
+    stdout: cstr
 
 func os.CmdResult.ok[r: ^os.CmdResult] : bool
     return r->success && r->exit_code == 0
 
-func os.run_shell_command[command: str] : ^os.CmdResult
+func os.run_shell_command[command: cstr] : ^os.CmdResult
     return os._run_shell_command(command, false)
 
-func os.run_shell_command_with_output[command: str] : ^os.CmdResult
+func os.run_shell_command_with_output[command: cstr] : ^os.CmdResult
     return os._run_shell_command(command, true)
 
-func os._run_shell_command[command: str, capture_stdout: bool] : ^os.CmdResult
+func os._run_shell_command[command: cstr, capture_stdout: bool] : ^os.CmdResult
     res := new* os.CmdResult
     res->success = false
 
@@ -139,7 +139,7 @@ func os._run_shell_command[command: str, capture_stdout: bool] : ^os.CmdResult
     else
         if capture_stdout
             io.close(mem.read32(pipe@[4]))
-            stdout := new str.Builder
+            stdout := new cstr.Builder
             chunk := _stackalloc(4096)
             while true
                 n := io.read(mem.read32(pipe@[0]), chunk, 4096)
@@ -165,10 +165,10 @@ func os._run_shell_command[command: str, capture_stdout: bool] : ^os.CmdResult
 
         return res
 
-func os.file_exists[path: str] : bool
+func os.file_exists[path: cstr] : bool
     return builtin.syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
 
-func os.get_file_size[path: str] : i64, err
+func os.get_file_size[path: cstr] : i64, err
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
@@ -176,7 +176,7 @@ func os.get_file_size[path: str] : i64, err
 
     return mem.read64(st@[48]), ok()
 
-func os.is_a_directory[path: str] : bool
+func os.is_a_directory[path: cstr] : bool
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
     rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
@@ -187,17 +187,17 @@ func os.is_a_directory[path: str] : bool
 func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
     return builtin.syscall(SYS_ioctl, fd, op, argp)
 
-func os.list_directory[path: str] : ^Array<str>, err
+func os.list_directory[path: cstr] : ^Array<cstr>, err
     fd := try io.open_for_reading(path)
     defer io.close(fd)
 
-    files := [] as ^Array<str>
+    files := [] as ^Array<cstr>
     buf := _stackalloc(1024)
     while true
         n := builtin.syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
-            return 0 as ^Array<str>, error("os.list_directory: getdents() failed")
+            return 0 as ^Array<cstr>, error("os.list_directory: getdents() failed")
         else if n == 0
             break
 
@@ -215,7 +215,7 @@ func os.list_directory[path: str] : ^Array<str>, err
                         if name[2] == 0
                             skip = true
                 if !skip
-                    files->push((name as str)->make_copy())
+                    files->push((name as cstr)->make_copy())
             pos += len
 
     return files, ok()
