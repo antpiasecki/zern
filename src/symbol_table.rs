@@ -167,6 +167,10 @@ impl SymbolTable {
         Ok(())
     }
 
+    pub fn has_attribute(&self, fn_name: &str, attr: &str) -> bool {
+        self.functions[fn_name].attributes.contains(&attr.to_string())
+    }
+
     fn is_name_defined(&self, s: &str) -> bool {
         self.functions.contains_key(s)
             || self.generic_functions.contains_key(s)

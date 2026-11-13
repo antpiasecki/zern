@@ -46,9 +46,7 @@ macro_rules! expect_same_types {
         }
     }};
 }
-static BUILTIN_TYPES: [&str; 11] = [
-    "void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "slice", "err", "opaque",
-];
+static BUILTIN_TYPES: [&str; 10] = ["void", "u8", "i64", "f64", "f32", "str", "bool", "ptr", "err", "opaque"];
 
 pub struct Env {
     scopes: Vec<HashMap<String, String>>,
@@ -156,10 +154,10 @@ impl<'a> TypeChecker<'a> {
                             return error!(left.loc, "@ not allowed when assigning to an index");
                         }
                         let indexed_type = self.typecheck_expr(env, indexed)?;
-                        if indexed_type == "slice" {
+                        if indexed_type == "^Bytes" {
                             env.used_functions.insert("io._oob_panic".into());
                         }
-                        expect_types!(indexed_type, ["ptr", "str", "slice"], left.loc);
+                        expect_types!(indexed_type, ["ptr", "str", "^Bytes"], left.loc);
                         expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], left.loc);
                         expect_types!(value_type.clone(), ["u8", "i64"], left.loc);
                     }
@@ -530,16 +528,22 @@ impl<'a> TypeChecker<'a> {
                 index,
             } => {
                 let indexed_type = self.typecheck_expr(env, indexed)?;
-                if indexed_type == "slice" {
+                if indexed_type == "^Bytes" {
+                    if *is_offset {
+                        return error!(indexed.loc, "@[] cannot be used on ^Bytes");
+                    }
                     env.used_functions.insert("io._oob_panic".into());
                 }
-                expect_types!(indexed_type, ["ptr", "str", "slice"], expr.loc);
+                expect_types!(indexed_type, ["ptr", "str", "^Bytes"], expr.loc);
                 expect_types!(self.typecheck_expr(env, index)?, ["i64", "u8"], expr.loc);
                 Ok(if *is_offset { "ptr".into() } else { "u8".into() })
             }
             ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
-                    if let Some(f) = self.symbol_table.functions.get(&name.lexeme) {
+                    if env.get_var_type(&name.lexeme).is_some() || self.symbol_table.globals.contains_key(&name.lexeme)
+                    {
+                        Ok("ptr".into())
+                    } else if let Some(f) = self.symbol_table.functions.get(&name.lexeme) {
                         env.used_functions.insert(name.lexeme.clone());
                         let params_str = match &f.params {
                             FnParams::Normal(params) => {
@@ -553,7 +557,7 @@ impl<'a> TypeChecker<'a> {
                         };
                         Ok(format!("funcptr<{}{}>", f.return_type, params_str))
                     } else {
-                        Ok("ptr".into())
+                        error!(&expr.loc, format!("undefined variable: {}", &name.lexeme))
                     }
                 }
                 _ => {

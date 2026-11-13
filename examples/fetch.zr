@@ -10,4 +10,4 @@ func main[argc: i64, argv: ptr] : i64
     if err io.panic_with("request failed", err)
     defer resp->free()
 
-    io.print_n(resp@[0], resp->len())
+    io.print_n(resp->get_raw_unchecked_pointer(), resp->len)

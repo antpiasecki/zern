@@ -1,7 +1,7 @@
 include "net.zr"
 include "json.zr"
 
-func http.build_request[method: str, path: str, headers: ^HashMap<str>, body: slice] : slice
+func http.build_request[method: str, path: str, headers: ^HashMap<str>, body: ^Bytes] : ^Bytes
     sb := new str.Builder
 
     first_line := _stackalloc(256) as str
@@ -16,13 +16,13 @@ func http.build_request[method: str, path: str, headers: ^HashMap<str>, body: sl
         sb->append(header_line)
 
     sb->append("\r\n")
-    if body->len() != 0
-        sb->append_n(body@[0], body->len())
+    if body->len != 0
+        sb->append_n(body->get_raw_unchecked_pointer(), body->len)
 
-    return sb->build_slice_and_free_inner()
+    return sb->build_bytes_and_free_inner()
 
 // TODO: handle malformed data
-func http.decode_chunked_encoding_bs[s: ptr] : slice
+func http.decode_chunked_encoding_bs[s: ptr] : ^Bytes
     sb := new str.Builder
 
     i := 0
@@ -36,7 +36,7 @@ func http.decode_chunked_encoding_bs[s: ptr] : slice
         sb->append_n(s@[i], length)
         i += length + 2
 
-    return sb->build_slice_and_free_inner()
+    return sb->build_bytes_and_free_inner()
 
 struct http.Url
     schema: str
@@ -82,12 +82,12 @@ func http.parse_url[url: str] : ^http.Url
 
     return out
 
-func http.do_request[method: str, url: str, headers: ^HashMap<str>, body: slice] : slice, err
+func http.do_request[method: str, url: str, headers: ^HashMap<str>, body: ^Bytes] : ^Bytes, err
     parsed_url := http.parse_url(url)
     defer parsed_url->free()
 
     if !parsed_url->schema->equal("http")
-        return 0 as slice, error("only http schema is supported")
+        return 0 as ^Bytes, error("only http schema is supported")
 
     headers->insert("Host", parsed_url->host)
     headers->insert("Accept-Encoding", "identity")
@@ -99,7 +99,7 @@ func http.do_request[method: str, url: str, headers: ^HashMap<str>, body: slice]
 
     c := try net.connect(parsed_url->host, parsed_url->port)
     defer net.close(c)
-    net.send(c, b@[0], b->len())
+    net.send(c, b->get_raw_unchecked_pointer(), b->len)
 
     buffer_len := 100000
     buffer := mem.alloc(buffer_len)
@@ -120,18 +120,18 @@ func http.do_request[method: str, url: str, headers: ^HashMap<str>, body: slice]
     if (buffer@[0] as str)->find("Transfer-Encoding: chunked") != -1
         return http.decode_chunked_encoding_bs(buffer@[pos]), ok()
     else
-        out := slice.alloc(total - pos)
-        mem.copy_n(buffer@[pos], out@[0], total - pos)
+        out := Bytes.alloc(total - pos)
+        out->copy_into(buffer@[pos], 0, total - pos)
         return out, ok()
 
-func http.get[url: str] : slice, err
+func http.get[url: str] : ^Bytes, err
     headers := HashMap.new::<str>()
     defer headers->free()
-    body := slice.alloc(0)
+    body := Bytes.alloc_zeroed(1)
     defer body->free()
     return http.do_request("GET", url, headers, body)
 
-func http.post[url: str, content_type: str, body: slice] : slice, err
+func http.post[url: str, content_type: str, body: ^Bytes] : ^Bytes, err
     headers := HashMap.new::<str>()
     headers->insert("Content-Type", content_type)
     defer headers->free()
@@ -142,36 +142,36 @@ struct http.Req
     method: str
     path: str
     headers: ^HashMap<str>
-    body: slice
+    body: ^Bytes
 
 struct http.Resp
     status: i64
     headers: ^HashMap<str>
-    body: slice
+    body: ^Bytes
 
 func http.Resp.string[w: ^http.Resp, status: i64, body: str] : void
     w->status = status
-    w->body = slice.copy_cstr(body)
+    w->body = Bytes.copy_cstr(body)
 
 func http.Resp.json[w: ^http.Resp, status: i64, value: ^json.Value] : void
     w->status = status
     body := value->dump()
     defer body->free()
     w->headers->insert("Content-Type", "application/json")
-    w->body = slice.copy_cstr(body)
+    w->body = Bytes.copy_cstr(body)
 
 func http.Resp.error[w: ^http.Resp, status: i64] : void
     w->status = status
     body := _stackalloc(2048) as str
     body->format_into(2048, "%d %s\n", status, http.status_code_to_text(status))
-    w->body = slice.copy_cstr(body)
+    w->body = Bytes.copy_cstr(body)
 
 func http.Resp.send[w: ^http.Resp, c: i64] : void
     b := w->build()
     defer b->free()
-    net.send(c, b@[0], b->len())
+    net.send(c, b->get_raw_unchecked_pointer(), b->len)
 
-func http.Resp.build[w: ^http.Resp] : slice
+func http.Resp.build[w: ^http.Resp] : ^Bytes
     sb := new str.Builder
 
     status_line := _stackalloc(256) as str
@@ -180,7 +180,7 @@ func http.Resp.build[w: ^http.Resp] : slice
 
     content_length_line := _stackalloc(256) as str
     if w->body as ptr
-        content_length_line->format_into(256, "Content-Length: %d\r\n", w->body->len())
+        content_length_line->format_into(256, "Content-Length: %d\r\n", w->body->len)
     else
         content_length_line->format_into(256, "Content-Length: 0\r\n")
     sb->append(content_length_line)
@@ -194,10 +194,10 @@ func http.Resp.build[w: ^http.Resp] : slice
             sb->append(header_line)
 
     sb->append("\r\n")
-    if w->body as ptr && w->body->len() != 0
-        sb->append_n(w->body@[0], w->body->len())
+    if w->body as ptr && w->body->len != 0
+        sb->append_n(w->body->get_raw_unchecked_pointer(), w->body->len)
 
-    return sb->build_slice_and_free_inner()
+    return sb->build_bytes_and_free_inner()
 
 struct http._ConnData
     c: i64
@@ -236,7 +236,7 @@ func http._handle_conn[cd: ^http._ConnData] : void
     resp := new http.Resp
     resp->status = 200
     resp->headers = HashMap.new::<str>()
-    resp->body = 0 as slice
+    resp->body = 0 as ^Bytes
     defer resp->headers->free()
     defer resp->body->free()
 
@@ -279,15 +279,15 @@ func http._handle_conn[cd: ^http._ConnData] : void
     // TODO: parse req->headers
 
     body_pos := (raw_req as str)->find_n(n, "\r\n\r\n", 4) + 4
-    req->body = slice.alloc(n - body_pos)
+    req->body = Bytes.alloc(n - body_pos)
     if n - body_pos > 0
-        mem.copy_n(raw_req@[body_pos], req->body@[0], n - body_pos)
+        req->body->copy_into(raw_req@[body_pos], 0, n - body_pos)
 
     (cd->handler)(req, resp)
 
     resp_buf := resp->build()
     defer resp_buf->free()
-    net.send(cd->c, resp_buf@[0], resp_buf->len())
+    net.send(cd->c, resp_buf->get_raw_unchecked_pointer(), resp_buf->len)
 
 func http.status_code_to_text[code: i64] : str
     s := "100Continue\x00101Switching Protocols\x00102Processing\x00103Early Hints\x00200OK\x00201Created\x00202Accepted\x00203Non-Authoritative Information\x00204No Content\x00205Reset Content\x00206Partial Content\x00207Multi-Status\x00208Already Reported\x00226IM Used\x00300Multiple Choices\x00301Moved Permanently\x00302Found\x00303See Other\x00304Not Modified\x00305Use Proxy\x00306Switch Proxy\x00307Temporary Redirect\x00308Permanent Redirect\x00400Bad Request\x00401Unauthorized\x00402Payment Required\x00403Forbidden\x00404Not Found\x00405Method Not Allowed\x00406Not Acceptable\x00407Proxy Authentication Required\x00408Request Timeout\x00409Conflict\x00410Gone\x00411Length Required\x00412Precondition Failed\x00413Content Too Large\x00414URI Too Long\x00415Unsupported Media Type\x00416Range Not Satisfiable\x00417Expectation Failed\x00418I'm a teapot\x00421Misdirected Request\x00422Unprocessable Content\x00423Locked\x00424Failed Dependency\x00425Too Early\x00426Upgrade Required\x00428Precondition Required\x00429Too Many Requests\x00431Request Header Fields Too Large\x00451Unavailable For Legal Reasons\x00500Internal Server Error\x00501Not Implemented\x00502Bad Gateway\x00503Service Unavailable\x00504Gateway Timeout\x00505HTTP Version Not Supported\x00506Variant Also Negotiates\x00507Insufficient Storage\x00508Loop Detected\x00510Not Extended\x00511Network Authentication Required\x00"

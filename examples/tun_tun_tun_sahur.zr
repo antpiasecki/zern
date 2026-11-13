@@ -13,7 +13,7 @@ func main[] : i64
     req := _stackalloc(40)
     mem.zero(req, 40)
     mem.copy_n(name as ptr, req, math.min(name->len()+1, 16))
-    mem.write16(req@[16], IFFNOPI | IFFTUN)
+    mem.write16(req@[16], IFF_NO_PI | IFF_TUN)
 
     ret := os.ioctl(fd, TUNSETIFF, req)
     if ret < 0 io.panic("ioctl(TUNSETIFF) failed")

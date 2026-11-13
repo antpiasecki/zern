@@ -141,30 +141,37 @@ func io.write[fd: i64, buf: ptr, count: i64] : i64
     return done
 
 func io.read_line[] : str
+    s, _ := io.read_line_with_eof()
+    return s
+
+func io.read_line_with_eof[] : str, bool
     b := new str.Builder
     c := 0 as u8
     while true
         n := io.read(STDIN_FILENO, ^c, 1)
-        if n < 1 || c == '\n'
+        if n < 1
+            if b->len == 0
+                return b->build_str_and_free_inner(), true
+            break
+        if c == '\n'
             break
         b->append_char(c)
-    return b->build_str_and_free_inner()
+    return b->build_str_and_free_inner(), false
 
-// due to slices being slices reading a file larger than 2GB will fail
-func io.read_file[path: str] : slice, err
+func io.read_file[path: str] : ^Bytes, err
     fd := try io.open_for_reading(path)
 
     len := builtin.syscall(SYS_lseek, fd, 0, SEEK_END)
-    buf := slice.alloc(len)
+    buf := Bytes.alloc(len)
     builtin.syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := io.read(fd, buf@[0], len)
+    n := io.read(fd, buf->get_raw_unchecked_pointer(), len)
     io.close(fd)
 
     // TODO?
     if n != len
         buf->free()
-        return 0 as slice, error("io.read_file: n != len")
+        return 0 as ^Bytes, error("io.read_file: n != len")
 
     return buf, ok()
 

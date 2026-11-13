@@ -200,17 +200,16 @@ _start:
                     } => {
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, indexed)?;
-                        if self.expr_types[&indexed.id] == "slice" {
-                            emit!(&mut self.output, "    mov rcx, rax");
-                            emit!(&mut self.output, "    and ecx, 0x7fffffff");
-                            emit!(&mut self.output, "    shr rax, 31");
+                        if self.expr_types[&indexed.id] == "^Bytes" {
+                            emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
+                            emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                         }
                         emit!(&mut self.output, "    push rax");
-                        if self.expr_types[&indexed.id] == "slice" {
+                        if self.expr_types[&indexed.id] == "^Bytes" {
                             emit!(&mut self.output, "    push rcx");
                         }
                         self.compile_expr(env, index)?;
-                        if self.expr_types[&indexed.id] == "slice" {
+                        if self.expr_types[&indexed.id] == "^Bytes" {
                             emit!(&mut self.output, "    pop rcx");
                             let ok_label = self.label();
                             emit!(&mut self.output, "    cmp rax, rcx");
@@ -334,12 +333,12 @@ _start:
                     return Ok(());
                 }
 
-                if self.symbol_table.functions[name].attributes.contains(&"extern".into()) {
+                if self.symbol_table.has_attribute(name, "extern") {
                     emit!(&mut self.output, ".extern {}", mangled);
                     return Ok(());
                 }
 
-                if name == "main" || self.symbol_table.functions[name].attributes.contains(&"export".into()) {
+                if name == "main" || self.symbol_table.has_attribute(name, "export") {
                     emit!(&mut self.output, ".globl {}", mangled);
                 }
                 if self.args.mode != CompileMode::MinGW {
@@ -871,17 +870,16 @@ _start:
                 index,
             } => {
                 self.compile_expr(env, indexed)?;
-                if self.expr_types[&indexed.id] == "slice" {
-                    emit!(&mut self.output, "    mov rcx, rax");
-                    emit!(&mut self.output, "    and ecx, 0x7fffffff");
-                    emit!(&mut self.output, "    shr rax, 31");
+                if self.expr_types[&indexed.id] == "^Bytes" {
+                    emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
+                    emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                 }
                 emit!(&mut self.output, "    push rax");
-                if self.expr_types[&indexed.id] == "slice" {
+                if self.expr_types[&indexed.id] == "^Bytes" {
                     emit!(&mut self.output, "    push rcx");
                 }
                 self.compile_expr(env, index)?;
-                if self.expr_types[&indexed.id] == "slice" {
+                if self.expr_types[&indexed.id] == "^Bytes" {
                     emit!(&mut self.output, "    pop rcx");
                     let ok_label = self.label();
                     emit!(&mut self.output, "    cmp rax, rcx");
@@ -899,13 +897,13 @@ _start:
             }
             ExprKind::AddrOf { expr } => match &expr.kind {
                 ExprKind::Variable(name) => {
-                    if self.symbol_table.functions.contains_key(&name.lexeme) {
-                        emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", name.lexeme);
+                    if let Some(offset) = env.get_var(&name.lexeme) {
+                        emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", offset);
                     } else if self.symbol_table.globals.contains_key(&name.lexeme) {
                         let (label, _) = &self.symbol_table.globals[&name.lexeme];
                         emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", label);
-                    } else if let Some(offset) = env.get_var(&name.lexeme) {
-                        emit!(&mut self.output, "    lea rax, QWORD PTR [rbp-{}]", offset);
+                    } else if self.symbol_table.functions.contains_key(&name.lexeme) {
+                        emit!(&mut self.output, "    lea rax, [rip + \"{}\"]", name.lexeme);
                     } else {
                         return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                     }

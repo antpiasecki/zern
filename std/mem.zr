@@ -33,29 +33,10 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
 func mem._ensure_allocator[] : void
     if mem.allocator as ptr == 0
         a := builtin.syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListAllocator
-
-        // mmap magic to keep our heap addresses below 2GB
-        size := 0x1C0000000
-        while true
-            base := builtin.syscall(SYS_mmap, 0x10000000, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE|MAP_FIXED_NOREPLACE, -1, 0)
-            if base == 0x10000000
-                builtin.syscall(SYS_madvise, base, size, MADV_DONTDUMP)
-                break
-            if base > 0
-                builtin.syscall(SYS_munmap, base, size)
-
-            size = size / 2
-            if size < 0x1000000
-                io.panic("mem._ensure_allocator: could not reserve heap at low address")
-        a->heap_base = 0x10000000 as ptr
-        a->heap_size = size
         mem.allocator = ^mem.FreeListAllocator.req
         mem.allocator_data = a as opaque
 
 struct mem.FreeListAllocator
-    heap_base: ptr
-    heap_top: i64
-    heap_size: i64
     head: ^mem.FreeListBlock
     tail: ^mem.FreeListBlock
     rover: ^mem.FreeListBlock
@@ -85,20 +66,15 @@ func mem.FreeListBlock._split[blk: ^mem.FreeListBlock, fla: ^mem.FreeListAllocat
         blk->len = needed
         blk->next = new_blk
 
-func mem.FreeListAllocator._take_chunk[fla: ^mem.FreeListAllocator, len: i64] : ptr
-    if len > fla->heap_size - fla->heap_top
-        io.panic("mem.FreeListAllocator._take_chunk: out of memory")
-    p := fla->heap_base@[fla->heap_top]
-    fla->heap_top += len
-    return p
-
 func mem.FreeListAllocator._request_space[fla: ^mem.FreeListAllocator, len: i64] : ^mem.FreeListBlock
     needed := len + mem.FreeListBlock.LEN
     alloc_len := (needed + 4095) & -4096
     if alloc_len < 1048576
         alloc_len = 1048576
 
-    blk := fla->_take_chunk(alloc_len) as ^mem.FreeListBlock
+    blk := builtin.syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListBlock
+    if blk as ptr as i64 == MAP_FAILED
+        io.panic("mem._request_space: failed to mmap")
     blk->len = alloc_len - mem.FreeListBlock.LEN
     blk->free = false
     blk->next = 0 as ^mem.FreeListBlock
@@ -192,9 +168,6 @@ func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
         if (cur as i64 & 4095) != 0 || (block_total & 4095) != 0
             break
 
-        if (cur as i64) + block_total != (fla->heap_base as i64) + fla->heap_top
-            break
-
         prev := cur->prev
         if prev as ptr
             prev->next = 0 as ^mem.FreeListBlock
@@ -202,8 +175,7 @@ func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
             fla->head = 0 as ^mem.FreeListBlock
 
         fla->tail = prev
-        builtin.syscall(SYS_madvise, cur, block_total, MADV_DONTNEED)
-        fla->heap_top = (cur as i64) - (fla->heap_base as i64)
+        builtin.syscall(SYS_munmap, cur, block_total)
 
         cur = prev
 
@@ -400,43 +372,87 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x@[4], d)
 
-func slice.make[p: ptr, len: i64] : slice
-    if len < 0 || len > 0x7FFFFFFF
-        io.panic("slice.make: bad length")
-    if (p as i64) < 0 || (p as i64) >= 0x200000000
-        io.panic("slice.make: pointer above 8 GB")
-    return (((p as i64) << 31) | len) as slice
+struct Bytes
+    data: ptr
+    len: i64
 
-func slice.make_from_cstr[s: str] : slice
-    return slice.make(s@[0], s->len())
+func Bytes.alloc[len: i64] : ^Bytes
+    b := new* Bytes
+    b->data = mem.alloc(len)
+    b->len = len
+    return b
 
-func slice.copy_cstr[s: str] : slice
-    out := slice.alloc(s->len())
-    mem.copy_n(s@[0], out->ptr(), s->len())
-    return out
+func Bytes.alloc_zeroed[len: i64] : ^Bytes
+    b := Bytes.alloc(len)
+    b->zero()
+    return b
 
-func slice.alloc[len: i64] : slice
-    p := 0 as ptr
-    if len > 0
-        p = mem.alloc(len)
-    return slice.make(p, len)
+func Bytes.copy_cstr[s: str] : ^Bytes
+    s_len := s->len()
+    b := Bytes.alloc(s_len + 1)
+    b->copy_into(s@[0], 0, s_len + 1)
+    return b
 
-func slice.alloc_zeroed[len: i64] : slice
-    s := slice.alloc(len)
-    mem.zero(s->ptr(), len)
-    return s
+func Bytes.free[b: ^Bytes] : void
+    b->data->free()
+    (b as ptr)->free()
 
-func slice.ptr[s: slice] : ptr
-    return (((s as i64) >> 31) & 0x1FFFFFFFF) as ptr
+func Bytes.zero[b: ^Bytes] : void
+    mem.zero(b->get_raw_unchecked_pointer(), b->len)
 
-func slice.len[s: slice] : i64
-    return (s as i64) & 0x7FFFFFFF
+func Bytes.realloc[b: ^Bytes, new_len: i64] : void
+    b->len = new_len
+    b->data = b->data->realloc(new_len)
 
-func slice.to_cstr[s: slice] : str
-    out := mem.alloc(s->len() + 1)
-    mem.copy_n(s->ptr(), out@[0], s->len())
-    out[s->len()] = 0
-    return out as str
+func Bytes.get_raw_unchecked_pointer[b: ^Bytes] : ptr
+    return b->data
 
-func slice.free[s: slice] : void
-    s->ptr()->free()
+func Bytes.read16[b: ^Bytes, offset: i64] : i64
+    if offset < 0 || offset > b->len - 2
+        io.panic("Bytes.read16: out of bounds")
+    return mem.read16(b->data@[offset])
+
+func Bytes.read16be[b: ^Bytes, offset: i64] : i64
+    if offset < 0 || offset > b->len - 2
+        io.panic("Bytes.read16be: out of bounds")
+    return mem.read16be(b->data@[offset])
+
+func Bytes.read32[b: ^Bytes, offset: i64] : i64
+    if offset < 0 || offset > b->len - 4
+        io.panic("Bytes.read32: out of bounds")
+    return mem.read32(b->data@[offset])
+
+func Bytes.read64[b: ^Bytes, offset: i64] : i64
+    if offset < 0 || offset > b->len - 8
+        io.panic("Bytes.read64: out of bounds")
+    return mem.read64(b->data@[offset])
+
+func Bytes.write16[b: ^Bytes, offset: i64, v: i64] : void
+    if offset < 0 || offset > b->len - 2
+        io.panic("Bytes.write16: out of bounds")
+    mem.write16(b->data@[offset], v)
+
+func Bytes.write16be[b: ^Bytes, offset: i64, v: i64] : void
+    if offset < 0 || offset > b->len - 2
+        io.panic("Bytes.write16be: out of bounds")
+    mem.write16be(b->data@[offset], v)
+
+func Bytes.write32[b: ^Bytes, offset: i64, v: i64] : void
+    if offset < 0 || offset > b->len - 4
+        io.panic("Bytes.write32: out of bounds")
+    mem.write32(b->data@[offset], v)
+
+func Bytes.write32be[b: ^Bytes, offset: i64, v: i64] : void
+    if offset < 0 || offset > b->len - 4
+        io.panic("Bytes.write32be: out of bounds")
+    mem.write32be(b->data@[offset], v)
+
+func Bytes.write64[b: ^Bytes, offset: i64, v: i64] : void
+    if offset < 0 || offset > b->len - 8
+        io.panic("Bytes.write64: out of bounds")
+    mem.write64(b->data@[offset], v)
+
+func Bytes.copy_into[b: ^Bytes, src: ptr, offset: i64, len: i64] : void
+    if offset < 0 || len < 0 || len > b->len - offset
+        io.panic("Bytes.copy_into: out of bounds")
+    mem.copy_n(src, b->data@[offset], len)
