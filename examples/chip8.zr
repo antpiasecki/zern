@@ -2,7 +2,7 @@
 include "io.zr"
 
 func main[argc: i64, argv: ptr] : i64
-    path := 0 as cstr
+    path := 0 as ^str
     disassemble := false
 
     for i in 1..argc
@@ -11,8 +11,9 @@ func main[argc: i64, argv: ptr] : i64
             disassemble = true
         else
             path = arg
+        arg->free()
 
-    if path as i64 == 0
+    if path as ptr == 0
         io.println("Usage: chip8 -d <path>")
         return 1
 
@@ -29,7 +30,7 @@ func main[argc: i64, argv: ptr] : i64
         c->disassemble(buffer->len / 2)
         return 0
 
-    InitWindow(640, 320, "CHIP-8")
+    InitWindow(640, 320, "CHIP-8"c)
     SetTargetFPS(60)
 
     while !WindowShouldClose()

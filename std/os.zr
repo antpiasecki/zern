@@ -10,24 +10,22 @@ func os.exit[code: i64] : void
 func os.getpid[] : i64
     return builtin.syscall(SYS_getpid)
 
-func os.arg[argv: ptr, n: i64] : cstr
-    return mem.read64(argv@[n * 8]) as cstr
+func os.arg[argv: ptr, n: i64] : ^str
+    return str.from_cstr(mem.read64(argv@[n * 8]) as cstr)
 
-func os.getenv[name: cstr] : cstr, bool
-    name_len := name->len()
+func os.getenv[name: ^str] : ^str, bool
     i := 0
     while true
         entry := mem.read64((_builtin_environ as ptr)@[i * 8]) as cstr
         if entry as ptr == 0
             break
-        if entry->equal_n(name, name_len) && entry[name_len] == '='
-            return entry@[name_len + 1] as cstr, true
+        if entry->equal_n(name->raw_ptr() as cstr, name->len) && entry[name->len] == '='
+            return str.from_cstr(entry@[name->len + 1] as cstr), true
         i += 1
-    return "", false
+    return 0 as ^str, false
 
-func os.basename[path: cstr] : cstr
-    len := path->len()
-    end := len
+func os.basename[path: ^str] : ^str
+    end := path->len
     while end > 0 && path[end - 1] == '/'
         end -= 1
 
@@ -84,32 +82,32 @@ func os.urandom_i64[] : i64
     os.urandom_buf(^n, 8)
     return n
 
-func os.uuid4[] : cstr
+func os.uuid4[] : ^str
     b := _stackalloc(16)
     os.urandom_buf(b, 16)
     b[6] = (b[6] & 0x0f) | 0x40
     b[8] = (b[8] & 0x3f) | 0x80
     out := mem.alloc(37) as cstr
     out->format_into(37, "%x-%x-%x-%x-%x%x", mem.read32be(b@[0]), mem.read16be(b@[4]), mem.read16be(b@[6]), mem.read16be(b@[8]), mem.read16be(b@[10]), mem.read32be(b@[12]))
-    return out
+    return str.from_parts(out as ptr, 36)
 
 // TODO
 struct os.CmdResult
     success: bool
     exit_code: i64
     max_rss: i64
-    stdout: cstr
+    stdout: ^str
 
 func os.CmdResult.ok[r: ^os.CmdResult] : bool
     return r->success && r->exit_code == 0
 
-func os.run_shell_command[command: cstr] : ^os.CmdResult
+func os.run_shell_command[command: ^str] : ^os.CmdResult
     return os._run_shell_command(command, false)
 
-func os.run_shell_command_with_output[command: cstr] : ^os.CmdResult
+func os.run_shell_command_with_output[command: ^str] : ^os.CmdResult
     return os._run_shell_command(command, true)
 
-func os._run_shell_command[command: cstr, capture_stdout: bool] : ^os.CmdResult
+func os._run_shell_command[command: ^str, capture_stdout: bool] : ^os.CmdResult
     res := new* os.CmdResult
     res->success = false
 
@@ -133,13 +131,16 @@ func os._run_shell_command[command: cstr, capture_stdout: bool] : ^os.CmdResult
                 io.panic("os._run_shell_command: failed to dup2")
             io.close(mem.read32(pipe@[4]))
 
-        argv := ["sh", "-c", command, 0] // gets freed after child process exits
-        builtin.syscall(SYS_execve, "/bin/sh", argv->data, _builtin_environ)
+        command_c := _stackalloc(10000) as cstr
+        command->to_cstr(command_c, 10000)
+
+        argv := ["sh"c, "-c"c, command_c, 0] // gets freed after child process exits
+        builtin.syscall(SYS_execve, "/bin/sh"c, argv->data, _builtin_environ)
         os.exit(127)
     else
         if capture_stdout
             io.close(mem.read32(pipe@[4]))
-            stdout := new cstr.Builder
+            stdout := new str.Builder
             chunk := _stackalloc(4096)
             while true
                 n := io.read(mem.read32(pipe@[0]), chunk, 4096)
@@ -165,8 +166,10 @@ func os._run_shell_command[command: cstr, capture_stdout: bool] : ^os.CmdResult
 
         return res
 
-func os.file_exists[path: cstr] : bool
-    return builtin.syscall(SYS_faccessat, AT_FDCWD, path, F_OK, 0) == 0
+func os.file_exists[path: ^str] : bool
+    path_c := _stackalloc(PATH_MAX) as cstr
+    path->to_cstr(path_c, PATH_MAX)
+    return builtin.syscall(SYS_faccessat, AT_FDCWD, path_c, F_OK, 0) == 0
 
 func os.get_file_size[path: cstr] : i64, err
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
@@ -176,10 +179,13 @@ func os.get_file_size[path: cstr] : i64, err
 
     return mem.read64(st@[48]), ok()
 
-func os.is_a_directory[path: cstr] : bool
+func os.is_a_directory[path: ^str] : bool
+    path_c := _stackalloc(PATH_MAX) as cstr
+    path->to_cstr(path_c, PATH_MAX)
+
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 
-    rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path, st, 0)
+    rc := builtin.syscall(SYS_newfstatat, AT_FDCWD, path_c, st, 0)
     if rc != 0 return false
 
     return (mem.read32(st@[24]) & S_IFMT) == S_IFDIR
@@ -187,17 +193,17 @@ func os.is_a_directory[path: cstr] : bool
 func os.ioctl[fd: i64, op: i64, argp: ptr] : i64
     return builtin.syscall(SYS_ioctl, fd, op, argp)
 
-func os.list_directory[path: cstr] : ^Array<cstr>, err
+func os.list_directory[path: ^str] : ^Array<^str>, err
     fd := try io.open_for_reading(path)
     defer io.close(fd)
 
-    files := [] as ^Array<cstr>
+    files := [] as ^Array<^str>
     buf := _stackalloc(1024)
     while true
         n := builtin.syscall(SYS_getdents64, fd, buf, 1024)
         if n < 0
             files->free_with_ptr_items()
-            return 0 as ^Array<cstr>, error("os.list_directory: getdents() failed")
+            return 0 as ^Array<^str>, error("os.list_directory: getdents() failed")
         else if n == 0
             break
 
@@ -215,7 +221,7 @@ func os.list_directory[path: cstr] : ^Array<cstr>, err
                         if name[2] == 0
                             skip = true
                 if !skip
-                    files->push((name as cstr)->make_copy())
+                    files->push(str.from_cstr(name as cstr))
             pos += len
 
     return files, ok()

@@ -327,6 +327,26 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
             dst[i] = src[i]
             i += 1
 
+func mem.find[haystack: ptr, haystack_len: i64, needle: ptr, needle_len: i64] : i64
+    if needle_len == 0
+        return 0
+    if haystack_len < 0 || needle_len < 0 || needle_len > haystack_len
+        return -1
+
+    for i in 0..=(haystack_len - needle_len)
+        if haystack[i] != needle[0]
+            continue
+
+        match := true
+        for j in 1..needle_len
+            if haystack[i + j] != needle[j]
+                match = false
+                break
+        if match
+            return i
+
+    return -1
+
 func mem.read16[x: ptr] : i64
     return x[0] as i64 | (x[1] << 8)
 
@@ -387,10 +407,9 @@ func Bytes.alloc_zeroed[len: i64] : ^Bytes
     b->zero()
     return b
 
-func Bytes.copy_cstr[s: cstr] : ^Bytes
-    s_len := s->len()
-    b := Bytes.alloc(s_len + 1)
-    b->copy_into(s@[0], 0, s_len + 1)
+func Bytes.copy_str[s: ^str] : ^Bytes
+    b := Bytes.alloc(s->len)
+    b->copy_into(s->raw_ptr(), 0, s->len)
     return b
 
 func Bytes.free[b: ^Bytes] : void
@@ -398,13 +417,13 @@ func Bytes.free[b: ^Bytes] : void
     (b as ptr)->free()
 
 func Bytes.zero[b: ^Bytes] : void
-    mem.zero(b->get_raw_unchecked_pointer(), b->len)
+    mem.zero(b->raw_ptr(), b->len)
 
 func Bytes.realloc[b: ^Bytes, new_len: i64] : void
     b->len = new_len
     b->data = b->data->realloc(new_len)
 
-func Bytes.get_raw_unchecked_pointer[b: ^Bytes] : ptr
+func Bytes.raw_ptr[b: ^Bytes] : ptr
     return b->data
 
 func Bytes.read16[b: ^Bytes, offset: i64] : i64

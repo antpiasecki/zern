@@ -5,9 +5,9 @@ const DNS_TYPE_AAAA = 28
 const DNS_CLASS_IN = 1
 const DNS_RECURSION_DESIRED = 256
 
-var net._dns_server: cstr
+var net._dns_server: ^str
 
-func net.listen[host: cstr, port: i64] : i64, err
+func net.listen[host: ^str, port: i64] : i64, err
     packed_host := try net.parse_ipv4_str(host)
 
     s := builtin.syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
@@ -32,7 +32,7 @@ func net.listen[host: cstr, port: i64] : i64, err
 
     return s, ok()
 
-func net.connect[host: cstr, port: i64] : i64, err
+func net.connect[host: ^str, port: i64] : i64, err
     packed_host := try net.resolve(host)
 
     s := builtin.syscall(SYS_socket, AF_INET, SOCK_STREAM, 0)
@@ -81,7 +81,7 @@ struct net.UDPSocket
     fd: i64
     addr: ptr
 
-func net.UDPSocket.new_client[host: cstr, port: i64] : ^net.UDPSocket, err
+func net.UDPSocket.new_client[host: ^str, port: i64] : ^net.UDPSocket, err
     packed_host := try net.resolve(host)
 
     s := new* net.UDPSocket
@@ -94,7 +94,7 @@ func net.UDPSocket.new_client[host: cstr, port: i64] : ^net.UDPSocket, err
     net._build_sa(s->addr, packed_host, port)
     return s, ok()
 
-func net.create_udp_server[host: cstr, port: i64] : ^net.UDPSocket, err
+func net.create_udp_server[host: ^str, port: i64] : ^net.UDPSocket, err
     s := try net.UDPSocket.new_client(host, port)
 
     if builtin.syscall(SYS_bind, s->fd, s->addr, 16) < 0
@@ -116,7 +116,7 @@ func net.UDPSocket.receive[s: ^net.UDPSocket, sa_out: ptr, len: i64] : ^Bytes, e
     data := Bytes.alloc(len)
 
     addrlen := 16
-    received_len := builtin.syscall(SYS_recvfrom, s->fd, data->get_raw_unchecked_pointer(), len, 0, sa_out, ^addrlen)
+    received_len := builtin.syscall(SYS_recvfrom, s->fd, data->raw_ptr(), len, 0, sa_out, ^addrlen)
     if received_len < 0
         data->free()
         return 0 as ^Bytes, error("net.UDPSocket.receive: recvfrom failed")
@@ -128,12 +128,12 @@ func net.UDPSocket.close_and_free[s: ^net.UDPSocket] : void
     s->addr->free()
     (s as ptr)->free()
 
-func net.parse_ipv4_str[ip: cstr] : i64, err
+func net.parse_ipv4_str[ip: ^str] : i64, err
     n := 0
     digits := 0
     dots := 0
     acc := 0
-    for i in 0..ip->len()
+    for i in 0..ip->len
         c := ip[i]
         if c->is_digit()
             n = n * 10 + (c - '0')
@@ -152,7 +152,7 @@ func net.parse_ipv4_str[ip: cstr] : i64, err
     acc = acc * 256 + n
     return acc, ok()
 
-func net.resolve[domain: cstr] : i64, err
+func net.resolve[domain: ^str] : i64, err
     // if domain is already an ip, skip dns resolution
     ip, err := net.parse_ipv4_str(domain)
     if !err
@@ -161,18 +161,16 @@ func net.resolve[domain: cstr] : i64, err
     query := net.build_dns_query(domain, DNS_TYPE_A)
     defer query->free()
 
-    dns_server := 0 as cstr
+    dns_server := "1.1.1.1"
     if net._dns_server as ptr != 0
         dns_server = net._dns_server
     else
         res := os.run_shell_command_with_output("grep -E '^nameserver' /etc/resolv.conf | head -n 1 | cut -d' ' -f2 | tr -d '\n'")
         defer (res as ptr)->free()
         defer res->stdout->free()
-        if res->ok() && res->stdout->len() > 6
+        if res->ok() && res->stdout->len > 6
             net._dns_server = res->stdout->make_copy()
             dns_server = net._dns_server
-        else
-            dns_server = "1.1.1.1"
 
     s := try net.UDPSocket.new_client(dns_server, 53)
     defer s->close_and_free()
@@ -182,7 +180,7 @@ func net.resolve[domain: cstr] : i64, err
     attempt := 0
     sa := _stackalloc(16)
     while attempt < 5
-        s->send_to(s->addr, query->get_raw_unchecked_pointer(), query->len)
+        s->send_to(s->addr, query->raw_ptr(), query->len)
         d, err := s->receive(sa, 1024)
         if !err
             data = d
@@ -211,26 +209,7 @@ func net.resolve[domain: cstr] : i64, err
     out := net.pack_addr(data[pos] as i64, data[pos+1] as i64, data[pos+2] as i64, data[pos+3] as i64)
     return out, ok()
 
-func net.encode_dns_name[domain: cstr] : ^Bytes
-    domain_len := domain->len()
-    buf := Bytes.alloc(domain_len + 2)
-    out_pos := 0
-    part_start := 0
-    i := 0
-    while i <= domain_len
-        if i == domain_len || domain[i] == '.'
-            part_len := i - part_start
-            buf[out_pos] = part_len as u8
-            out_pos += 1
-            buf->copy_into(domain@[part_start], out_pos, part_len)
-            out_pos += part_len
-            part_start = i + 1
-        i += 1
-
-    buf[out_pos] = 0
-    return buf
-
-func net.build_dns_query[domain_name: cstr, record_type: i64] : ^Bytes
+func net.build_dns_query[domain_name: ^str, record_type: i64] : ^Bytes
     name := net.encode_dns_name(domain_name)
     defer name->free()
     out := Bytes.alloc(12 + name->len + 4)
@@ -245,8 +224,27 @@ func net.build_dns_query[domain_name: cstr, record_type: i64] : ^Bytes
     out->write16be(10, 0) // num_additionals
 
     // question
-    out->copy_into(name->get_raw_unchecked_pointer(), 12, name->len)
+    out->copy_into(name->raw_ptr(), 12, name->len)
     out->write16be(12 + name->len, record_type)
     out->write16be(12 + name->len + 2, DNS_CLASS_IN)
 
     return out
+
+func net.encode_dns_name[domain: ^str] : ^Bytes
+    domain_len := domain->len
+    buf := Bytes.alloc(domain_len + 2)
+    out_pos := 0
+    part_start := 0
+    i := 0
+    while i <= domain_len
+        if i == domain_len || domain[i] == '.'
+            part_len := i - part_start
+            buf[out_pos] = part_len as u8
+            out_pos += 1
+            buf->copy_into(domain->raw_ptr()@[part_start], out_pos, part_len)
+            out_pos += part_len
+            part_start = i + 1
+        i += 1
+
+    buf[out_pos] = 0
+    return buf

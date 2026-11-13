@@ -47,6 +47,7 @@ pub enum TokenType {
 
     Identifier,
     StringLiteral,
+    CStringLiteral,
     CharLiteral,
     IntLiteral,
     FloatLiteral,
@@ -306,7 +307,12 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 self.advance();
-                self.add_token(TokenType::StringLiteral)?
+
+                if self.match_char('c') {
+                    self.add_token(TokenType::CStringLiteral)?
+                } else {
+                    self.add_token(TokenType::StringLiteral)?
+                }
             }
             ' ' | '\r' => {}
             '\n' => {

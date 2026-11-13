@@ -109,9 +109,9 @@ func i64.to_hex_str_buf[n: i64, buf: cstr] : i64
     buf[len] = 0
     return len
 
-func i64.to_str[n: i64] : cstr
-    out := mem.alloc(21) as cstr
-    n->to_str_buf(out)
+func i64.to_str[n: i64] : ^str
+    out := str.alloc(20)
+    n->to_str_buf(out->raw_ptr() as cstr)
     return out
 
 func i64.to_hex_str[n: i64] : cstr

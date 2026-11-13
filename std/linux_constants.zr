@@ -70,3 +70,5 @@ const ETH_DATA_LEN = 1500
 
 const MADV_DONTNEED = 4
 const MADV_DONTDUMP = 16
+
+const PATH_MAX = 4096

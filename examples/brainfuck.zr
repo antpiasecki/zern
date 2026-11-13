@@ -3,14 +3,13 @@ include "io.zr"
 func main[] : i64
     // https://brainfuck.org/sierpinski.b
     src := "++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]"
-    src_len := src->len()
     i := 0
 
     memory := Bytes.alloc_zeroed(30000)
     defer memory->free()
     p := 0
 
-    while i < src_len
+    while i < src->len
         op := src[i]
 
         if op == '>'
@@ -24,12 +23,12 @@ func main[] : i64
         else if op == '.'
             io.print_char(memory[p])
         else if op == ','
-            io.read(STDIN_FILENO, memory->get_raw_unchecked_pointer()@[p], 1)
+            io.read(STDIN_FILENO, memory->raw_ptr()@[p], 1)
         else if op == '['
             if !memory[p]
                 i += 1
                 opened := 0
-                while i < src_len && !(src[i] == ']' && !opened)
+                while i < src->len && !(src[i] == ']' && !opened)
                     if src[i] == '['
                         opened += 1
                     else if src[i] == ']'

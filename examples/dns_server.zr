@@ -24,7 +24,7 @@ func main[] : i64
             continue
         resp := handle_req(s, records, data, sa)
         if resp as ptr != 0
-            s->send_to(sa, resp->get_raw_unchecked_pointer(), resp->len)
+            s->send_to(sa, resp->raw_ptr(), resp->len)
             resp->free()
 
 func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: ptr] : ^Bytes
@@ -37,7 +37,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
     // we assume that QDCOUNT=1 but i think that's reasonable
 
     // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
-    labels := new cstr.Builder
+    labels := new str.Builder
     defer labels->free_inner()
     offset := 12
     while true
@@ -49,7 +49,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
             break
         if length > 63 || offset + length > req->len
             return 0 as ^Bytes
-        labels->append_n(req->get_raw_unchecked_pointer()@[offset], length)
+        labels->append_n(req->raw_ptr()@[offset], length)
         labels->append_char('.')
         offset += length
     if offset > req->len
@@ -61,7 +61,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
 
     name_lower := name->to_lower()
     defer name_lower->free()
-    name_lower[name_lower->len()-1] = 0 // remove extra dot
+    name_lower[name_lower->len-1] = 0 // remove extra dot
 
     if offset+4 > req->len
         return 0 as ^Bytes
@@ -80,17 +80,17 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
     record, err := records->get(name_lower)
     if question_class == DNS_CLASS_IN && !err
         if question_type == DNS_TYPE_A && record->len == 4
-            rdata = record->get_raw_unchecked_pointer()
+            rdata = record->raw_ptr()
             rdata_len = record->len
         else if question_type == DNS_TYPE_AAAA && record->len == 16
-            rdata = record->get_raw_unchecked_pointer()
+            rdata = record->raw_ptr()
             rdata_len = record->len
     else
         nxdomain = true
 
     resp_len := offset + raw_name_len + 10 + rdata_len
     resp := Bytes.alloc_zeroed(resp_len)
-    resp->copy_into(req->get_raw_unchecked_pointer(), 0, offset)
+    resp->copy_into(req->raw_ptr(), 0, offset)
 
     resp[3] = resp[3] & 0xf0 // clear RCODE
     if nxdomain
@@ -105,7 +105,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
 
     if rdata
         // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
-        resp->copy_into(req->get_raw_unchecked_pointer()@[12], offset, raw_name_len)
+        resp->copy_into(req->raw_ptr()@[12], offset, raw_name_len)
         offset += raw_name_len
         resp->write16be(offset, question_type)
         resp->write16be(offset+2, question_class)

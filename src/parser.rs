@@ -918,6 +918,7 @@ impl Parser {
             TokenType::FloatLiteral,
             TokenType::CharLiteral,
             TokenType::StringLiteral,
+            TokenType::CStringLiteral,
             TokenType::KeywordTrue,
             TokenType::KeywordFalse,
         ]) {

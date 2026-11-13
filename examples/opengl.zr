@@ -12,7 +12,7 @@ func main[] : i64
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
 
-    window := glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Hello, OpenGL!", 0 as ptr, 0 as ptr)
+    window := glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Hello, OpenGL!"c, 0 as ptr, 0 as ptr)
     if !window io.panic("glfwCreateWindow failed")
     glfwMakeContextCurrent(window)
     glfwSetFramebufferSizeCallback(window, ^framebuffer_size_callback)
@@ -53,7 +53,7 @@ void main() {
     p.z -= 3.0;
     gl_Position = vec4(p.x * 1.8107, p.y * 2.4142, p.z * -1.002 - 0.2002, -p.z);
     ourColor = aColor;
-}"
+}"c
     vert_shader := glCreateShader(GL_VERTEX_SHADER)
     glShaderSource(vert_shader, 1, ^vert_shader_str, 0 as ptr)
     glCompileShader(vert_shader)
@@ -61,7 +61,7 @@ void main() {
     frag_shader_str := "#version 330 core
 out vec4 FragColor;
 in vec3 ourColor;
-void main() { FragColor = vec4(ourColor, 1.0); }"
+void main() { FragColor = vec4(ourColor, 1.0); }"c
     frag_shader := glCreateShader(GL_FRAGMENT_SHADER)
     glShaderSource(frag_shader, 1, ^frag_shader_str, 0 as ptr)
     glCompileShader(frag_shader)
@@ -74,7 +74,7 @@ void main() { FragColor = vec4(ourColor, 1.0); }"
     glDeleteShader(frag_shader)
 
     model := _stackalloc(256)
-    model_loc := glGetUniformLocation(shader, "model")
+    model_loc := glGetUniformLocation(shader, "model"c)
 
     while !glfwWindowShouldClose(window)
         glEnable(GL_DEPTH_TEST)
@@ -117,7 +117,7 @@ func framebuffer_size_callback[window: ptr, width: i64, height: i64] : void
     glViewport(0, 0, width, height)
 
 func glfw_error_callback[code: i64, description: cstr] : void
-    io.println(description)
+    io.println(str.from_cstr(description))
 
 func glfwInit[] : i64 @extern
 func glfwWindowHint[hint: i64, value: i64] : void @extern

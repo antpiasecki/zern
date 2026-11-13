@@ -86,6 +86,7 @@ pub struct CodegenX86_64<'a> {
     bss: String,
     label_counter: usize,
     string_literals: HashMap<String, String>,
+    cstring_literals: HashMap<String, String>,
     file_ids: HashMap<String, usize>,
     pub args: &'a Args,
     pub symbol_table: &'a SymbolTable,
@@ -104,6 +105,7 @@ impl<'a> CodegenX86_64<'a> {
             bss: String::new(),
             label_counter: 1,
             string_literals: HashMap::new(),
+            cstring_literals: HashMap::new(),
             file_ids: HashMap::new(),
             args,
             symbol_table,
@@ -200,16 +202,16 @@ _start:
                     } => {
                         emit!(&mut self.output, "    push rax");
                         self.compile_expr(env, indexed)?;
-                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                             emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
                             emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                         }
                         emit!(&mut self.output, "    push rax");
-                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                             emit!(&mut self.output, "    push rcx");
                         }
                         self.compile_expr(env, index)?;
-                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                        if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                             emit!(&mut self.output, "    pop rcx");
                             let ok_label = self.label();
                             emit!(&mut self.output, "    cmp rax, rcx");
@@ -722,19 +724,37 @@ _start:
                 TokenType::StringLiteral => {
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
-                    let label = if let Some(label) = &self.string_literals.get(value) {
+                    let header = if let Some(h) = &self.string_literals.get(value) {
+                        h.to_string()
+                    } else {
+                        let n = self.string_literals.len();
+                        let data_label = format!("_str_data_{:03}", n);
+                        let header_label = format!("_str_{:03}", n);
+                        self.string_literals.insert(value.to_string(), header_label.clone());
+
+                        emit!(&mut self.rodata, "    {}: .ascii \"{}\"", data_label, escape_str(value));
+                        emit!(&mut self.rodata, "    .align 8");
+                        emit!(&mut self.rodata, "    {}:", header_label);
+                        emit!(&mut self.rodata, "    .quad {}", data_label);
+                        emit!(&mut self.rodata, "    .quad {}", value.len());
+                        header_label
+                    };
+
+                    emit!(&mut self.output, "    lea rax, [rip + {}]", header);
+                }
+                TokenType::CStringLiteral => {
+                    let value = &token.lexeme[1..token.lexeme.len() - 2];
+
+                    let label = if let Some(label) = &self.cstring_literals.get(value) {
                         label.to_string()
                     } else {
-                        let label = format!("_str_{:03}", self.string_literals.len());
-                        self.string_literals.insert(value.to_string(), label.clone());
+                        let label = format!("_cstr_{:03}", self.cstring_literals.len());
+                        self.cstring_literals.insert(value.to_string(), label.clone());
                         emit!(&mut self.rodata, "    {}: .asciz \"{}\"", label, escape_str(value));
                         label
                     };
 
                     emit!(&mut self.output, "    lea rax, [rip + {}]", label);
-                    // self.emit_heap_alloc(16);
-                    // emit!(&mut self.output, "    mov QWORD PTR [rax], [rip + {}]", label);
-                    // emit!(&mut self.output, "    mov QWORD PTR [rax+8], {}", value.len());
                 }
                 TokenType::KeywordTrue => {
                     emit!(&mut self.output, "    mov rax, 1");
@@ -873,16 +893,16 @@ _start:
                 index,
             } => {
                 self.compile_expr(env, indexed)?;
-                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                     emit!(&mut self.output, "    mov rcx, QWORD PTR [rax+8]");
                     emit!(&mut self.output, "    mov rax, QWORD PTR [rax]");
                 }
                 emit!(&mut self.output, "    push rax");
-                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                     emit!(&mut self.output, "    push rcx");
                 }
                 self.compile_expr(env, index)?;
-                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "str" {
+                if self.expr_types[&indexed.id] == "^Bytes" || self.expr_types[&indexed.id] == "^str" {
                     emit!(&mut self.output, "    pop rcx");
                     let ok_label = self.label();
                     emit!(&mut self.output, "    cmp rax, rcx");

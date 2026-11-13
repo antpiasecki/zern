@@ -12,8 +12,8 @@ struct json.Value
     type: i64
     value: opaque
 
-func json.Value.dump[v: ^json.Value] : cstr
-    s := new cstr.Builder
+func json.Value.dump[v: ^json.Value] : ^str
+    s := new str.Builder
 
     if v->type == json.OBJECT
         map := v->value as ^HashMap<^json.Value>
@@ -42,9 +42,9 @@ func json.Value.dump[v: ^json.Value] : cstr
             d->free()
         s->append_char(']')
     else if v->type == json.STRING
-        vs := v->value as cstr
+        vs := v->value as ^str
         s->append_char('"')
-        for i in 0..vs->len()
+        for i in 0..vs->len
             c := vs[i]
             if c == '"'
                 s->append("\\\"")
@@ -90,7 +90,7 @@ func json.Value.free[v: ^json.Value] : void
         for i in 0..arr->len
             arr->nth(i)->free()
     else if v->type == json.STRING
-        (v->value as cstr)->free()
+        (v->value as ^str)->free()
 
     (v as ptr)->free()
 
@@ -102,10 +102,10 @@ func json.Value.array[x: ^json.Value] : ^Array<^json.Value>
     if x->type != json.ARRAY
         io.panic("json.Value: array() on non-array")
     return x->value as ^Array<^json.Value>
-func json.Value.str[x: ^json.Value] : cstr
+func json.Value.str[x: ^json.Value] : ^str
     if x->type != json.STRING
-        io.panic("json.Value: cstr() on non-str")
-    return x->value as cstr
+        io.panic("json.Value: str() on non-str")
+    return x->value as ^str
 func json.Value.number[x: ^json.Value] : f64
     if x->type != json.NUMBER
         io.panic("json.Value: number() on non-number")
@@ -125,25 +125,25 @@ func json.new_array[] : ^json.Value
     v->type = json.ARRAY
     v->value = [] as opaque
     return v
-func json.new_str[s: cstr] : ^json.Value
+func json.new_str[s: ^str] : ^json.Value
     v := new* json.Value
     v->type = json.STRING
     v->value = s as opaque
     return v
 
-func json.parse[s: cstr] : ^json.Value, err
+func json.parse[s: ^str] : ^json.Value, err
     p := new json.Parser
     p->s = s
     p->i = 0
     v := try p->_parse_value()
     p->_skip_whitespace()
-    if p->_peek() != 0
+    if p->i < p->s->len
         v->free()
         return 0 as ^json.Value, error("json.parse: trailing garbage")
     return v, ok()
 
 struct json.Parser
-    s: cstr
+    s: ^str
     i: i64
 
 func json.Parser._parse_value[p: ^json.Parser] : ^json.Value, err
@@ -238,14 +238,14 @@ func json.Parser._parse_value[p: ^json.Parser] : ^json.Value, err
         defer num_str->free()
         out->type = json.NUMBER
         out->value = num_str->parse_f64() as opaque
-    else if (p->s@[p->i] as cstr)->equal_n("null", 4)
+    else if p->s[p->i] == 'n' && p->s[p->i+1] == 'u' && p->s[p->i+2] == 'l' && p->s[p->i+3] == 'l'
         out->type = json.NULL
         p->i += 4
-    else if (p->s@[p->i] as cstr)->equal_n("true", 4)
+    else if p->s[p->i] == 't' && p->s[p->i+1] == 'r' && p->s[p->i+2] == 'u' && p->s[p->i+3] == 'e'
         out->type = json.BOOL
         out->value = true as opaque
         p->i += 4
-    else if (p->s@[p->i] as cstr)->equal_n("false", 5)
+    else if p->s[p->i] == 'f' && p->s[p->i+1] == 'a' && p->s[p->i+2] == 'l' && p->s[p->i+3] == 's' && p->s[p->i+3] == 'e'
         out->type = json.BOOL
         out->value = false as opaque
         p->i += 5
@@ -255,16 +255,16 @@ func json.Parser._parse_value[p: ^json.Parser] : ^json.Value, err
     done = true
     return out, ok()
 
-func json.Parser._parse_string[p: ^json.Parser] : cstr, err
+func json.Parser._parse_string[p: ^json.Parser] : ^str, err
     if p->_peek() != '"'
-        return 0 as cstr, error("json.parse: expected '\"'")
+        return 0 as ^str, error("json.parse: expected '\"'")
     p->i += 1
-    sb := new cstr.Builder
+    sb := new str.Builder
     defer sb->free_inner()
     while p->_peek() != '"'
         c := p->_peek()
         if c == 0
-            return 0 as cstr, error("json.parse: unexpected EOF")
+            return 0 as ^str, error("json.parse: unexpected EOF")
         p->i += 1
         if c == '\\' && p->_peek() != 0
             c = p->_peek()
@@ -280,7 +280,7 @@ func json.Parser._parse_string[p: ^json.Parser] : cstr, err
     return sb->build_str_and_free_inner(), ok()
 
 func json.Parser._skip_whitespace[p: ^json.Parser] : void
-    while p->_peek()->is_whitespace()
+    while p->i < p->s->len && p->_peek()->is_whitespace()
         p->i += 1
 
 func json.Parser._peek[p: ^json.Parser] : u8

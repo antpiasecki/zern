@@ -4,31 +4,31 @@ include "os.zr"
 func ok[] : err
     return 0 as err
 
-func error[s: cstr] : err
+func error[s: ^str] : err
     return s as err
 
-func io.panic[msg: cstr] : void
+func io.panic[msg: ^str] : void
     io.print("panic: ")
     io.println(msg)
     builtin.int3()
     os.exit(1)
 
-func io.panic_with[msg: cstr, e: err] : void
+func io.panic_with[msg: ^str, e: err] : void
     s := _stackalloc(2048) as cstr
     s->format_into(2048, "%s: %s", msg, e)
-    io.panic(s)
+    io.panic(str.from_cstr(s))
 
 func io._oob_panic[len: i64, n: i64] : void
     s := _stackalloc(1024) as cstr
     s->format_into(1024, "index out of range (%d) with length %d", n, len)
-    io.panic(s)
+    io.panic(str.from_cstr(s))
 
 func io.printf[..] : void
-    format := builtin.var_arg(0) as ptr
+    format := builtin.var_arg(0) as ^str
     arg_counter := 1
     i := 0
 
-    while format[i]
+    while i < format->len
         if format[i] == '%'
             i += 1
 
@@ -39,7 +39,7 @@ func io.printf[..] : void
                 io.print_i64_hex(builtin.var_arg(arg_counter) as i64)
                 arg_counter += 1
             else if format[i] == 's'
-                io.print(builtin.var_arg(arg_counter) as cstr)
+                io.print(builtin.var_arg(arg_counter) as ^str)
                 arg_counter += 1
             else if format[i] == 'c'
                 io.print_char(builtin.var_arg(arg_counter) as u8)
@@ -60,20 +60,12 @@ func io.printf[..] : void
 func io.print_n[x: ptr, len: i64] : void
     io.write(STDOUT_FILENO, x, len)
 
-func io.print[x: cstr] : void
-    io.print_n(x as ptr, x->len())
+func io.print[x: ^str] : void
+    io.print_n(x->raw_ptr(), x->len)
 
-func io.println[x: cstr] : void
-    n := x->len()
-    if n < 4096
-        // copy + syscall instead of 2 syscalls
-        s := _stackalloc(4096)
-        mem.copy_n(x@[0], s, n)
-        s[n] = '\n'
-        io.print_n(s, n+1)
-    else
-        io.print(x)
-        io.print("\n")
+func io.println[x: ^str] : void
+    io.print(x)
+    io.print_char('\n')
 
 func io.print_char[x: u8] : void
     io.print_n(^x, 1)
@@ -87,33 +79,36 @@ func io.print_bool[x: bool] : void
 func io.print_i64[x: i64] : void
     s := _stackalloc(21) as cstr
     x->to_str_buf(s)
-    io.print(s)
+    io.print_n(s as ptr, s->len())
 
 func io.print_i64_hex[x: i64] : void
     s := _stackalloc(17) as cstr
     x->to_hex_str_buf(s)
-    io.print(s)
+    io.print_n(s as ptr, s->len())
 
 func io.println_i64[x: i64] : void
     s := _stackalloc(21) as cstr
     x->to_str_buf(s)
-    io.println(s)
+    io.print_n(s as ptr, s->len())
+    io.print_char('\n')
 
 func io.print_f64[x: f64] : void
     s := _stackalloc(64) as cstr
     x->to_str_buf(s)
-    io.print(s)
+    io.print_n(s as ptr, s->len())
+    io.print_char('\n')
 
 func io.println_f64[x: f64] : void
     s := _stackalloc(64) as cstr
     x->to_str_buf(s)
-    io.println(s)
+    io.print_n(s as ptr, s->len())
+    io.print_char('\n')
 
-func io.format_time[ns: i64] : cstr
+func io.format_time[ns: i64] : ^str
     v := ns as f64
     a := v->abs()
 
-    out := mem.alloc(100) as cstr
+    out := _stackalloc(100) as cstr
     if a >= 1000000000.0
         out->format_into(100, "%f s",  (v / 1000000000.0) as opaque)
     else if a >= 1000000.0
@@ -122,7 +117,7 @@ func io.format_time[ns: i64] : cstr
         out->format_into(100, "%f us", (v / 1000.0) as opaque)
     else
         out->format_into(100, "%d ns", ns)
-    return out
+    return str.from_cstr(out)
 
 func io.read[fd: i64, buf: ptr, count: i64] : i64
     return builtin.syscall(SYS_read, fd, buf, count)
@@ -140,12 +135,12 @@ func io.write[fd: i64, buf: ptr, count: i64] : i64
         done = done + r
     return done
 
-func io.read_line[] : cstr
+func io.read_line[] : ^str
     s, _ := io.read_line_with_eof()
     return s
 
-func io.read_line_with_eof[] : cstr, bool
-    b := new cstr.Builder
+func io.read_line_with_eof[] : ^str, bool
+    b := new str.Builder
     c := 0 as u8
     while true
         n := io.read(STDIN_FILENO, ^c, 1)
@@ -158,14 +153,14 @@ func io.read_line_with_eof[] : cstr, bool
         b->append_char(c)
     return b->build_str_and_free_inner(), false
 
-func io.read_file[path: cstr] : ^Bytes, err
+func io.read_file[path: ^str] : ^Bytes, err
     fd := try io.open_for_reading(path)
 
     len := builtin.syscall(SYS_lseek, fd, 0, SEEK_END)
     buf := Bytes.alloc(len)
     builtin.syscall(SYS_lseek, fd, 0, SEEK_SET)
 
-    n := io.read(fd, buf->get_raw_unchecked_pointer(), len)
+    n := io.read(fd, buf->raw_ptr(), len)
     io.close(fd)
 
     // TODO?
@@ -175,10 +170,10 @@ func io.read_file[path: cstr] : ^Bytes, err
 
     return buf, ok()
 
-func io.write_text_file[path: cstr, content: cstr] : i64, err
+func io.write_text_file[path: ^str, content: cstr] : i64, err
     return io.write_file(path, content as ptr, content->len())
 
-func io.write_file[path: cstr, content: ptr, len: i64] : i64, err
+func io.write_file[path: ^str, content: ptr, len: i64] : i64, err
     fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, 644->octal_to_decimal())
     defer io.close(fd)
 
@@ -187,11 +182,13 @@ func io.write_file[path: cstr, content: ptr, len: i64] : i64, err
         return 0, error("io.write_file: n != len")
     return n, ok()
 
-func io.open_for_reading[path: cstr] : i64, err
+func io.open_for_reading[path: ^str] : i64, err
     return io.open_with_flags_and_mode(path, O_RDONLY, 0)
 
-func io.open_with_flags_and_mode[path: cstr, flags: i64, mode: i64] : i64, err
-    fd := builtin.syscall(SYS_openat, AT_FDCWD, path, flags, mode)
+func io.open_with_flags_and_mode[path: ^str, flags: i64, mode: i64] : i64, err
+    path_c := _stackalloc(PATH_MAX) as cstr
+    path->to_cstr(path_c, PATH_MAX)
+    fd := builtin.syscall(SYS_openat, AT_FDCWD, path_c, flags, mode)
     if fd < 0
         return 0, error("io.open_with_flags_and_mode: failed to open")
     return fd, ok()

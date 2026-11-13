@@ -40,15 +40,76 @@ func str.alloc[len: i64] : ^str
 func str.from_cstr[c: cstr] : ^str
     c_len := c->len()
     s := str.alloc(c_len)
-    mem.copy_n(c@[0], s->get_raw_unchecked_pointer(), c_len)
+    mem.copy_n(c@[0], s->raw_ptr(), c_len)
     return s
 
-func str.get_raw_unchecked_pointer[s: ^str] : ptr
+func str.from_parts[data: ptr, len: i64] : ^str
+    s := new* str
+    s->data = data
+    s->len = len
+    return s
+
+func str.cast_from_bytes[b: ^Bytes] : ^str
+    return b as ^str
+
+func str.to_cstr[s: ^str, c: cstr, max_len: i64] : void
+    n := math.min(s->len, max_len-1)
+    mem.copy_n(s->raw_ptr(), c@[0], n)
+    c[n] = 0
+
+func str.raw_ptr[s: ^str] : ptr
     return s->data
 
 func str.free[s: ^str] : void
     s->data->free()
     (s as ptr)->free()
+
+func str.concat[a: ^str, b: ^str] : ^str
+    out := str.alloc(a->len + b->len)
+    mem.copy_n(a->raw_ptr(), out->raw_ptr()@[0], a->len)
+    mem.copy_n(b->raw_ptr(), out->raw_ptr()@[a->len], b->len)
+    return out
+
+func str.substr_n[s: ^str, start: i64, length: i64] : ^str
+    out := str.alloc(length)
+    mem.copy_n(s->raw_ptr()@[start], out->raw_ptr()@[0], length)
+    return out
+
+func str.equal[a: ^str, b: ^str] : bool
+    if a->len != b->len
+        return false
+    i := 0
+    while i < a->len
+        if a[i] != b[i]
+            return false
+        i += 1
+    return true
+
+func str.make_copy[s: ^str] : ^str
+    out := str.alloc(s->len)
+    mem.copy_n(s->raw_ptr(), out->raw_ptr(), s->len)
+    return out
+
+func str.find[haystack: ^str, needle: ^str, start: i64] : i64
+    if needle->len == 0
+        return 0
+
+    if needle->len > haystack->len
+        return -1
+
+    for i in (start)..=(haystack->len - needle->len)
+        if haystack[i] != needle[0]
+            continue
+        if needle->len == 1
+            return i
+        match := true
+        for j in 1..needle->len
+            if haystack[i + j] != needle[j]
+                match = false
+                break
+        if match
+            return i
+    return -1
 
 func cstr.free[s: cstr] : void
     (s as ptr)->free()
@@ -86,18 +147,18 @@ func cstr.equal_n[a: cstr, b: cstr, n: i64] : bool
     return true
 
 func cstr.format_into[..] : void
-    target_buf := builtin.var_arg(0) as ptr
+    target_buf := builtin.var_arg(0) as cstr
     max_len := builtin.var_arg(1) as i64
     if max_len <= 0
         return
-    format := builtin.var_arg(2) as ptr
+    format := builtin.var_arg(2) as ^str
     i := 0
     arg_counter := 3
     written := 0
 
     tmp := _stackalloc(64) as cstr
 
-    while format[i]
+    while i < format->len
         remaining := max_len - written - 1
         if remaining <= 0
             break
@@ -115,12 +176,9 @@ func cstr.format_into[..] : void
                 written += math.min(tmp_len, remaining)
                 arg_counter += 1
             else if format[i] == 's'
-                s := builtin.var_arg(arg_counter) as cstr
-                if s as ptr == 0
-                    s = "(null)"
-                tmp_len := s->len()
-                mem.copy_n(s@[0], target_buf@[written], math.min(tmp_len, remaining))
-                written += math.min(tmp_len, remaining)
+                s := builtin.var_arg(arg_counter) as ^str
+                mem.copy_n(s->raw_ptr(), target_buf@[written], math.min(s->len, remaining))
+                written += math.min(s->len, remaining)
                 arg_counter += 1
             else if format[i] == 'c'
                 target_buf[written] = builtin.var_arg(arg_counter) as u8
@@ -144,18 +202,6 @@ func cstr.format_into[..] : void
         i += 1
 
     target_buf[written] = 0
-
-func cstr.concat[a: cstr, b: cstr] : cstr
-    a_len := a->len()
-    b_len := b->len()
-    out := mem.alloc(a_len + b_len + 1) as cstr
-    mem.copy_n(a@[0], out@[0], a_len)
-    mem.copy_n(b@[0], out@[a_len], b_len)
-    out[a_len + b_len] = 0
-    return out
-
-func cstr.contains[haystack: cstr, needle: cstr] : bool
-    return haystack->find(needle) != -1
 
 func cstr.starts_with[haystack: cstr, needle: cstr] : bool
     return haystack->find(needle) == 0
@@ -190,15 +236,12 @@ func cstr.substr_n[s: cstr, start: i64, length: i64] : cstr
     out[length] = 0
     return out
 
-func cstr.trim[s: cstr] : cstr
-    len := s->len()
-    if len == 0
-        out := mem.alloc(1) as cstr
-        out[0] = 0
-        return out
+func str.trim[s: ^str] : ^str
+    if s->len == 0
+        return str.from_parts(0 as ptr, 0)
 
     start := 0
-    end := len - 1
+    end := s->len - 1
 
     while start <= end && s[start]->is_whitespace()
         start += 1
@@ -208,48 +251,44 @@ func cstr.trim[s: cstr] : cstr
 
     return s->substr_n(start, end - start + 1)
 
-func cstr.reverse[s: cstr] : cstr
-    len := s->len()
-    out := mem.alloc(len + 1) as cstr
+func str.reverse[s: ^str] : ^str
+    out := str.alloc(s->len)
 
-    for i in 0..len
-        out[i] = s[len - i - 1]
-    out[len] = 0
+    for i in 0..s->len
+        out[i] = s[s->len - i - 1]
     return out
 
-func cstr.split[haystack: cstr, needle: cstr]: ^Array<cstr>
-    haystack_len := haystack->len()
-    needle_len := needle->len()
-    result := [] as ^Array<cstr>
+func str.split[haystack: ^str, needle: ^str]: ^Array<^str>
+    result := [] as ^Array<^str>
 
-    if !needle_len
-        if !haystack_len
+    if !needle->len
+        if !haystack->len
             return result
         else
-            for i in 0..haystack_len
+            for i in 0..haystack->len
                 result->push(haystack->substr_n(i, 1))
             return result
 
     start := 0
     i := 0
-    while i < haystack_len
-        if i <= haystack_len - needle_len
+    while i < haystack->len
+        if i <= haystack->len - needle->len
             match := true
-            for j in 0..needle_len
+            for j in 0..needle->len
                 if haystack[i + j] != needle[j]
                     match = false
                     break
             if match
                 result->push(haystack->substr_n(start, i - start))
-                start = i + needle_len
-                i += needle_len
+                start = i + needle->len
+                i += needle->len
                 continue
         i += 1
 
-    result->push(haystack->substr_n(start, haystack_len - start))
+    result->push(haystack->substr_n(start, haystack->len - start))
     return result
 
-func cstr.to_lower[s: cstr] : cstr
+func str.to_lower[s: ^str] : ^str
     out := s->make_copy()
     i := 0
     while out[i]
@@ -258,7 +297,7 @@ func cstr.to_lower[s: cstr] : cstr
         i += 1
     return out
 
-func cstr.to_upper[s: cstr] : cstr
+func str.to_upper[s: ^str] : ^str
     out := s->make_copy()
     i := 0
     while out[i]
@@ -267,20 +306,19 @@ func cstr.to_upper[s: cstr] : cstr
         i += 1
     return out
 
-func cstr.parse_i64[s: cstr] : i64, err
-    len := s->len()
+func str.parse_i64[s: ^str] : i64, err
     i := 0
 
     sign := 1
-    if i < len && s[i] == '-'
+    if i < s->len && s[i] == '-'
         sign = -1
         i += 1
 
-    if i == len
+    if i == s->len
         return 0, error("str.parse_i64: failed to parse")
 
     num := 0
-    while i < len
+    while i < s->len
         d := s[i]
         if !d->is_digit()
             return 0, error("str.parse_i64: failed to parse")
@@ -288,27 +326,26 @@ func cstr.parse_i64[s: cstr] : i64, err
         i += 1
     return num * sign, ok()
 
-func cstr.parse_hex_i64[s: cstr] : i64
-    len := s->len()
+func str.parse_hex_i64[s: ^str] : i64
     i := 0
 
     sign := 1
-    if i < len && s[i] == '-'
+    if i < s->len && s[i] == '-'
         sign = -1
         i += 1
 
     num := 0
-    while i < len
+    while i < s->len
         d := s[i]
         if !d->is_hex_digit()
             break
-        num = num * 16 + cstr._hex_digit_to_int(d)
+        num = num * 16 + u8._hex_digit_to_int(d)
         i += 1
     return num * sign
 
-func cstr.parse_f64[s: cstr] : f64
+func str.parse_f64[s: ^str] : f64
     i := 0
-    while s[i]->is_whitespace()
+    while i < s->len && s[i]->is_whitespace()
         i += 1
 
     negative := false
@@ -319,15 +356,15 @@ func cstr.parse_f64[s: cstr] : f64
     has_digits := false
     mantissa := 0.0
 
-    while s[i]->is_digit()
+    while i < s->len && s[i]->is_digit()
         mantissa = mantissa * 10.0 + (s[i] - '0') as i64 as f64
         i += 1
         has_digits = true
 
-    if s[i] == '.'
+    if i < s->len && s[i] == '.'
         i += 1
         frac_scale := 0.1
-        while s[i]->is_digit()
+        while i < s->len && s[i]->is_digit()
             mantissa = mantissa + ((s[i] - '0') as i64 as f64 * frac_scale)
             frac_scale = frac_scale * 0.1
             i += 1
@@ -340,19 +377,18 @@ func cstr.parse_f64[s: cstr] : f64
         return -mantissa
     return mantissa
 
-func cstr.hex_encode[s: cstr, s_len: i64] : cstr
+func str.hex_encode[s: ptr, len_in_bytes: i64] : ^str
     hex_chars := "0123456789abcdef"
-    out := mem.alloc(s_len * 2 + 1) as cstr
+    out := str.alloc(len_in_bytes * 2 + 1)
 
-    for i in 0..s_len
+    for i in 0..len_in_bytes
         b := s[i]
         out[i * 2]     = hex_chars[(b >> 4) & 15]
         out[i * 2 + 1] = hex_chars[b & 15]
 
-    out[s_len * 2] = 0
     return out
 
-func cstr._hex_digit_to_int[d: u8] : u8
+func u8._hex_digit_to_int[d: u8] : u8
     if d->is_digit()
         return d - '0'
     lower := d | 32
@@ -360,71 +396,67 @@ func cstr._hex_digit_to_int[d: u8] : u8
         return lower - 'a' + 10
     io.panic("str._hex_digit_to_int: invalid hex digit")
 
-func cstr.hex_decode[s: cstr] : cstr
-    s_len := s->len()
-    if s_len % 2 != 0
+func str.hex_decode[s: ^str] : ^Bytes
+    if s->len % 2 != 0
         io.panic("str.hex_decode: invalid hex string")
 
-    out_len := s_len / 2
-    out := mem.alloc(out_len + 1) as cstr
+    out_len := s->len / 2
+    out := Bytes.alloc(out_len)
 
     for i in 0..out_len
-        high := cstr._hex_digit_to_int(s[i * 2])
-        low := cstr._hex_digit_to_int(s[i * 2 + 1])
+        high := u8._hex_digit_to_int(s[i * 2])
+        low := u8._hex_digit_to_int(s[i * 2 + 1])
         out[i] = (high << 4) | low
 
-    out[out_len] = 0
     return out
 
-struct cstr.Builder
+struct str.Builder
     data: ptr
     len: i64
     capacity: i64
 
-func cstr.Builder.append_char[b: ^cstr.Builder, c: u8] : void
+func str.Builder.append_char[b: ^str.Builder, c: u8] : void
     b->_maybe_grow(1)
     b->data[b->len] = c
     b->len += 1
 
-func cstr.Builder.append[b: ^cstr.Builder, s: cstr] : void
-    b->append_n(s as ptr, s->len())
+func str.Builder.append[b: ^str.Builder, s: ^str] : void
+    b->append_n(s->raw_ptr(), s->len)
 
-func cstr.Builder.append_n[b: ^cstr.Builder, s: ptr, len: i64] : void
+func str.Builder.append_n[b: ^str.Builder, s: ptr, len: i64] : void
     b->_maybe_grow(len)
     mem.copy_n(s, b->data@[b->len], len)
     b->len += len
 
-func cstr.Builder.manual_n[b: ^cstr.Builder, len: i64] : ptr
+func str.Builder.manual_n[b: ^str.Builder, len: i64] : ptr
     b->_maybe_grow(len)
     p := b->data@[b->len]
     b->advance(len)
     return p
 
-func cstr.Builder.advance[b: ^cstr.Builder, n: i64] : void
+func str.Builder.advance[b: ^str.Builder, n: i64] : void
     b->len += n
 
-func cstr.Builder.build_str_and_free_inner[b: ^cstr.Builder] : cstr
-    s := mem.alloc(b->len + 1) as cstr
-    if b->len > 0
-        mem.copy_n(b->data, s as ptr, b->len)
-    s[b->len] = 0
+func str.Builder.build_str_and_free_inner[b: ^str.Builder] : ^str
+    s := str.alloc(b->len)
+    mem.copy_n(b->data, s->raw_ptr(), b->len)
     b->free_inner()
     return s
 
-func cstr.Builder.build_bytes_and_free_inner[b: ^cstr.Builder] : ^Bytes
+func str.Builder.build_bytes_and_free_inner[b: ^str.Builder] : ^Bytes
     s := Bytes.alloc(b->len)
     s->copy_into(b->data, 0, b->len)
     b->free_inner()
     return s
 
-func cstr.Builder.free_inner[b: ^cstr.Builder] : void
+func str.Builder.free_inner[b: ^str.Builder] : void
     if b->data != 0
         b->data->free()
         b->data = 0 as ptr
     b->len = 0
     b->capacity = 0
 
-func cstr.Builder._maybe_grow[b: ^cstr.Builder, needed: i64] : void
+func str.Builder._maybe_grow[b: ^str.Builder, needed: i64] : void
     if b->len + needed > b->capacity
         new_capacity := 64
         if b->capacity != 0
