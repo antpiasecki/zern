@@ -112,14 +112,14 @@ func net.UDPSocket.set_timeout[s: ^net.UDPSocket, ms: i64] : void
 func net.UDPSocket.send_to[s: ^net.UDPSocket, addr: ptr, data: ptr, len: i64] : void
     builtin.syscall(SYS_sendto, s->fd, data, len, 0, addr, 16)
 
-func net.UDPSocket.receive[s: ^net.UDPSocket, sa_out: ptr, len: i64] : ^Bytes, err
-    data := Bytes.alloc(len)
+func net.UDPSocket.receive[s: ^net.UDPSocket, sa_out: ptr, len: i64] : ^str, err
+    data := str.alloc(len)
 
     addrlen := 16
     received_len := builtin.syscall(SYS_recvfrom, s->fd, data->raw_ptr(), len, 0, sa_out, ^addrlen)
     if received_len < 0
         data->free()
-        return 0 as ^Bytes, error("net.UDPSocket.receive: recvfrom failed")
+        return 0 as ^str, error("net.UDPSocket.receive: recvfrom failed")
     data->realloc(received_len)
     return data, ok()
 
@@ -176,7 +176,7 @@ func net.resolve[domain: ^str] : i64, err
     defer s->close_and_free()
     s->set_timeout(2000)
 
-    data := 0 as ^Bytes
+    data := 0 as ^str
     attempt := 0
     sa := _stackalloc(16)
     while attempt < 5
@@ -209,10 +209,10 @@ func net.resolve[domain: ^str] : i64, err
     out := net.pack_addr(data[pos] as i64, data[pos+1] as i64, data[pos+2] as i64, data[pos+3] as i64)
     return out, ok()
 
-func net.build_dns_query[domain_name: ^str, record_type: i64] : ^Bytes
+func net.build_dns_query[domain_name: ^str, record_type: i64] : ^str
     name := net.encode_dns_name(domain_name)
     defer name->free()
-    out := Bytes.alloc(12 + name->len + 4)
+    out := str.alloc(12 + name->len + 4)
 
     // header
     id := (os.urandom_i64() % 65536)->abs()
@@ -224,15 +224,15 @@ func net.build_dns_query[domain_name: ^str, record_type: i64] : ^Bytes
     out->write16be(10, 0) // num_additionals
 
     // question
-    out->copy_into(name->raw_ptr(), 12, name->len)
+    out->copy_from(name->raw_ptr(), 12, name->len)
     out->write16be(12 + name->len, record_type)
     out->write16be(12 + name->len + 2, DNS_CLASS_IN)
 
     return out
 
-func net.encode_dns_name[domain: ^str] : ^Bytes
+func net.encode_dns_name[domain: ^str] : ^str
     domain_len := domain->len
-    buf := Bytes.alloc(domain_len + 2)
+    buf := str.alloc(domain_len + 2)
     out_pos := 0
     part_start := 0
     i := 0
@@ -241,7 +241,7 @@ func net.encode_dns_name[domain: ^str] : ^Bytes
             part_len := i - part_start
             buf[out_pos] = part_len as u8
             out_pos += 1
-            buf->copy_into(domain->raw_ptr()@[part_start], out_pos, part_len)
+            buf->copy_from(domain->raw_ptr()@[part_start], out_pos, part_len)
             out_pos += part_len
             part_start = i + 1
         i += 1

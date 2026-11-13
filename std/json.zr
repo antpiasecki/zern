@@ -245,7 +245,7 @@ func json.Parser._parse_value[p: ^json.Parser] : ^json.Value, err
         out->type = json.BOOL
         out->value = true as opaque
         p->i += 4
-    else if p->s[p->i] == 'f' && p->s[p->i+1] == 'a' && p->s[p->i+2] == 'l' && p->s[p->i+3] == 's' && p->s[p->i+3] == 'e'
+    else if p->s[p->i] == 'f' && p->s[p->i+1] == 'a' && p->s[p->i+2] == 'l' && p->s[p->i+3] == 's' && p->s[p->i+4] == 'e'
         out->type = json.BOOL
         out->value = false as opaque
         p->i += 5

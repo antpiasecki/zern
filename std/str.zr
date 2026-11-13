@@ -33,8 +33,14 @@ struct str
 
 func str.alloc[len: i64] : ^str
     s := new* str
-    s->data = mem.alloc(len)
-    s->len = len
+    if len > 0
+        s->data = mem.alloc(len)
+        s->len = len
+    return s
+
+func str.alloc_zeroed[len: i64] : ^str
+    s := str.alloc(len)
+    s->zero()
     return s
 
 func str.from_cstr[c: cstr] : ^str
@@ -48,9 +54,6 @@ func str.from_parts[data: ptr, len: i64] : ^str
     s->data = data
     s->len = len
     return s
-
-func str.cast_from_bytes[b: ^Bytes] : ^str
-    return b as ^str
 
 func str.to_cstr[s: ^str, c: cstr, max_len: i64] : void
     n := math.min(s->len, max_len-1)
@@ -290,20 +293,16 @@ func str.split[haystack: ^str, needle: ^str]: ^Array<^str>
 
 func str.to_lower[s: ^str] : ^str
     out := s->make_copy()
-    i := 0
-    while out[i]
+    for i in 0..s->len
         if 'A' <= out[i] && out[i] <= 'Z'
             out[i] += 32
-        i += 1
     return out
 
 func str.to_upper[s: ^str] : ^str
     out := s->make_copy()
-    i := 0
-    while out[i]
+    for i in 0..s->len
         if 'a' <= out[i] && out[i] <= 'z'
             out[i] -= 32
-        i += 1
     return out
 
 func str.parse_i64[s: ^str] : i64, err
@@ -379,7 +378,7 @@ func str.parse_f64[s: ^str] : f64
 
 func str.hex_encode[s: ptr, len_in_bytes: i64] : ^str
     hex_chars := "0123456789abcdef"
-    out := str.alloc(len_in_bytes * 2 + 1)
+    out := str.alloc(len_in_bytes * 2)
 
     for i in 0..len_in_bytes
         b := s[i]
@@ -396,12 +395,12 @@ func u8._hex_digit_to_int[d: u8] : u8
         return lower - 'a' + 10
     io.panic("str._hex_digit_to_int: invalid hex digit")
 
-func str.hex_decode[s: ^str] : ^Bytes
+func str.hex_decode[s: ^str] : ^str
     if s->len % 2 != 0
         io.panic("str.hex_decode: invalid hex string")
 
     out_len := s->len / 2
-    out := Bytes.alloc(out_len)
+    out := str.alloc(out_len)
 
     for i in 0..out_len
         high := u8._hex_digit_to_int(s[i * 2])
@@ -439,13 +438,7 @@ func str.Builder.advance[b: ^str.Builder, n: i64] : void
 
 func str.Builder.build_str_and_free_inner[b: ^str.Builder] : ^str
     s := str.alloc(b->len)
-    mem.copy_n(b->data, s->raw_ptr(), b->len)
-    b->free_inner()
-    return s
-
-func str.Builder.build_bytes_and_free_inner[b: ^str.Builder] : ^Bytes
-    s := Bytes.alloc(b->len)
-    s->copy_into(b->data, 0, b->len)
+    s->copy_from(b->data, 0, b->len)
     b->free_inner()
     return s
 

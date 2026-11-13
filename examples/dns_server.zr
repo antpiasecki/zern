@@ -6,9 +6,9 @@ const TTL = 60
 const PORT = 10053
 
 func main[] : i64
-    records := HashMap.new::<^Bytes>()
+    records := HashMap.new::<^str>()
 
-    test_su_buffer := Bytes.alloc(4)
+    test_su_buffer := str.alloc(4)
     test_su_buffer->write32be(0, net.pack_addr(1, 2, 3, 4))
     records->insert("test.su", test_su_buffer)
 
@@ -27,12 +27,12 @@ func main[] : i64
             s->send_to(sa, resp->raw_ptr(), resp->len)
             resp->free()
 
-func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: ptr] : ^Bytes
+func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] : ^str
     defer req->free()
     defer sa->free()
 
     if req->len <= 12
-        return 0 as ^Bytes
+        return 0 as ^str
 
     // we assume that QDCOUNT=1 but i think that's reasonable
 
@@ -42,18 +42,18 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
     offset := 12
     while true
         if offset >= req->len
-            return 0 as ^Bytes
+            return 0 as ^str
         length := req[offset] as i64
         offset += 1
         if length == 0
             break
         if length > 63 || offset + length > req->len
-            return 0 as ^Bytes
+            return 0 as ^str
         labels->append_n(req->raw_ptr()@[offset], length)
         labels->append_char('.')
         offset += length
     if offset > req->len
-        return 0 as ^Bytes
+        return 0 as ^str
 
     raw_name_len := offset-12
     name := labels->build_str_and_free_inner()
@@ -64,7 +64,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
     name_lower[name_lower->len-1] = 0 // remove extra dot
 
     if offset+4 > req->len
-        return 0 as ^Bytes
+        return 0 as ^str
     // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
     question_type := req->read16be(offset)
     offset += 2
@@ -89,8 +89,8 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
         nxdomain = true
 
     resp_len := offset + raw_name_len + 10 + rdata_len
-    resp := Bytes.alloc_zeroed(resp_len)
-    resp->copy_into(req->raw_ptr(), 0, offset)
+    resp := str.alloc_zeroed(resp_len)
+    resp->copy_from(req->raw_ptr(), 0, offset)
 
     resp[3] = resp[3] & 0xf0 // clear RCODE
     if nxdomain
@@ -105,13 +105,13 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^Bytes>, req: ^Bytes, sa: p
 
     if rdata
         // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
-        resp->copy_into(req->raw_ptr()@[12], offset, raw_name_len)
+        resp->copy_from(req->raw_ptr()@[12], offset, raw_name_len)
         offset += raw_name_len
         resp->write16be(offset, question_type)
         resp->write16be(offset+2, question_class)
         resp->write32be(offset+4, TTL)
         resp->write16be(offset+8, rdata_len)
-        resp->copy_into(rdata, offset+10, rdata_len)
+        resp->copy_from(rdata, offset+10, rdata_len)
 
         resp->write16be(6, 1) // ANCOUNT=1
 

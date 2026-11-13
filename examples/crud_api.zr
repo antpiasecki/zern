@@ -24,7 +24,7 @@ func handler[r: ^http.Req, w: ^http.Resp] : void
 
             w->json(200, out)
         else if r->method->equal("POST")
-            v, err := json.parse(str.cast_from_bytes(r->body))
+            v, err := json.parse(r->body)
             if err
                 w->string(400, "failed to parse body")
                 return
@@ -48,7 +48,7 @@ func handler[r: ^http.Req, w: ^http.Resp] : void
             if r->method->equal("GET")
                 w->string(200, todo)
             else if r->method->equal("POST")
-                v, err := json.parse(str.cast_from_bytes(r->body))
+                v, err := json.parse(r->body)
                 if err
                     w->string(400, "failed to parse body")
                     return

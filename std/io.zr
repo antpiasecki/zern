@@ -153,11 +153,11 @@ func io.read_line_with_eof[] : ^str, bool
         b->append_char(c)
     return b->build_str_and_free_inner(), false
 
-func io.read_file[path: ^str] : ^Bytes, err
+func io.read_file[path: ^str] : ^str, err
     fd := try io.open_for_reading(path)
 
     len := builtin.syscall(SYS_lseek, fd, 0, SEEK_END)
-    buf := Bytes.alloc(len)
+    buf := str.alloc(len)
     builtin.syscall(SYS_lseek, fd, 0, SEEK_SET)
 
     n := io.read(fd, buf->raw_ptr(), len)
@@ -166,7 +166,7 @@ func io.read_file[path: ^str] : ^Bytes, err
     // TODO?
     if n != len
         buf->free()
-        return 0 as ^Bytes, error("io.read_file: n != len")
+        return 0 as ^str, error("io.read_file: n != len")
 
     return buf, ok()
 
@@ -186,8 +186,8 @@ func io.open_for_reading[path: ^str] : i64, err
     return io.open_with_flags_and_mode(path, O_RDONLY, 0)
 
 func io.open_with_flags_and_mode[path: ^str, flags: i64, mode: i64] : i64, err
-    path_c := _stackalloc(PATH_MAX) as cstr
-    path->to_cstr(path_c, PATH_MAX)
+    path_c := _stackalloc(PATH_MAX+1) as cstr
+    path->to_cstr(path_c, PATH_MAX+1)
     fd := builtin.syscall(SYS_openat, AT_FDCWD, path_c, flags, mode)
     if fd < 0
         return 0, error("io.open_with_flags_and_mode: failed to open")

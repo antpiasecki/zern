@@ -167,8 +167,8 @@ func os._run_shell_command[command: ^str, capture_stdout: bool] : ^os.CmdResult
         return res
 
 func os.file_exists[path: ^str] : bool
-    path_c := _stackalloc(PATH_MAX) as cstr
-    path->to_cstr(path_c, PATH_MAX)
+    path_c := _stackalloc(PATH_MAX+1) as cstr
+    path->to_cstr(path_c, PATH_MAX+1)
     return builtin.syscall(SYS_faccessat, AT_FDCWD, path_c, F_OK, 0) == 0
 
 func os.get_file_size[path: cstr] : i64, err
@@ -180,8 +180,8 @@ func os.get_file_size[path: cstr] : i64, err
     return mem.read64(st@[48]), ok()
 
 func os.is_a_directory[path: ^str] : bool
-    path_c := _stackalloc(PATH_MAX) as cstr
-    path->to_cstr(path_c, PATH_MAX)
+    path_c := _stackalloc(PATH_MAX+1) as cstr
+    path->to_cstr(path_c, PATH_MAX+1)
 
     st := _stackalloc(256) // it has 21 mixed-size fields so ptr for now
 

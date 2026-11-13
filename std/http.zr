@@ -1,7 +1,7 @@
 include "net.zr"
 include "json.zr"
 
-func http.build_request[method: ^str, path: ^str, headers: ^HashMap<^str>, body: ^Bytes] : ^Bytes
+func http.build_request[method: ^str, path: ^str, headers: ^HashMap<^str>, body: ^str] : ^str
     sb := new str.Builder
 
     first_line := _stackalloc(256) as cstr
@@ -19,7 +19,7 @@ func http.build_request[method: ^str, path: ^str, headers: ^HashMap<^str>, body:
     if body->len != 0
         sb->append_n(body->raw_ptr(), body->len)
 
-    return sb->build_bytes_and_free_inner()
+    return sb->build_str_and_free_inner()
 
 func http._parse_hex_i64_n[s: ptr, len: i64] : i64
     i := 0
@@ -30,7 +30,7 @@ func http._parse_hex_i64_n[s: ptr, len: i64] : i64
     return num
 
 // TODO: handle malformed data
-func http.decode_chunked_encoding_bs[s: ptr, len: i64] : ^Bytes
+func http.decode_chunked_encoding_bs[s: ptr, len: i64] : ^str
     sb := new str.Builder
 
     i := 0
@@ -44,7 +44,7 @@ func http.decode_chunked_encoding_bs[s: ptr, len: i64] : ^Bytes
         sb->append_n(s@[i], length)
         i += length + 2
 
-    return sb->build_bytes_and_free_inner()
+    return sb->build_str_and_free_inner()
 
 struct http.Url
     schema: ^str
@@ -90,12 +90,12 @@ func http.parse_url[url: ^str] : ^http.Url
 
     return out
 
-func http.do_request[method: ^str, url: ^str, headers: ^HashMap<^str>, body: ^Bytes] : ^Bytes, err
+func http.do_request[method: ^str, url: ^str, headers: ^HashMap<^str>, body: ^str] : ^str, err
     parsed_url := http.parse_url(url)
     defer parsed_url->free()
 
     if !parsed_url->schema->equal("http")
-        return 0 as ^Bytes, error("only http schema is supported")
+        return 0 as ^str, error("only http schema is supported")
 
     headers->insert("Host", parsed_url->host)
     headers->insert("Accept-Encoding", "identity")
@@ -133,18 +133,18 @@ func http.do_request[method: ^str, url: ^str, headers: ^HashMap<^str>, body: ^By
     if mem.find(buffer, total, "Transfer-Encoding: chunked"c as ptr, 26) != -1
         return http.decode_chunked_encoding_bs(buffer@[pos], total - pos), ok()
     else
-        out := Bytes.alloc(total - pos)
-        out->copy_into(buffer@[pos], 0, total - pos)
+        out := str.alloc(total - pos)
+        out->copy_from(buffer@[pos], 0, total - pos)
         return out, ok()
 
-func http.get[url: ^str] : ^Bytes, err
+func http.get[url: ^str] : ^str, err
     headers := HashMap.new::<^str>()
     defer headers->free()
-    body := Bytes.alloc_zeroed(1)
+    body := str.alloc_zeroed(1)
     defer body->free()
     return http.do_request("GET", url, headers, body)
 
-func http.post[url: ^str, content_type: ^str, body: ^Bytes] : ^Bytes, err
+func http.post[url: ^str, content_type: ^str, body: ^str] : ^str, err
     headers := HashMap.new::<^str>()
     headers->insert("Content-Type", content_type)
     defer headers->free()
@@ -155,23 +155,23 @@ struct http.Req
     method: ^str
     path: ^str
     headers: ^HashMap<^str>
-    body: ^Bytes
+    body: ^str
 
 struct http.Resp
     status: i64
     headers: ^HashMap<^str>
-    body: ^Bytes
+    body: ^str
 
 func http.Resp.string[w: ^http.Resp, status: i64, body: ^str] : void
     w->status = status
-    w->body = Bytes.copy_str(body)
+    w->body = body
 
 func http.Resp.json[w: ^http.Resp, status: i64, value: ^json.Value] : void
     w->status = status
     body := value->dump()
     defer body->free()
     w->headers->insert("Content-Type", "application/json")
-    w->body = Bytes.copy_str(body)
+    w->body = body
 
 func http.Resp.error[w: ^http.Resp, status: i64] : void
     w->status = status
@@ -180,14 +180,14 @@ func http.Resp.error[w: ^http.Resp, status: i64] : void
     body->format_into(2048, "%d %s\n", status, http.status_code_to_text(status))
     body_s := str.from_cstr(body)
     defer body_s->free()
-    w->body = Bytes.copy_str(body_s)
+    w->body = body_s->make_copy()
 
 func http.Resp.send[w: ^http.Resp, c: i64] : void
     b := w->build()
     defer b->free()
     net.send(c, b->raw_ptr(), b->len)
 
-func http.Resp.build[w: ^http.Resp] : ^Bytes
+func http.Resp.build[w: ^http.Resp] : ^str
     sb := new str.Builder
 
     status_line := _stackalloc(256) as cstr
@@ -213,7 +213,7 @@ func http.Resp.build[w: ^http.Resp] : ^Bytes
     if w->body as ptr && w->body->len != 0
         sb->append_n(w->body->raw_ptr(), w->body->len)
 
-    return sb->build_bytes_and_free_inner()
+    return sb->build_str_and_free_inner()
 
 struct http._ConnData
     c: i64
@@ -252,7 +252,7 @@ func http._handle_conn[cd: ^http._ConnData] : void
     resp := new http.Resp
     resp->status = 200
     resp->headers = HashMap.new::<^str>()
-    resp->body = 0 as ^Bytes
+    resp->body = 0 as ^str
     defer resp->headers->free()
     defer resp->body->free()
 
@@ -271,9 +271,10 @@ func http._handle_conn[cd: ^http._ConnData] : void
         return
     raw_req[end_of_first_line] = 0
 
-    end_of_path := raw_req@[end_of_first_line+1]->find(' ', n - (end_of_first_line + 1))
+    path_start := end_of_first_line + 1
+    end_of_path := raw_req@[path_start]->find(' ', n - path_start)
     if end_of_path == -1
-        if n - (end_of_first_line + 1) > 2048
+        if n - path_start > 2048
             resp->error(414)
         else
             resp->error(400)
@@ -284,19 +285,26 @@ func http._handle_conn[cd: ^http._ConnData] : void
         resp->send(cd->c)
         return
 
-    req->method = str.from_cstr(raw_req@[0] as cstr)
-    req->path = str.from_cstr(raw_req@[end_of_first_line+1] as cstr)
+    raw_req[path_start + end_of_path] = 0
 
-    query_pos := mem.find(req->path as ptr, req->path->len, "?"c as ptr, 1)
+    req->method = str.from_cstr(raw_req@[0] as cstr)
+    req->path = str.from_cstr(raw_req@[path_start] as cstr)
+
+    query_pos := mem.find(req->path->raw_ptr(), req->path->len, "?"c as ptr, 1)
     if query_pos != -1
-        req->path[query_pos] = 0
+        req->path->len = query_pos
 
     // TODO: parse req->headers
 
-    body_pos := mem.find(raw_req, end_of_first_line + 1 + end_of_path, "\r\n\r\n"c as ptr, 4) + 4
-    req->body = Bytes.alloc(n - body_pos)
+    header_end := mem.find(raw_req, n, "\r\n\r\n"c as ptr, 4)
+    if header_end == -1
+        resp->error(400)
+        resp->send(cd->c)
+        return
+    body_pos := header_end + 4
+    req->body = str.alloc(n - body_pos)
     if n - body_pos > 0
-        req->body->copy_into(raw_req@[body_pos], 0, n - body_pos)
+        req->body->copy_from(raw_req@[body_pos], 0, n - body_pos)
 
     (cd->handler)(req, resp)
 

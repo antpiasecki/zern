@@ -45,16 +45,18 @@ struct mem.FreeListAllocator
 struct mem.FreeListBlock
     len: i64
     free: bool
+    binned: bool
     next: ^mem.FreeListBlock
     prev: ^mem.FreeListBlock
 
-const mem.FreeListBlock.LEN = 32
+const mem.FreeListBlock.LEN = 40
 
 func mem.FreeListBlock._split[blk: ^mem.FreeListBlock, fla: ^mem.FreeListAllocator, needed: i64] : void
     if blk->len >= needed + mem.FreeListBlock.LEN + 8
         new_blk := (blk as ptr)@[mem.FreeListBlock.LEN + needed] as ^mem.FreeListBlock
         new_blk->len = blk->len - needed - mem.FreeListBlock.LEN
         new_blk->free = true
+        new_blk->binned = false
         new_blk->next = blk->next
         new_blk->prev = blk
 
@@ -77,6 +79,7 @@ func mem.FreeListAllocator._request_space[fla: ^mem.FreeListAllocator, len: i64]
         io.panic("mem._request_space: failed to mmap")
     blk->len = alloc_len - mem.FreeListBlock.LEN
     blk->free = false
+    blk->binned = false
     blk->next = 0 as ^mem.FreeListBlock
     blk->prev = 0 as ^mem.FreeListBlock
 
@@ -124,6 +127,8 @@ func mem.FreeListAllocator.alloc[fla: ^mem.FreeListAllocator, len: i64] : ptr
         head := builtin.read64(slot) as ptr
         if head != 0
             builtin.write64(slot, builtin.read64(head))
+            blk := head@[-mem.FreeListBlock.LEN] as ^mem.FreeListBlock
+            blk->binned = false
             return head
 
     // try to cut off a piece of an already available block
@@ -185,10 +190,11 @@ func mem.FreeListAllocator.free[fla: ^mem.FreeListAllocator, x: ptr] : void
         return
 
     blk := x@[-mem.FreeListBlock.LEN] as ^mem.FreeListBlock
-    if blk->free
+    if blk->free || blk->binned
         io.panic("ptr.free: double free detected")
 
     if blk->len <= 1024
+        blk->binned = true
         slot := fla->bins@[(blk->len / 8) * 8]
         builtin.write64(x, builtin.read64(slot))
         builtin.write64(slot, x as i64)
@@ -392,86 +398,59 @@ func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
     mem.write32be(x@[4], d)
 
-struct Bytes
-    data: ptr
-    len: i64
-
-func Bytes.alloc[len: i64] : ^Bytes
-    b := new* Bytes
-    b->data = mem.alloc(len)
-    b->len = len
-    return b
-
-func Bytes.alloc_zeroed[len: i64] : ^Bytes
-    b := Bytes.alloc(len)
-    b->zero()
-    return b
-
-func Bytes.copy_str[s: ^str] : ^Bytes
-    b := Bytes.alloc(s->len)
-    b->copy_into(s->raw_ptr(), 0, s->len)
-    return b
-
-func Bytes.free[b: ^Bytes] : void
-    b->data->free()
-    (b as ptr)->free()
-
-func Bytes.zero[b: ^Bytes] : void
+func str.zero[b: ^str] : void
     mem.zero(b->raw_ptr(), b->len)
 
-func Bytes.realloc[b: ^Bytes, new_len: i64] : void
+func str.realloc[b: ^str, new_len: i64] : void
     b->len = new_len
     b->data = b->data->realloc(new_len)
 
-func Bytes.raw_ptr[b: ^Bytes] : ptr
-    return b->data
-
-func Bytes.read16[b: ^Bytes, offset: i64] : i64
+func str.read16[b: ^str, offset: i64] : i64
     if offset < 0 || offset > b->len - 2
-        io.panic("Bytes.read16: out of bounds")
+        io.panic("str.read16: out of bounds")
     return mem.read16(b->data@[offset])
 
-func Bytes.read16be[b: ^Bytes, offset: i64] : i64
+func str.read16be[b: ^str, offset: i64] : i64
     if offset < 0 || offset > b->len - 2
-        io.panic("Bytes.read16be: out of bounds")
+        io.panic("str.read16be: out of bounds")
     return mem.read16be(b->data@[offset])
 
-func Bytes.read32[b: ^Bytes, offset: i64] : i64
+func str.read32[b: ^str, offset: i64] : i64
     if offset < 0 || offset > b->len - 4
-        io.panic("Bytes.read32: out of bounds")
+        io.panic("str.read32: out of bounds")
     return mem.read32(b->data@[offset])
 
-func Bytes.read64[b: ^Bytes, offset: i64] : i64
+func str.read64[b: ^str, offset: i64] : i64
     if offset < 0 || offset > b->len - 8
-        io.panic("Bytes.read64: out of bounds")
+        io.panic("str.read64: out of bounds")
     return mem.read64(b->data@[offset])
 
-func Bytes.write16[b: ^Bytes, offset: i64, v: i64] : void
+func str.write16[b: ^str, offset: i64, v: i64] : void
     if offset < 0 || offset > b->len - 2
-        io.panic("Bytes.write16: out of bounds")
+        io.panic("str.write16: out of bounds")
     mem.write16(b->data@[offset], v)
 
-func Bytes.write16be[b: ^Bytes, offset: i64, v: i64] : void
+func str.write16be[b: ^str, offset: i64, v: i64] : void
     if offset < 0 || offset > b->len - 2
-        io.panic("Bytes.write16be: out of bounds")
+        io.panic("str.write16be: out of bounds")
     mem.write16be(b->data@[offset], v)
 
-func Bytes.write32[b: ^Bytes, offset: i64, v: i64] : void
+func str.write32[b: ^str, offset: i64, v: i64] : void
     if offset < 0 || offset > b->len - 4
-        io.panic("Bytes.write32: out of bounds")
+        io.panic("str.write32: out of bounds")
     mem.write32(b->data@[offset], v)
 
-func Bytes.write32be[b: ^Bytes, offset: i64, v: i64] : void
+func str.write32be[b: ^str, offset: i64, v: i64] : void
     if offset < 0 || offset > b->len - 4
-        io.panic("Bytes.write32be: out of bounds")
+        io.panic("str.write32be: out of bounds")
     mem.write32be(b->data@[offset], v)
 
-func Bytes.write64[b: ^Bytes, offset: i64, v: i64] : void
+func str.write64[b: ^str, offset: i64, v: i64] : void
     if offset < 0 || offset > b->len - 8
-        io.panic("Bytes.write64: out of bounds")
+        io.panic("str.write64: out of bounds")
     mem.write64(b->data@[offset], v)
 
-func Bytes.copy_into[b: ^Bytes, src: ptr, offset: i64, len: i64] : void
+func str.copy_from[b: ^str, src: ptr, offset: i64, len: i64] : void
     if offset < 0 || len < 0 || len > b->len - offset
-        io.panic("Bytes.copy_into: out of bounds")
+        io.panic("str.copy_from: out of bounds")
     mem.copy_n(src, b->data@[offset], len)
