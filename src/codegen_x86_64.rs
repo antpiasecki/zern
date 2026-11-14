@@ -83,14 +83,15 @@ static REGISTERS_FOR_RETURNS: [&str; 3] = ["rax", "rdx", "rcx"];
 pub struct CodegenX86_64<'a> {
     output: String,
     rodata: String,
+    str_rodata: String,
     bss: String,
     label_counter: usize,
     string_literals: HashMap<String, String>,
     cstring_literals: HashMap<String, String>,
     file_ids: HashMap<String, usize>,
-    pub args: &'a Args,
-    pub symbol_table: &'a SymbolTable,
-    pub expr_types: &'a HashMap<usize, String>,
+    args: &'a Args,
+    symbol_table: &'a SymbolTable,
+    expr_types: &'a HashMap<usize, String>,
 }
 
 impl<'a> CodegenX86_64<'a> {
@@ -103,6 +104,7 @@ impl<'a> CodegenX86_64<'a> {
             output: String::with_capacity(1_000_000),
             rodata: String::new(),
             bss: String::new(),
+            str_rodata: String::new(),
             label_counter: 1,
             string_literals: HashMap::new(),
             cstring_literals: HashMap::new(),
@@ -123,11 +125,15 @@ impl<'a> CodegenX86_64<'a> {
             ".intel_syntax noprefix
 .section .rodata
 {}
+.str_data: .ascii \"{}\"
 .section .bss
 .align 8
 {}
 {}",
-            self.rodata, self.bss, self.output
+            self.rodata,
+            escape_str(&self.str_rodata),
+            self.bss,
+            self.output
         )
     }
 
@@ -724,18 +730,19 @@ _start:
                 TokenType::StringLiteral => {
                     let value = &token.lexeme[1..token.lexeme.len() - 1];
 
-                    let header = if let Some(h) = &self.string_literals.get(value) {
-                        h.to_string()
+                    let header = if let Some(header) = self.string_literals.get(value) {
+                        header.clone()
                     } else {
                         let n = self.string_literals.len();
-                        let data_label = format!("_str_data_{:03}", n);
                         let header_label = format!("_str_{:03}", n);
-                        self.string_literals.insert(value.to_string(), header_label.clone());
+                        let offset = self.str_rodata.len();
 
-                        emit!(&mut self.rodata, "    {}: .ascii \"{}\"", data_label, escape_str(value));
+                        self.string_literals.insert(value.to_string(), header_label.clone());
+                        self.str_rodata.push_str(value);
+
                         emit!(&mut self.rodata, "    .align 8");
                         emit!(&mut self.rodata, "    {}:", header_label);
-                        emit!(&mut self.rodata, "    .quad {}", data_label);
+                        emit!(&mut self.rodata, "    .quad .str_data + {}", offset);
                         emit!(&mut self.rodata, "    .quad {}", value.len());
                         header_label
                     };
@@ -743,7 +750,7 @@ _start:
                     emit!(&mut self.output, "    lea rax, [rip + {}]", header);
                 }
                 TokenType::CStringLiteral => {
-                    let value = &token.lexeme[1..token.lexeme.len() - 2];
+                    let value = &token.lexeme[2..token.lexeme.len() - 1];
 
                     let label = if let Some(label) = &self.cstring_literals.get(value) {
                         label.to_string()

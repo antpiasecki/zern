@@ -130,7 +130,7 @@ func http.do_request[method: ^str, url: ^str, headers: ^HashMap<^str>, body: ^st
         pos += 1
     pos += 4
 
-    if mem.find(buffer, total, "Transfer-Encoding: chunked"c as ptr, 26) != -1
+    if mem.find(buffer, total, c"Transfer-Encoding: chunked" as ptr, 26) != -1
         return http.decode_chunked_encoding_bs(buffer@[pos], total - pos), ok()
     else
         out := str.alloc(total - pos)
@@ -290,13 +290,13 @@ func http._handle_conn[cd: ^http._ConnData] : void
     req->method = str.from_cstr(raw_req@[0] as cstr)
     req->path = str.from_cstr(raw_req@[path_start] as cstr)
 
-    query_pos := mem.find(req->path->raw_ptr(), req->path->len, "?"c as ptr, 1)
+    query_pos := mem.find(req->path->raw_ptr(), req->path->len, c"?" as ptr, 1)
     if query_pos != -1
         req->path->len = query_pos
 
     // TODO: parse req->headers
 
-    header_end := mem.find(raw_req, n, "\r\n\r\n"c as ptr, 4)
+    header_end := mem.find(raw_req, n, c"\r\n\r\n" as ptr, 4)
     if header_end == -1
         resp->error(400)
         resp->send(cd->c)
@@ -313,7 +313,7 @@ func http._handle_conn[cd: ^http._ConnData] : void
     net.send(cd->c, resp_buf->raw_ptr(), resp_buf->len)
 
 func http.status_code_to_text[code: i64] : ^str
-    s := "100Continue\x00101Switching Protocols\x00102Processing\x00103Early Hints\x00200OK\x00201Created\x00202Accepted\x00203Non-Authoritative Information\x00204No Content\x00205Reset Content\x00206Partial Content\x00207Multi-Status\x00208Already Reported\x00226IM Used\x00300Multiple Choices\x00301Moved Permanently\x00302Found\x00303See Other\x00304Not Modified\x00305Use Proxy\x00306Switch Proxy\x00307Temporary Redirect\x00308Permanent Redirect\x00400Bad Request\x00401Unauthorized\x00402Payment Required\x00403Forbidden\x00404Not Found\x00405Method Not Allowed\x00406Not Acceptable\x00407Proxy Authentication Required\x00408Request Timeout\x00409Conflict\x00410Gone\x00411Length Required\x00412Precondition Failed\x00413Content Too Large\x00414URI Too Long\x00415Unsupported Media Type\x00416Range Not Satisfiable\x00417Expectation Failed\x00418I'm a teapot\x00421Misdirected Request\x00422Unprocessable Content\x00423Locked\x00424Failed Dependency\x00425Too Early\x00426Upgrade Required\x00428Precondition Required\x00429Too Many Requests\x00431Request Header Fields Too Large\x00451Unavailable For Legal Reasons\x00500Internal Server Error\x00501Not Implemented\x00502Bad Gateway\x00503Service Unavailable\x00504Gateway Timeout\x00505HTTP Version Not Supported\x00506Variant Also Negotiates\x00507Insufficient Storage\x00508Loop Detected\x00510Not Extended\x00511Network Authentication Required\x00"c
+    s := c"100Continue\x00101Switching Protocols\x00102Processing\x00103Early Hints\x00200OK\x00201Created\x00202Accepted\x00203Non-Authoritative Information\x00204No Content\x00205Reset Content\x00206Partial Content\x00207Multi-Status\x00208Already Reported\x00226IM Used\x00300Multiple Choices\x00301Moved Permanently\x00302Found\x00303See Other\x00304Not Modified\x00305Use Proxy\x00306Switch Proxy\x00307Temporary Redirect\x00308Permanent Redirect\x00400Bad Request\x00401Unauthorized\x00402Payment Required\x00403Forbidden\x00404Not Found\x00405Method Not Allowed\x00406Not Acceptable\x00407Proxy Authentication Required\x00408Request Timeout\x00409Conflict\x00410Gone\x00411Length Required\x00412Precondition Failed\x00413Content Too Large\x00414URI Too Long\x00415Unsupported Media Type\x00416Range Not Satisfiable\x00417Expectation Failed\x00418I'm a teapot\x00421Misdirected Request\x00422Unprocessable Content\x00423Locked\x00424Failed Dependency\x00425Too Early\x00426Upgrade Required\x00428Precondition Required\x00429Too Many Requests\x00431Request Header Fields Too Large\x00451Unavailable For Legal Reasons\x00500Internal Server Error\x00501Not Implemented\x00502Bad Gateway\x00503Service Unavailable\x00504Gateway Timeout\x00505HTTP Version Not Supported\x00506Variant Also Negotiates\x00507Insufficient Storage\x00508Loop Detected\x00510Not Extended\x00511Network Authentication Required\x00"
     s_len := 1208
     i := 0
     while i < s_len

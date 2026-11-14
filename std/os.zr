@@ -134,8 +134,8 @@ func os._run_shell_command[command: ^str, capture_stdout: bool] : ^os.CmdResult
         command_c := _stackalloc(10000) as cstr
         command->to_cstr(command_c, 10000)
 
-        argv := ["sh"c, "-c"c, command_c, 0] // gets freed after child process exits
-        builtin.syscall(SYS_execve, "/bin/sh"c, argv->data, _builtin_environ)
+        argv := [c"sh", c"-c", command_c, 0] // gets freed after child process exits
+        builtin.syscall(SYS_execve, c"/bin/sh", argv->data, _builtin_environ)
         os.exit(127)
     else
         if capture_stdout

@@ -30,7 +30,7 @@ func main[argc: i64, argv: ptr] : i64
         c->disassemble(buffer->len / 2)
         return 0
 
-    InitWindow(640, 320, "CHIP-8"c)
+    InitWindow(640, 320, c"CHIP-8")
     SetTargetFPS(60)
 
     while !WindowShouldClose()

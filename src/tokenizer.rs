@@ -286,33 +286,10 @@ impl<'a> Tokenizer<'a> {
                 }
                 self.add_token(TokenType::CharLiteral)?
             }
-            '"' => {
-                while !self.eof() {
-                    if self.peek() == '\\' {
-                        self.advance();
-                        if self.eof() {
-                            return error!(self.start_loc, "unterminated string");
-                        }
-                    } else if self.peek() == '"' {
-                        break;
-                    } else if self.peek() == '\n' {
-                        self.loc.line += 1;
-                        self.loc.column = 0;
-                    }
-                    self.advance();
-                }
-
-                if self.eof() {
-                    return error!(self.start_loc, "unterminated string");
-                }
-
+            '"' => self.scan_string(false)?,
+            'c' if self.peek() == '"' => {
                 self.advance();
-
-                if self.match_char('c') {
-                    self.add_token(TokenType::CStringLiteral)?
-                } else {
-                    self.add_token(TokenType::StringLiteral)?
-                }
+                self.scan_string(true)?
             }
             ' ' | '\r' => {}
             '\n' => {
@@ -370,6 +347,36 @@ impl<'a> Tokenizer<'a> {
             self.advance();
         }
         count
+    }
+
+    fn scan_string(&mut self, is_cstr: bool) -> Result<(), ZernError> {
+        while !self.eof() {
+            if self.peek() == '\\' {
+                self.advance();
+                if self.eof() {
+                    return error!(self.start_loc, "unterminated string");
+                }
+            } else if self.peek() == '"' {
+                break;
+            } else if self.peek() == '\n' {
+                self.loc.line += 1;
+                self.loc.column = 0;
+            }
+            self.advance();
+        }
+
+        if self.eof() {
+            return error!(self.start_loc, "unterminated string");
+        }
+
+        self.advance();
+
+        if is_cstr {
+            self.add_token(TokenType::CStringLiteral)?;
+        } else {
+            self.add_token(TokenType::StringLiteral)?;
+        }
+        Ok(())
     }
 
     fn scan_number(&mut self) -> Result<(), ZernError> {

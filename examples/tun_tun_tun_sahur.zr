@@ -18,7 +18,7 @@ func main[] : i64
     ret := os.ioctl(fd, TUNSETIFF, req)
     if ret < 0 io.panic("ioctl(TUNSETIFF) failed")
 
-    end := mem.find(req, 16, "\0"c as ptr, 1)
+    end := mem.find(req, 16, c"\0" as ptr, 1)
     created_iface_name := str.from_parts(req, end)
 
     ret = os.ioctl(fd, TUNSETPERSIST, 0 as ptr)
