@@ -110,14 +110,14 @@ func i64.to_hex_str_buf[n: i64, buf: cstr] : i64
     return len
 
 func i64.to_str[n: i64] : ^str
-    out := str.alloc(20)
-    out->len = n->to_str_buf(out->raw_ptr() as cstr)
-    return out
+    out := _stackalloc(21) as cstr
+    n->to_str_buf(out)
+    return str.from_cstr(out)
 
-func i64.to_hex_str[n: i64] : cstr
-    out := mem.alloc(17) as cstr
+func i64.to_hex_str[n: i64] : ^str
+    out := _stackalloc(18) as cstr
     n->to_hex_str_buf(out)
-    return out
+    return str.from_cstr(out)
 
 func i64.pow[b: i64, e: i64] : i64
     if e < 0

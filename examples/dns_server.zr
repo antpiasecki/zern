@@ -32,7 +32,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     defer sa->free()
 
     if req->len <= 12
-        return 0 as ^str
+        return null::<^str>()
 
     // we assume that QDCOUNT=1 but i think that's reasonable
 
@@ -42,18 +42,18 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     offset := 12
     while true
         if offset >= req->len
-            return 0 as ^str
+            return null::<^str>()
         length := req[offset] as i64
         offset += 1
         if length == 0
             break
         if length > 63 || offset + length > req->len
-            return 0 as ^str
+            return null::<^str>()
         labels->append_n(req->raw_ptr()@[offset], length)
         labels->append_char('.')
         offset += length
     if offset > req->len
-        return 0 as ^str
+        return null::<^str>()
 
     raw_name_len := offset-12
     name := labels->build_str_and_free_inner()
@@ -64,7 +64,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     name_lower[name_lower->len-1] = 0 // remove extra dot
 
     if offset+4 > req->len
-        return 0 as ^str
+        return null::<^str>()
     // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
     question_type := req->read16be(offset)
     offset += 2
@@ -72,10 +72,12 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     question_class := req->read16be(offset)
     offset += 2
 
-    io.printf("CLIENT=%s QNAME=%s TYPE=%d CLASS=%d\n", net.ipv4_to_string(sa@[4]), name_lower, question_type, question_class)
-
+    ip := net.ipv4_to_string(sa@[4])
+    io.printf("CLIENT=%s QNAME=%s TYPE=%d CLASS=%d\n", ip, name_lower, question_type, question_class)
+    ip->free()
+    
     nxdomain := false
-    rdata := 0 as ptr
+    rdata := null::<ptr>()
     rdata_len := 0
     record, err := records->get(name_lower)
     if question_class == DNS_CLASS_IN && !err

@@ -1,8 +1,11 @@
 include "str.zr"
 include "os.zr"
 
+func null<T>[] : T
+    return 0 as T
+
 func ok[] : err
-    return 0 as err
+    return null::<err>()
 
 func error[s: ^str] : err
     return s as err
@@ -14,14 +17,10 @@ func io.panic[msg: ^str] : void
     os.exit(1)
 
 func io.panic_with[msg: ^str, e: err] : void
-    s := _stackalloc(2048) as cstr
-    s->format_into(2048, "%s: %s", msg, e)
-    io.panic(str.from_cstr(s))
+    io.panic("%s: %s"->format(msg, e))
 
 func io._oob_panic[len: i64, n: i64] : void
-    s := _stackalloc(1024) as cstr
-    s->format_into(1024, "index out of range (%d) with length %d", n, len)
-    io.panic(str.from_cstr(s))
+    io.panic("index out of range (%d) with length %d"->format(n, len))
 
 func io.printf[..] : void
     format := builtin.var_arg(0) as ^str
@@ -58,7 +57,7 @@ func io.printf[..] : void
         i += 1
 
 func io.print_n[x: ptr, len: i64] : void
-    io.write(STDOUT_FILENO, x, len)
+    io.write_all(STDOUT_FILENO, x, len)
 
 func io.print[x: ^str] : void
     io.print_n(x->raw_ptr(), x->len)
@@ -108,32 +107,30 @@ func io.format_time[ns: i64] : ^str
     v := ns as f64
     a := v->abs()
 
-    out := _stackalloc(100) as cstr
     if a >= 1000000000.0
-        out->format_into(100, "%f s",  (v / 1000000000.0) as opaque)
+        return "%f s"->format((v / 1000000000.0) as opaque)
     else if a >= 1000000.0
-        out->format_into(100, "%f ms", (v / 1000000.0) as opaque)
+        return "%f ms"->format((v / 1000000.0) as opaque)
     else if a >= 1000.0
-        out->format_into(100, "%f us", (v / 1000.0) as opaque)
+        return "%f us"->format((v / 1000.0) as opaque)
     else
-        out->format_into(100, "%d ns", ns)
-    return str.from_cstr(out)
+        return "%d ns"->format(ns)
 
 func io.read[fd: i64, buf: ptr, count: i64] : i64
     return builtin.syscall(SYS_read, fd, buf, count)
 
-func io.write[fd: i64, buf: ptr, count: i64] : i64
+func io.write_all[fd: i64, buf: ptr, count: i64] : err
     done := 0
     while done < count
         r := builtin.syscall(SYS_write, fd, buf@[done], count - done)
         if r == -EINTR
             continue
         if r < 0
-            return r
+            return error("io.write_all: write failed")
         if r == 0
-            break
+            return error("io.write_all: wrote 0 bytes")
         done = done + r
-    return done
+    return ok()
 
 func io.read_line[] : ^str
     s, _ := io.read_line_with_eof()
@@ -166,21 +163,18 @@ func io.read_file[path: ^str] : ^str, err
     // TODO?
     if n != len
         buf->free()
-        return 0 as ^str, error("io.read_file: n != len")
+        return null::<^str>(), error("io.read_file: n != len")
 
     return buf, ok()
 
-func io.write_text_file[path: ^str, content: cstr] : i64, err
+func io.write_text_file[path: ^str, content: cstr] : err
     return io.write_file(path, content as ptr, content->len())
 
-func io.write_file[path: ^str, content: ptr, len: i64] : i64, err
+func io.write_file[path: ^str, content: ptr, len: i64] : err
     fd := try io.open_with_flags_and_mode(path, O_WRONLY|O_CREAT|O_TRUNC, 644->octal_to_decimal())
     defer io.close(fd)
 
-    n := io.write(fd, content, len)
-    if n != len
-        return 0, error("io.write_file: n != len")
-    return n, ok()
+    return io.write_all(fd, content, len)
 
 func io.open_for_reading[path: ^str] : i64, err
     return io.open_with_flags_and_mode(path, O_RDONLY, 0)

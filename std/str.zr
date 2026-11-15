@@ -21,12 +21,6 @@ func u8.is_letter[x: u8] : bool
 func u8.is_alphanumeric[x: u8] : bool
     return x->is_letter() || x->is_digit()
 
-func u8.to_str[c: u8] : cstr
-    s := mem.alloc(2) as cstr
-    s[0] = c
-    s[1] = 0
-    return s
-
 struct str
     data: ptr
     len: i64
@@ -55,10 +49,14 @@ func str.from_parts[data: ptr, len: i64] : ^str
     s->len = len
     return s
 
-func str.to_cstr[s: ^str, c: cstr, max_len: i64] : void
+func str.to_cstr[s: ^str, c: cstr, max_len: i64] : err
     n := math.min(s->len, max_len-1)
     mem.copy_n(s->raw_ptr(), c@[0], n)
     c[n] = 0
+
+    if s->len >= max_len
+        return error("str.to_cstr: buffer too small")
+    return ok()
 
 func str.raw_ptr[s: ^str] : ptr
     return s->data
@@ -114,6 +112,20 @@ func str.find[haystack: ^str, needle: ^str, start: i64] : i64
             return i
     return -1
 
+func str.contains[haystack: ^str, needle: ^str] : bool
+    return haystack->find(needle, 0) != -1
+
+func str.starts_with[haystack: ^str, needle: ^str] : bool
+    if needle->len > haystack->len
+        return false
+
+    i := 0
+    while i < needle->len
+        if haystack[i] != needle[i]
+            return false
+        i = i + 1
+    return true
+
 func cstr.free[s: cstr] : void
     (s as ptr)->free()
 
@@ -149,99 +161,48 @@ func cstr.equal_n[a: cstr, b: cstr, n: i64] : bool
         i += 1
     return true
 
-func cstr.format_into[..] : void
-    target_buf := builtin.var_arg(0) as cstr
-    max_len := builtin.var_arg(1) as i64
-    if max_len <= 0
-        return
-    format := builtin.var_arg(2) as ^str
+func str.format[..] : ^str
+    format := builtin.var_arg(0) as ^str
     i := 0
-    arg_counter := 3
-    written := 0
+    arg_counter := 1
 
+    b := new str.Builder
     tmp := _stackalloc(64) as cstr
 
     while i < format->len
-        remaining := max_len - written - 1
-        if remaining <= 0
-            break
-
         if format[i] == '%'
             i += 1
             if format[i] == 'd'
                 tmp_len := (builtin.var_arg(arg_counter) as i64)->to_str_buf(tmp)
-                mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
-                written += math.min(tmp_len, remaining)
+                b->append_n(tmp as ptr, tmp_len)
                 arg_counter += 1
             else if format[i] == 'x'
                 tmp_len := (builtin.var_arg(arg_counter) as i64)->to_hex_str_buf(tmp)
-                mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
-                written += math.min(tmp_len, remaining)
+                b->append_n(tmp as ptr, tmp_len)
                 arg_counter += 1
             else if format[i] == 's'
-                s := builtin.var_arg(arg_counter) as ^str
-                mem.copy_n(s->raw_ptr(), target_buf@[written], math.min(s->len, remaining))
-                written += math.min(s->len, remaining)
+                b->append(builtin.var_arg(arg_counter) as ^str)
                 arg_counter += 1
             else if format[i] == 'c'
-                target_buf[written] = builtin.var_arg(arg_counter) as u8
-                written += 1
+                b->append_char(builtin.var_arg(arg_counter) as u8)
                 arg_counter += 1
             else if format[i] == 'f'
                 tmp_len := (builtin.var_arg(arg_counter) as f64)->to_str_buf(tmp)
-                mem.copy_n(tmp@[0], target_buf@[written], math.min(tmp_len, remaining))
-                written += math.min(tmp_len, remaining)
+                b->append_n(tmp as ptr, tmp_len)
                 arg_counter += 1
             else if format[i] == '%'
-                target_buf[written] = '%'
-                written += 1
-            else if format[i] == 0
-                break
+                b->append_char('%')
             else
-                io.panic("str.format_into: unrecognized format")
+                io.panic("str.format: unrecognized format")
         else
-            target_buf[written] = format[i]
-            written += 1
+            b->append_char(format[i])
         i += 1
 
-    target_buf[written] = 0
-
-func cstr.starts_with[haystack: cstr, needle: cstr] : bool
-    return haystack->find(needle) == 0
-
-func cstr.find[haystack: cstr, needle: cstr] : i64
-    return haystack->find_n(haystack->len(), needle, needle->len())
-
-func cstr.find_n[haystack: cstr, haystack_len: i64, needle: cstr, needle_len: i64] : i64
-    if needle_len == 0
-        return 0
-
-    if needle_len > haystack_len
-        return -1
-
-    for i in 0..=(haystack_len - needle_len)
-        if haystack[i] != needle[0]
-            continue
-        if needle_len == 1
-            return i
-        match := true
-        for j in 1..needle_len
-            if haystack[i + j] != needle[j]
-                match = false
-                break
-        if match
-            return i
-    return -1
-
-func cstr.substr_n[s: cstr, start: i64, length: i64] : cstr
-    out := mem.alloc(length + 1) as cstr
-    mem.copy_n(s@[start], out@[0], length)
-    out[length] = 0
-    return out
+    return b->build_str_and_free_inner()
 
 func str.trim[s: ^str] : ^str
     if s->len == 0
-        return str.from_parts(0 as ptr, 0)
+        return str.from_parts(null::<ptr>(), 0)
 
     start := 0
     end := s->len - 1
@@ -325,23 +286,7 @@ func str.parse_i64[s: ^str] : i64, err
         i += 1
     return num * sign, ok()
 
-func str.parse_hex_i64[s: ^str] : i64
-    i := 0
-
-    sign := 1
-    if i < s->len && s[i] == '-'
-        sign = -1
-        i += 1
-
-    num := 0
-    while i < s->len
-        d := s[i]
-        if !d->is_hex_digit()
-            break
-        num = num * 16 + u8._hex_digit_to_int(d)
-        i += 1
-    return num * sign
-
+// TODO: implement f64 in multiple values
 func str.parse_f64[s: ^str] : f64
     i := 0
     while i < s->len && s[i]->is_whitespace()
@@ -395,9 +340,9 @@ func u8._hex_digit_to_int[d: u8] : u8
         return lower - 'a' + 10
     io.panic("str._hex_digit_to_int: invalid hex digit")
 
-func str.hex_decode[s: ^str] : ^str
+func str.hex_decode[s: ^str] : ^str, err
     if s->len % 2 != 0
-        io.panic("str.hex_decode: invalid hex string")
+        return null::<^str>(), error("str.hex_decode: invalid hex string")
 
     out_len := s->len / 2
     out := str.alloc(out_len)
@@ -407,7 +352,7 @@ func str.hex_decode[s: ^str] : ^str
         low := u8._hex_digit_to_int(s[i * 2 + 1])
         out[i] = (high << 4) | low
 
-    return out
+    return out, ok()
 
 struct str.Builder
     data: ptr
@@ -422,16 +367,15 @@ func str.Builder.append_char[b: ^str.Builder, c: u8] : void
 func str.Builder.append[b: ^str.Builder, s: ^str] : void
     b->append_n(s->raw_ptr(), s->len)
 
+func str.Builder.append_i64[b: ^str.Builder, n: i64] : void
+    s := _stackalloc(64)
+    len := n->to_str_buf(s as cstr)
+    b->append_n(s, len)
+
 func str.Builder.append_n[b: ^str.Builder, s: ptr, len: i64] : void
     b->_maybe_grow(len)
     mem.copy_n(s, b->data@[b->len], len)
     b->len += len
-
-func str.Builder.manual_n[b: ^str.Builder, len: i64] : ptr
-    b->_maybe_grow(len)
-    p := b->data@[b->len]
-    b->advance(len)
-    return p
 
 func str.Builder.advance[b: ^str.Builder, n: i64] : void
     b->len += n
@@ -445,7 +389,7 @@ func str.Builder.build_str_and_free_inner[b: ^str.Builder] : ^str
 func str.Builder.free_inner[b: ^str.Builder] : void
     if b->data != 0
         b->data->free()
-        b->data = 0 as ptr
+        b->data = null::<ptr>()
     b->len = 0
     b->capacity = 0
 

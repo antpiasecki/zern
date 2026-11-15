@@ -2,11 +2,12 @@
 include "io.zr"
 
 func main[argc: i64, argv: ptr] : i64
-    path := 0 as ^str
+    args := os.args(argc, argv)
+    path := null::<^str>()
     disassemble := false
 
-    for i in 1..argc
-        arg := os.arg(argv, i)
+    for i in 1..args->len
+        arg := args->nth(i)
         if arg->equal("-d")
             disassemble = true
         else

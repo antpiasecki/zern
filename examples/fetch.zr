@@ -1,11 +1,11 @@
 include "http.zr"
 
 func main[argc: i64, argv: ptr] : i64
-    if argc < 2
+    args := os.args(argc, argv)
+    if args->len < 2
         io.println("Usage: fetch <url>")
         return 1
-
-    url := os.arg(argv, 1)
+    url := args->nth(1)
     resp, err := http.get(url)
     if err io.panic_with("request failed", err)
     defer resp->free()

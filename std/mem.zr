@@ -80,8 +80,8 @@ func mem.FreeListAllocator._request_space[fla: ^mem.FreeListAllocator, len: i64]
     blk->len = alloc_len - mem.FreeListBlock.LEN
     blk->free = false
     blk->binned = false
-    blk->next = 0 as ^mem.FreeListBlock
-    blk->prev = 0 as ^mem.FreeListBlock
+    blk->next = null::<^mem.FreeListBlock>()
+    blk->prev = null::<^mem.FreeListBlock>()
 
     tail := fla->tail
     if tail as ptr
@@ -99,7 +99,7 @@ func mem.FreeListAllocator.req[data: opaque, req: i64, p: ptr, len: i64] : ptr
         return fla->realloc(p, len)
     else if req == mem.AllocatorReq.FREE
         fla->free(p)
-        return 0 as ptr
+        return null::<ptr>()
     else
         io.panic("mem.FreeListAllocator.req: unrecognized req")
 
@@ -166,7 +166,7 @@ func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
     defer
         mem._lock = 0
 
-    fla->rover = 0 as ^mem.FreeListBlock
+    fla->rover = null::<^mem.FreeListBlock>()
     cur := fla->tail
     while cur as ptr && cur->free
         block_total := cur->len + mem.FreeListBlock.LEN
@@ -175,9 +175,9 @@ func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
 
         prev := cur->prev
         if prev as ptr
-            prev->next = 0 as ^mem.FreeListBlock
+            prev->next = null::<^mem.FreeListBlock>()
         else
-            fla->head = 0 as ^mem.FreeListBlock
+            fla->head = null::<^mem.FreeListBlock>()
 
         fla->tail = prev
         builtin.syscall(SYS_munmap, cur, block_total)
