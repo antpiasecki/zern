@@ -97,7 +97,7 @@ func http.do_request[method: ^str, url: ^str, headers: ^HashMap<^str>, body: ^st
     defer parsed_url->free()
 
     if !parsed_url->schema->equal("http")
-        return null::<^str>(), error("only http schema is supported")
+        return 0 as ^str, error("only http schema is supported")
 
     headers->insert("Host", parsed_url->host)
     headers->insert("Accept-Encoding", "identity")
@@ -262,7 +262,7 @@ func http._handle_conn[cd: ^http._ConnData] : void
     resp := new http.Resp
     resp->status = 200
     resp->headers = HashMap.new::<^str>()
-    resp->body = null::<^str>()
+    resp->body = 0 as ^str
     defer resp->headers->free()
     defer resp->body->free()
 

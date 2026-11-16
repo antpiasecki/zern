@@ -165,7 +165,7 @@ func HashMap.get<T>[hm: ^HashMap<T>, key: ^str] : T, err
             return current->value as T, ok()
         current = current->next
 
-    return null::<T>(), error("HashMap.get: key not found")
+    return 0 as T, error("HashMap.get: key not found")
 
 func HashMap.contains<T>[hm: ^HashMap<T>, key: ^str] : bool
     index := HashMap._djb2(key)
@@ -181,7 +181,7 @@ func HashMap.contains<T>[hm: ^HashMap<T>, key: ^str] : bool
 func HashMap.delete<T>[hm: ^HashMap<T>, key: ^str] : void
     index := HashMap._djb2(key)
     current := hm->table->nth(index)
-    prev := null::<^HashMap._Node>()
+    prev := 0 as ^HashMap._Node
 
     while current as ptr
         if current->key->equal(key)

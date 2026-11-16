@@ -3,7 +3,7 @@ include "io.zr"
 
 func main[argc: i64, argv: ptr] : i64
     args := os.args(argc, argv)
-    path := null::<^str>()
+    path := 0 as ^str
     disassemble := false
 
     for i in 1..args->len

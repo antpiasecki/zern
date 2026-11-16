@@ -969,6 +969,9 @@ _start:
             ExprKind::Cast { casted, type_name } => {
                 self.compile_expr(env, casted)?;
                 match (self.expr_types[&casted.id].as_str(), type_name.lexeme.as_str()) {
+                    (left, right) if left.starts_with('(') || right.starts_with('(') => {
+                        return error!(type_name.loc, "multiple values cannot be casted");
+                    }
                     (left, right) if left == right => {} // no-op
                     (_, "opaque") => {}                  // bitcast
                     ("opaque", _) => {}                  // bitcast

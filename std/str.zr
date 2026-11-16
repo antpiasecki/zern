@@ -202,7 +202,7 @@ func str.format[..] : ^str
 
 func str.trim[s: ^str] : ^str
     if s->len == 0
-        return str.from_parts(null::<ptr>(), 0)
+        return str.from_parts(0 as ptr, 0)
 
     start := 0
     end := s->len - 1
@@ -286,8 +286,7 @@ func str.parse_i64[s: ^str] : i64, err
         i += 1
     return num * sign, ok()
 
-// TODO: implement f64 in multiple values
-func str.parse_f64[s: ^str] : f64
+func str.parse_f64[s: ^str] : f64, err
     i := 0
     while i < s->len && s[i]->is_whitespace()
         i += 1
@@ -315,11 +314,11 @@ func str.parse_f64[s: ^str] : f64
             has_digits = true
 
     if !has_digits
-        io.panic("str.parse_f64: number must contain digits")
+        return 0.0, error("str.parse_f64: number must contain digits")
 
     if negative
-        return -mantissa
-    return mantissa
+        return -mantissa, ok()
+    return mantissa, ok()
 
 func str.hex_encode[s: ptr, len_in_bytes: i64] : ^str
     hex_chars := "0123456789abcdef"
@@ -342,7 +341,7 @@ func u8._hex_digit_to_int[d: u8] : u8
 
 func str.hex_decode[s: ^str] : ^str, err
     if s->len % 2 != 0
-        return null::<^str>(), error("str.hex_decode: invalid hex string")
+        return 0 as ^str, error("str.hex_decode: invalid hex string")
 
     out_len := s->len / 2
     out := str.alloc(out_len)
@@ -389,7 +388,7 @@ func str.Builder.build_str_and_free_inner[b: ^str.Builder] : ^str
 func str.Builder.free_inner[b: ^str.Builder] : void
     if b->data != 0
         b->data->free()
-        b->data = null::<ptr>()
+        b->data = 0 as ptr
     b->len = 0
     b->capacity = 0
 

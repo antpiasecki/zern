@@ -24,7 +24,7 @@ func main[] : i64
             continue
         resp := handle_req(s, records, data, sa)
         if resp as ptr != 0
-            s->send_to(sa, resp->raw_ptr(), resp->len)
+            s->send(sa, resp)
             resp->free()
 
 func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] : ^str
@@ -32,7 +32,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     defer sa->free()
 
     if req->len <= 12
-        return null::<^str>()
+        return 0 as ^str
 
     // we assume that QDCOUNT=1 but i think that's reasonable
 
@@ -42,18 +42,18 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     offset := 12
     while true
         if offset >= req->len
-            return null::<^str>()
+            return 0 as ^str
         length := req[offset] as i64
         offset += 1
         if length == 0
             break
         if length > 63 || offset + length > req->len
-            return null::<^str>()
+            return 0 as ^str
         labels->append_n(req->raw_ptr()@[offset], length)
         labels->append_char('.')
         offset += length
     if offset > req->len
-        return null::<^str>()
+        return 0 as ^str
 
     raw_name_len := offset-12
     name := labels->build_str_and_free_inner()
@@ -64,7 +64,7 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     name_lower[name_lower->len-1] = 0 // remove extra dot
 
     if offset+4 > req->len
-        return null::<^str>()
+        return 0 as ^str
     // https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.2
     question_type := req->read16be(offset)
     offset += 2
@@ -77,20 +77,17 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     ip->free()
     
     nxdomain := false
-    rdata := null::<ptr>()
-    rdata_len := 0
+    rdata := ""
     record, err := records->get(name_lower)
     if question_class == DNS_CLASS_IN && !err
         if question_type == DNS_TYPE_A && record->len == 4
-            rdata = record->raw_ptr()
-            rdata_len = record->len
+            rdata = record
         else if question_type == DNS_TYPE_AAAA && record->len == 16
-            rdata = record->raw_ptr()
-            rdata_len = record->len
+            rdata = record
     else
         nxdomain = true
 
-    resp_len := offset + raw_name_len + 10 + rdata_len
+    resp_len := offset + raw_name_len + 10 + rdata->len
     resp := str.alloc_zeroed(resp_len)
     resp->copy_from(req->raw_ptr(), 0, offset)
 
@@ -105,15 +102,15 @@ func handle_req[s: ^net.UDPSocket, records: ^HashMap<^str>, req: ^str, sa: ptr] 
     resp->write16be(8, 0)  // NSCOUNT = 0
     resp->write16be(10, 0) // ARCOUNT = 0
 
-    if rdata
+    if rdata->len > 0
         // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
         resp->copy_from(req->raw_ptr()@[12], offset, raw_name_len)
         offset += raw_name_len
         resp->write16be(offset, question_type)
         resp->write16be(offset+2, question_class)
         resp->write32be(offset+4, TTL)
-        resp->write16be(offset+8, rdata_len)
-        resp->copy_from(rdata, offset+10, rdata_len)
+        resp->write16be(offset+8, rdata->len)
+        resp->copy_from(rdata->raw_ptr(), offset+10, rdata->len)
 
         resp->write16be(6, 1) // ANCOUNT=1
 

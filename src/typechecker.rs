@@ -269,13 +269,6 @@ impl<'a> TypeChecker<'a> {
                     return error!(&return_types[3].loc, "functions cannot return more than three values");
                 }
 
-                if return_types.len() > 1 && return_type.contains("f64") {
-                    return error!(
-                        &return_types[1].loc,
-                        "returning f64 among multiple values not implemented yet"
-                    );
-                }
-
                 if name.lexeme == "main" {
                     if return_type != "i64" {
                         return error!(&name.loc, "main function must return i64");

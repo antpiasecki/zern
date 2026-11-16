@@ -23,7 +23,9 @@ func main[] : i64
         else if op == '.'
             io.print_char(memory[p])
         else if op == ','
-            io.read(STDIN_FILENO, memory->raw_ptr()@[p], 1)
+            c := 0 as u8
+            io.read(STDIN_FILENO, ^c, 1)
+            memory[p] = c
         else if op == '['
             if !memory[p]
                 i += 1

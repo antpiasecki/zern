@@ -1,11 +1,8 @@
 include "str.zr"
 include "os.zr"
 
-func null<T>[] : T
-    return 0 as T
-
 func ok[] : err
-    return null::<err>()
+    return 0 as err
 
 func error[s: ^str] : err
     return s as err
@@ -163,7 +160,7 @@ func io.read_file[path: ^str] : ^str, err
     // TODO?
     if n != len
         buf->free()
-        return null::<^str>(), error("io.read_file: n != len")
+        return 0 as ^str, error("io.read_file: n != len")
 
     return buf, ok()
 
