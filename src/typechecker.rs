@@ -46,6 +46,7 @@ macro_rules! expect_same_types {
         }
     }};
 }
+
 static BUILTIN_TYPES: [&str; 10] = [
     "void", "u8", "i64", "f64", "f32", "cstr", "bool", "ptr", "err", "opaque",
 ];
@@ -140,8 +141,7 @@ impl<'a> TypeChecker<'a> {
                         let existing_var_type: &String = if let Some(x) = env.get_var_type(&name.lexeme) {
                             x
                         } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                            let (_, var_type) = &self.symbol_table.globals[&name.lexeme];
-                            &var_type.clone()
+                            &self.symbol_table.globals[&name.lexeme].clone()
                         } else {
                             return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                         };
@@ -433,8 +433,7 @@ impl<'a> TypeChecker<'a> {
                 } else if let Some(x) = env.get_var_type(&name.lexeme) {
                     Ok(x.clone())
                 } else if self.symbol_table.globals.contains_key(&name.lexeme) {
-                    let (_, var_type) = &self.symbol_table.globals[&name.lexeme];
-                    Ok(var_type.clone())
+                    Ok(self.symbol_table.globals[&name.lexeme].clone())
                 } else {
                     return error!(name.loc, format!("undefined variable: {}", &name.lexeme));
                 }

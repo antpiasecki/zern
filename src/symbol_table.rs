@@ -29,7 +29,7 @@ pub struct SymbolTable {
     pub generic_structs: HashMap<String, Stmt>,
     pub constants: HashMap<String, i64>,
     pub structs: HashMap<String, HashMap<String, StructField>>,
-    pub globals: HashMap<String, (String, String)>,
+    pub globals: HashMap<String, String>,
 }
 
 impl SymbolTable {
@@ -47,7 +47,7 @@ impl SymbolTable {
             generic_structs: HashMap::new(),
             constants: HashMap::new(),
             structs: HashMap::new(),
-            globals: HashMap::from([("_builtin_environ".into(), ("_builtin_environ".into(), "ptr".into()))]),
+            globals: HashMap::from([("_builtin_environ".into(), "ptr".into())]),
         }
     }
 
@@ -158,9 +158,7 @@ impl SymbolTable {
                 if self.is_name_defined(&var_name.lexeme) {
                     return error!(var_name.loc, format!("tried to redefine '{}'", var_name.lexeme));
                 }
-                let label = format!("_global_{:03}", self.globals.len());
-                self.globals
-                    .insert(var_name.lexeme.clone(), (label, var_type.lexeme.clone()));
+                self.globals.insert(var_name.lexeme.clone(), var_type.lexeme.clone());
             }
             _ => {}
         }

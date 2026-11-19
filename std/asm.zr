@@ -1,37 +1,38 @@
-asm builtin.int3[] : void
+asm asm.int3[] : void
     "int3"
 
-asm builtin.read64[p: ptr] : i64
+asm asm.read64[p: ptr] : i64
     "mov rax, [rdi]"
 
-asm builtin.write64[p: ptr, value: i64] : void
+asm asm.write64[p: ptr, value: i64] : void
     "mov [rdi], rsi"
 
-asm builtin.lock[lock: ptr] : void
+asm asm.lock[lock: ptr] : void
     "
+.Llock_start:
     mov eax, 1
     xchg [rdi], rax
     test rax, rax
     jz .Llock_done
     pause
-    jmp builtin.lock
+    jmp .Llock_start
 .Llock_done:
     "
 
-asm builtin.rep_copy[dst: ptr, src: ptr, len: i64] : void
+asm asm.rep_copy[dst: ptr, src: ptr, len: i64] : void
     "
     mov rcx, rdx
     rep movsb
     "
 
-asm builtin.rep_zero[dst: ptr, len: i64] : void
+asm asm.rep_zero[dst: ptr, len: i64] : void
     "
     mov rcx, rsi
     xor eax, eax
     rep stosb
     "
 
-asm builtin.syscall[..] : i64
+asm asm.syscall[..] : i64
     "
     mov rax, rdi
     mov rdi, rsi
@@ -43,7 +44,7 @@ asm builtin.syscall[..] : i64
     syscall
     "
 
-asm builtin.var_arg[index: i64] : opaque
+asm asm.var_arg[index: i64] : opaque
     "
     mov rax, rdi
     cmp rax, 6
@@ -61,7 +62,7 @@ asm builtin.var_arg[index: i64] : opaque
 .Lvar_arg_done:
     "
 
-asm builtin.spawn_thread[fn: ptr, arg: opaque, stack: ptr, map_addr: ptr, map_len: i64] : i64
+asm asm.spawn_thread[fn: ptr, arg: opaque, stack: ptr, map_addr: ptr, map_len: i64] : i64
     "
     and rdx, -16
     sub rdx, 32

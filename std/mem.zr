@@ -10,21 +10,21 @@ var mem.allocator_data: opaque
 var mem._lock: i64
 
 func mem.alloc[len: i64] : ptr
-    builtin.lock(^mem._lock)
+    asm.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
     return mem.allocator(mem.allocator_data, mem.AllocatorReq.ALLOC, 0 as ptr, len)
 
 func ptr.free[x: ptr] : void
-    builtin.lock(^mem._lock)
+    asm.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
     mem.allocator(mem.allocator_data, mem.AllocatorReq.FREE, x, 0)
 
 func ptr.realloc[x: ptr, new_len: i64] : ptr
-    builtin.lock(^mem._lock)
+    asm.lock(^mem._lock)
     defer
         mem._lock = 0
     mem._ensure_allocator()
@@ -32,7 +32,7 @@ func ptr.realloc[x: ptr, new_len: i64] : ptr
 
 func mem._ensure_allocator[] : void
     if mem.allocator as ptr == 0
-        a := builtin.syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListAllocator
+        a := asm.syscall(SYS_mmap, 0, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListAllocator
         mem.allocator = ^mem.FreeListAllocator.req
         mem.allocator_data = a as opaque
 
@@ -74,7 +74,7 @@ func mem.FreeListAllocator._request_space[fla: ^mem.FreeListAllocator, len: i64]
     if alloc_len < 1048576
         alloc_len = 1048576
 
-    blk := builtin.syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListBlock
+    blk := asm.syscall(SYS_mmap, 0, alloc_len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) as ^mem.FreeListBlock
     if blk as ptr as i64 == MAP_FAILED
         io.panic("mem._request_space: failed to mmap")
     blk->len = alloc_len - mem.FreeListBlock.LEN
@@ -124,9 +124,9 @@ func mem.FreeListAllocator.alloc[fla: ^mem.FreeListAllocator, len: i64] : ptr
     if len <= 1024
         c := (len + 7) / 8
         slot := fla->bins@[c*8]
-        head := builtin.read64(slot) as ptr
+        head := asm.read64(slot) as ptr
         if head != 0
-            builtin.write64(slot, builtin.read64(head))
+            asm.write64(slot, asm.read64(head))
             blk := head@[-mem.FreeListBlock.LEN] as ^mem.FreeListBlock
             blk->binned = false
             return head
@@ -162,7 +162,7 @@ func mem.FreeListAllocator.alloc[fla: ^mem.FreeListAllocator, len: i64] : ptr
 
 // releases freed and page aligned blocks back to OS
 func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
-    builtin.lock(^mem._lock)
+    asm.lock(^mem._lock)
     defer
         mem._lock = 0
 
@@ -180,7 +180,7 @@ func mem.FreeListAllocator.trim[fla: ^mem.FreeListAllocator] : void
             fla->head = 0 as ^mem.FreeListBlock
 
         fla->tail = prev
-        builtin.syscall(SYS_munmap, cur, block_total)
+        asm.syscall(SYS_munmap, cur, block_total)
 
         cur = prev
 
@@ -196,8 +196,8 @@ func mem.FreeListAllocator.free[fla: ^mem.FreeListAllocator, x: ptr] : void
     if blk->len <= 1024
         blk->binned = true
         slot := fla->bins@[(blk->len / 8) * 8]
-        builtin.write64(x, builtin.read64(slot))
-        builtin.write64(slot, x as i64)
+        asm.write64(x, asm.read64(slot))
+        asm.write64(slot, x as i64)
         return
 
     blk->free = true
@@ -284,12 +284,12 @@ func mem.zero[x: ptr, len: i64] : void
     if len <= 0
         return
     if len >= 32
-        builtin.rep_zero(x, len)
+        asm.rep_zero(x, len)
         return
 
     i := 0
     while i + 8 <= len
-        builtin.write64(x@[i], 0)
+        asm.write64(x@[i], 0)
         i += 8
     while i < len
         x[i] = 0 as u8
@@ -316,18 +316,18 @@ func mem.copy_n[src: ptr, dst: ptr, n: i64] : void
         i := n
         while i - 8 >= 0
             i -= 8
-            builtin.write64(dst@[i], builtin.read64(src@[i]))
+            asm.write64(dst@[i], asm.read64(src@[i]))
         while i > 0
             i -= 1
             dst[i] = src[i]
     else
         if n >= 32
-            builtin.rep_copy(dst, src, n)
+            asm.rep_copy(dst, src, n)
             return
 
         i := 0
         while i + 8 <= n
-            builtin.write64(dst@[i], builtin.read64(src@[i]))
+            asm.write64(dst@[i], asm.read64(src@[i]))
             i += 8
         while i < n
             dst[i] = src[i]
@@ -366,7 +366,7 @@ func mem.read32be[x: ptr] : i64
     return (x[0] as i64 << 24) | (x[1] << 16) | (x[2] << 8) | x[3]
 
 func mem.read64[x: ptr] : i64
-    return builtin.read64(x)
+    return asm.read64(x)
 
 func mem.read64be[x: ptr] : i64
     return (mem.read32be(x) << 32) | mem.read32be(x@[4])
@@ -392,7 +392,7 @@ func mem.write32be[x: ptr, d: i64] : void
     x[3] = d as u8
 
 func mem.write64[x: ptr, d: i64] : void
-    builtin.write64(x, d)
+    asm.write64(x, d)
 
 func mem.write64be[x: ptr, d: i64] : void
     mem.write32be(x, d >> 32)
